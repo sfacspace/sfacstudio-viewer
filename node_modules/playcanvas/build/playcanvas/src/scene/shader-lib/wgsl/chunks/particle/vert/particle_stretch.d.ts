@@ -1,0 +1,2 @@
+declare const _default: "\n    let moveDir: vec3f = inVel * uniform.stretch;\n    var posPrev: vec3f = particlePos - moveDir;\n    posPrev = posPrev + particlePosMoved;\n\n    let viewRotationTemp: mat3x3f = mat3x3f(uniform.matrix_view[0].xyz, uniform.matrix_view[1].xyz, uniform.matrix_view[2].xyz);\n    let centerToVertexV: vec2f = normalize((viewRotationTemp * localPos).xy);\n\n    let interpolation: f32 = dot(-velocityV, centerToVertexV) * 0.5 + 0.5;\n\n    particlePos = mix(particlePos, posPrev, interpolation);\n";
+export default _default;

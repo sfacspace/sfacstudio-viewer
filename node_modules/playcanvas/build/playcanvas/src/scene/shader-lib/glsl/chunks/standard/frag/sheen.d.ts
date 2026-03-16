@@ -1,0 +1,2 @@
+declare const _default: "\n\nuniform vec3 material_sheen;\n\nvoid getSheen() {\n    vec3 sheenColor = material_sheen;\n\n    #ifdef STD_SHEEN_TEXTURE\n    sheenColor *= {STD_SHEEN_TEXTURE_DECODE}(texture2DBias({STD_SHEEN_TEXTURE_NAME}, {STD_SHEEN_TEXTURE_UV}, textureBias)).{STD_SHEEN_TEXTURE_CHANNEL};\n    #endif\n\n    #ifdef STD_SHEEN_VERTEX\n    sheenColor *= saturate(vVertexColor.{STD_SHEEN_VERTEX_CHANNEL});\n    #endif\n\n    sSpecularity = sheenColor;\n}\n";
+export default _default;

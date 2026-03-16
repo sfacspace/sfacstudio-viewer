@@ -1,0 +1,2 @@
+declare const _default: "\nuniform float material_opacity;\n\nvoid getOpacity() {\n    dAlpha = material_opacity;\n\n    #ifdef STD_OPACITY_TEXTURE\n    dAlpha *= texture2DBias({STD_OPACITY_TEXTURE_NAME}, {STD_OPACITY_TEXTURE_UV}, textureBias).{STD_OPACITY_TEXTURE_CHANNEL};\n    #endif\n\n    #ifdef STD_OPACITY_VERTEX\n    dAlpha *= clamp(vVertexColor.{STD_OPACITY_VERTEX_CHANNEL}, 0.0, 1.0);\n    #endif\n}\n";
+export default _default;

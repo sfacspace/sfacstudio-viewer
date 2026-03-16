@@ -1,0 +1,2 @@
+declare const _default: "\n    attribute vertex_position: vec2f;\n    varying uv0: vec2f;\n\n    @vertex\n    fn vertexMain(input: VertexInput) -> VertexOutput {\n        var output: VertexOutput;\n        output.position = vec4f(input.vertex_position, 0.5, 1.0);\n        output.uv0 = input.vertex_position * 0.5 + vec2f(0.5, 0.5);\n        return output;\n    }\n";
+export default _default;

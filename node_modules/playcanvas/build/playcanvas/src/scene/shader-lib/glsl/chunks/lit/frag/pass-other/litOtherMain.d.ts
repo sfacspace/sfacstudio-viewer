@@ -1,0 +1,2 @@
+declare const _default: "\n\n#ifdef PICK_PASS\n    #include \"pickPS\"\n#endif\n\n#ifdef PREPASS_PASS\n    #include \"floatAsUintPS\"\n#endif\n\nvoid main(void) {\n\n    #include \"litUserMainStartPS\"\n\n    evaluateFrontend();\n\n    #ifdef PICK_PASS\n        pcFragColor0 = getPickOutput();\n        #ifdef DEPTH_PICK_PASS\n            pcFragColor1 = getPickDepth();\n        #endif\n    #endif\n\n    #ifdef PREPASS_PASS\n        gl_FragColor = float2vec4(vLinearDepth);\n    #endif\n\n    #include \"litUserMainEndPS\"\n}\n";
+export default _default;

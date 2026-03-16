@@ -1,0 +1,244 @@
+/* Settings modal switch */
+.settings-modal__list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 8px;
+}
+
+/* No text selection in settings */
+.settings-modal__list,
+.settings-modal__list * {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Form controls: keep default selection */
+.settings-modal__list input,
+.settings-modal__list select,
+.settings-modal__list textarea {
+  user-select: auto;
+  -webkit-user-select: auto;
+  -moz-user-select: auto;
+  -ms-user-select: auto;
+}
+.settings-modal__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+.settings-modal__label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-accent);
+  letter-spacing: -0.2px;
+}
+
+/* Toggle switch design */
+.settings-modal__switch {
+  position: relative;
+  display: inline-block;
+  width: 54px;
+  height: 30px;
+}
+.settings-modal__switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.settings-modal__slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--color-bg-elevated);
+  border-radius: 30px;
+  box-shadow: 0 2px 8px var(--color-accent-glow);
+  transition: background 0.22s cubic-bezier(.4,0,.2,1), box-shadow 0.22s;
+}
+.settings-modal__switch input:checked + .settings-modal__slider {
+  background: linear-gradient(90deg, var(--color-accent-strong) 0%, var(--color-accent) 100%);
+  box-shadow: 0 2px 12px var(--color-accent-glow);
+}
+.settings-modal__slider:before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-text-primary);
+  box-shadow: 0 2px 8px var(--color-shadow);
+  transition: transform 0.22s cubic-bezier(.4,0,.2,1), background 0.22s;
+}
+.settings-modal__switch input:checked + .settings-modal__slider:before {
+  transform: translateX(24px);
+  background: var(--color-text-primary);
+}
+.settings-modal__switch input:focus + .settings-modal__slider {
+  box-shadow: 0 0 0 2px var(--color-accent), 0 2px 12px var(--color-accent-glow);
+}
+.settings-modal__slider {
+  background: var(--color-bg-elevated);
+}
+.settings-modal__placeholder {
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(235, 242, 255, 0.88);
+  padding: 6px 50px;
+}
+
+.settings-modal__footer--right {
+  justify-content: flex-end;
+}
+
+/* ============================================ */
+/* Performance Settings Section Styles */
+/* ============================================ */
+
+/* Section divider */
+.settings-modal__divider {
+  width: 100%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 8px 0;
+}
+
+/* Section title */
+.settings-modal__section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 8px 0 4px 0;
+}
+
+/* Select dropdown */
+.settings-modal__select {
+  min-width: 140px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(235, 242, 255, 0.95);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(235,242,255,0.6)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 32px;
+}
+
+.settings-modal__select:hover {
+  border-color: rgba(var(--color-accent-rgb), 0.5);
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.settings-modal__select:focus {
+  border-color: rgba(var(--color-accent-rgb), 0.7);
+  box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb), 0.15);
+}
+
+.settings-modal__select option {
+  background: rgba(18, 25, 35, 0.98);
+  color: rgba(232, 238, 247, 0.95);
+  padding: 8px;
+}
+
+/* Small select variant */
+.settings-modal__select--small {
+  min-width: 100px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+/* Sub-item styling (indented) */
+.settings-modal__item--sub {
+  padding-left: 24px;
+  opacity: 0.9;
+}
+
+.settings-modal__label--sub {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(235, 242, 255, 0.7);
+}
+
+/* Centered item (for reset button) */
+.settings-modal__item--centered {
+  justify-content: center;
+}
+
+/* Reset button */
+.settings-modal__reset-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(var(--color-accent-rgb), 0.6);
+  background: rgba(var(--color-accent-rgb), 0.1);
+  color: rgba(var(--color-accent-rgb), 0.95);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.settings-modal__reset-btn:hover {
+  background: rgba(var(--color-accent-rgb), 0.2);
+  border-color: rgba(var(--color-accent-rgb), 0.85);
+}
+
+.settings-modal__reset-btn:active {
+  transform: scale(0.97);
+}
+
+/* ============================================ */
+/* Label Tooltip (Performance settings) */
+/* ============================================ */
+
+.settings-modal__label--tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.settings-modal__tooltip {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  min-width: 260px;
+  max-width: min(520px, 72vw);
+  padding: 12px 12px;
+  border-radius: 12px;
+  background: rgba(15, 20, 28, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(10px);
+  color: rgba(232, 238, 247, 0.88);
+  font-size: 12px;
+  line-height: 1.55;
+  z-index: 2600;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px) scale(0.98);
+  transform-origin: top left;
+  transition: opacity 120ms ease, transform 120ms ease, visibility 120ms;
+  pointer-events: none;
+  white-space: normal;
+}
+
+.settings-modal__label--tooltip:hover .settings-modal__tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+}

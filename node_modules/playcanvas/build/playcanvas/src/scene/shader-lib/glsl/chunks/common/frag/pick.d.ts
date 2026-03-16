@@ -1,0 +1,2 @@
+declare const _default: "\nuniform uint meshInstanceId;\n\nvec4 getPickOutput() {\n    const vec4 inv = vec4(1.0 / 255.0);\n    const uvec4 shifts = uvec4(16, 8, 0, 24);\n    uvec4 col = (uvec4(meshInstanceId) >> shifts) & uvec4(0xff);\n    return vec4(col) * inv;\n}\n\n#ifdef DEPTH_PICK_PASS\n    #include \"floatAsUintPS\"\n\n    vec4 getPickDepth() {\n        return float2uint(gl_FragCoord.z);\n    }\n#endif\n";
+export default _default;

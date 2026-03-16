@@ -1,0 +1,12 @@
+import { ResourceHandler } from './handler.js';
+
+class FolderHandler extends ResourceHandler {
+		load(url, callback) {
+				callback(null, null);
+		}
+		constructor(app){
+				super(app, 'folder');
+		}
+}
+
+export { FolderHandler };

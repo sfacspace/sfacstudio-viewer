@@ -1,0 +1,34 @@
+export class Immediate {
+    constructor(device: any);
+    shaderDescs: Map<any, any>;
+    device: any;
+    quadMesh: Mesh;
+    textureShader: any;
+    depthTextureShader: any;
+    cubeLocalPos: any;
+    cubeWorldPos: any;
+    batchesMap: Map<any, any>;
+    allBatches: Set<any>;
+    updatedLayers: Set<any>;
+    _materialDepth: ShaderMaterial;
+    _materialNoDepth: ShaderMaterial;
+    layerMeshInstances: Map<any, any>;
+    createMaterial(depthTest: any): ShaderMaterial;
+    get materialDepth(): ShaderMaterial;
+    get materialNoDepth(): ShaderMaterial;
+    getBatch(layer: any, depthTest: any): any;
+    getShaderDesc(id: any, fragmentGLSL: any, fragmentWGSL: any): any;
+    getTextureShaderDesc(encoding: any): any;
+    getUnfilterableTextureShaderDesc(): any;
+    getDepthTextureShaderDesc(): any;
+    getQuadMesh(): Mesh;
+    drawMesh(material: any, matrix: any, mesh: any, meshInstance: any, layer: any): void;
+    drawWireAlignedBox(min: any, max: any, color: any, depthTest: any, layer: any, mat: any): void;
+    drawWireSphere(center: any, radius: any, color: any, numSegments: any, depthTest: any, layer: any): void;
+    getGraphNode(matrix: any): GraphNode;
+    onPreRenderLayer(layer: any, visibleList: any, transparent: any): void;
+    onPostRender(): void;
+}
+import { Mesh } from '../mesh.js';
+import { ShaderMaterial } from '../materials/shader-material.js';
+import { GraphNode } from '../graph-node.js';

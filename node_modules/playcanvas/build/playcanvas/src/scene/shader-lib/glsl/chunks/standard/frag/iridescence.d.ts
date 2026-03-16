@@ -1,0 +1,2 @@
+declare const _default: "\n#ifdef STD_IRIDESCENCE_CONSTANT\nuniform float material_iridescence;\n#endif\n\nvoid getIridescence() {\n    float iridescence = 1.0;\n\n    #ifdef STD_IRIDESCENCE_CONSTANT\n    iridescence *= material_iridescence;\n    #endif\n\n    #ifdef STD_IRIDESCENCE_TEXTURE\n    iridescence *= texture2DBias({STD_IRIDESCENCE_TEXTURE_NAME}, {STD_IRIDESCENCE_TEXTURE_UV}, textureBias).{STD_IRIDESCENCE_TEXTURE_CHANNEL};\n    #endif\n\n    dIridescence = iridescence; \n}\n";
+export default _default;

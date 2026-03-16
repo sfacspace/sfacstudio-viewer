@@ -1,0 +1,2 @@
+declare const _default: "\nvar texture_cubeMap: texture_cube<f32>;\nvar texture_cubeMapSampler: sampler;\nuniform material_reflectivity: f32;\n\nfn calcReflection(reflDir: vec3f, gloss: f32) -> vec3f {\n    var lookupVec: vec3f = cubeMapProject(reflDir);\n    lookupVec.x = lookupVec.x * -1.0;\n    return {reflectionDecode}(textureSample(texture_cubeMap, texture_cubeMapSampler, lookupVec));\n}\n\nfn addReflection(reflDir: vec3f, gloss: f32) {\n    dReflection = dReflection + vec4f(calcReflection(reflDir, gloss), uniform.material_reflectivity);\n}\n";
+export default _default;

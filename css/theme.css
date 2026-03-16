@@ -1,0 +1,53 @@
+/**
+ * Dark theme with deep blue accent
+ */
+:root {
+  /* Background */
+  --color-bg-primary: #050810;
+  --color-bg-secondary: #0a0f18;
+  --color-bg-card: #0d1320;
+  --color-bg-elevated: #111827;
+  --color-bg-input: rgba(255, 255, 255, 0.05);
+  --color-bg-input-focus: rgba(255, 255, 255, 0.07);
+
+  /* Accent (bright blue for icon readability) */
+  --color-accent: #4a6d98;
+  --color-accent-rgb: 74, 109, 152;
+  --color-accent-strong: #5a7fa8;
+  --color-accent-hover: #3a5d85;
+  --color-accent-dim: rgba(74, 109, 152, 0.4);
+  --color-accent-dim-2: rgba(74, 109, 152, 0.25);
+  --color-accent-border: rgba(74, 109, 152, 0.6);
+  --color-accent-glow: rgba(74, 109, 152, 0.3);
+  --color-accent-timeline: #3a5d85;
+  --color-accent-timeline-border: rgba(58, 93, 133, 0.65);
+
+  /* Text and icons */
+  --color-text-primary: #dce4f2;
+  --color-text-secondary: rgba(220, 228, 242, 0.88);
+  --color-text-muted: rgba(220, 228, 242, 0.62);
+  --color-text-dim: rgba(220, 228, 242, 0.52);
+
+  /* Border */
+  --color-border: rgba(255, 255, 255, 0.06);
+  --color-border-strong: rgba(255, 255, 255, 0.1);
+  --color-border-focus: rgba(74, 109, 152, 0.65);
+
+  /* Overlay / shadow */
+  --color-overlay: rgba(0, 0, 0, 0.75);
+  --color-shadow: rgba(0, 0, 0, 0.5);
+  --color-shadow-strong: rgba(0, 0, 0, 0.7);
+
+  /* Sequence block: purple */
+  --color-sequence: #6b4c9a;
+  --color-sequence-rgb: 107, 76, 154;
+  --color-sequence-dim: rgba(107, 76, 154, 0.4);
+  --color-sequence-border: rgba(107, 76, 154, 0.6);
+  --color-sequence-glow: rgba(107, 76, 154, 0.25);
+
+  /* Semantic colors */
+  --color-success: #2d5a3a;
+  --color-error: #dc3545;
+  --color-warning: #4a6d98;
+  --color-info: #4a6d98;
+}

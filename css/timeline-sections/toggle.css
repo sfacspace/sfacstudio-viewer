@@ -1,0 +1,49 @@
+/* Timeline toggle buttons (trapezoid) */
+.timeline-toggle-btn {
+  position: absolute;
+  left: 50%;
+  bottom: -16px;
+  transform: translateX(-50%);
+  width: 64px;
+  height: 18px;
+  border: none;
+  border-top: 2px solid var(--color-accent-timeline-border);
+  background: var(--color-accent-timeline);
+  color: #1a1a1a;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  clip-path: polygon(0% 0%, 100% 0%, 85% 100%, 15% 100%);
+  -webkit-clip-path: polygon(0% 0%, 100% 0%, 85% 100%, 15% 100%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  transition: transform 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+  z-index: 220;
+}
+
+.timeline-toggle-btn:hover {
+  background: var(--color-accent-timeline);
+  color: #1a1a1a;
+  filter: brightness(1.08);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+
+.timeline-toggle-btn__icon {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: contain;
+  background: currentColor;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 15 12 9 18 15'%3E%3C/polyline%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 15 12 9 18 15'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+.timeline-container.is-collapsed .timeline-toggle-btn__icon {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}

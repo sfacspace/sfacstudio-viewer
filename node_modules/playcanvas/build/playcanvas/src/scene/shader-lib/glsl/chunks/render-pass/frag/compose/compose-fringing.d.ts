@@ -1,0 +1,2 @@
+declare const _default: "\n    #ifdef FRINGING\n        uniform float fringingIntensity;\n\n        vec3 applyFringing(vec3 color, vec2 uv) {\n            // offset depends on the direction from the center\n            vec2 centerDistance = uv - 0.5;\n            vec2 offset = fringingIntensity * pow(centerDistance, vec2(2.0, 2.0));\n\n            color.r = texture2D(sceneTexture, uv - offset).r;\n            color.b = texture2D(sceneTexture, uv + offset).b;\n            return color;\n        }\n    #endif\n";
+export default _default;

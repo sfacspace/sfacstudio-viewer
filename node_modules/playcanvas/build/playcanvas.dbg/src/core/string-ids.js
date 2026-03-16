@@ -1,0 +1,24 @@
+/**
+ * A cache for assigning unique numerical ids to strings.
+ */ class StringIds {
+    /**
+     * Get the id for the given name. If the name has not been seen before, it will be assigned a new
+     * id.
+     *
+     * @param {string} name - The name to get the id for.
+     * @returns {number} The id for the given name.
+     */ get(name) {
+        let value = this.map.get(name);
+        if (value === undefined) {
+            value = this.id++;
+            this.map.set(name, value);
+        }
+        return value;
+    }
+    constructor(){
+        /** @type {Map<string, number>} */ this.map = new Map();
+        /** @type {number} */ this.id = 0;
+    }
+}
+
+export { StringIds };

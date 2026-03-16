@@ -1,0 +1,2 @@
+declare const _default: "\nvar packedSh0: texture_2d<f32>;\n\nuniform sh0_mins: f32;\nuniform sh0_maxs: f32;\n\nconst SH_C0: f32 = 0.28209479177387814;\n\nfn readColor(source: ptr<function, SplatSource>) -> vec4f {\n    let clr = mix(vec3f(uniform.sh0_mins), vec3f(uniform.sh0_maxs), unpack111110(pack8888(textureLoad(packedSh0, source.uv, 0))));\n    let alpha = f32(packedSample.z & 0xffu) / 255.0;\n    return vec4f(vec3f(0.5) + clr.xyz * SH_C0, alpha);\n}\n";
+export default _default;

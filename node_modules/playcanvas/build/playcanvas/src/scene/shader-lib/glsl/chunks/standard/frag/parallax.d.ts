@@ -1,0 +1,2 @@
+declare const _default: "\nuniform float material_heightMapFactor;\n\nvoid getParallax() {\n    float parallaxScale = material_heightMapFactor;\n\n    float height = texture2DBias({STD_HEIGHT_TEXTURE_NAME}, {STD_HEIGHT_TEXTURE_UV}, textureBias).{STD_HEIGHT_TEXTURE_CHANNEL};\n    height = height * parallaxScale - parallaxScale * 0.5;\n    vec3 viewDirT = dViewDirW * dTBN;\n\n    viewDirT.z += 0.42;\n    dUvOffset = height * (viewDirT.xy / viewDirT.z);\n}\n";
+export default _default;

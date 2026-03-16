@@ -1,0 +1,2 @@
+declare const _default: "\n    attribute vertex_position: vec4f;\n    attribute vertex_color: vec4f;\n    uniform matrix_model: mat4x4f;\n    uniform matrix_viewProjection: mat4x4f;\n    varying color: vec4f;\n    @vertex\n    fn vertexMain(input : VertexInput) -> VertexOutput {\n        var output : VertexOutput;\n        output.color = input.vertex_color;\n        output.position = uniform.matrix_viewProjection * uniform.matrix_model * input.vertex_position;\n        return output;\n    }\n";
+export default _default;

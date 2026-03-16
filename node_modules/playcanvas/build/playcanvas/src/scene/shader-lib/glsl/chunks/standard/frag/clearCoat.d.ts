@@ -1,0 +1,2 @@
+declare const _default: "\nuniform float material_clearCoat;\n\nvoid getClearCoat() {\n    ccSpecularity = material_clearCoat;\n\n    #ifdef STD_CLEARCOAT_TEXTURE\n    ccSpecularity *= texture2DBias({STD_CLEARCOAT_TEXTURE_NAME}, {STD_CLEARCOAT_TEXTURE_UV}, textureBias).{STD_CLEARCOAT_TEXTURE_CHANNEL};\n    #endif\n\n    #ifdef STD_CLEARCOAT_VERTEX\n    ccSpecularity *= saturate(vVertexColor.{STD_CLEARCOAT_VERTEX_CHANNEL});\n    #endif\n}\n";
+export default _default;

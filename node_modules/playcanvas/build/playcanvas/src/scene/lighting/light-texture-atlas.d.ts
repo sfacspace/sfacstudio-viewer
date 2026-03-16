@@ -1,0 +1,36 @@
+export class LightTextureAtlas {
+    constructor(device: any);
+    device: any;
+    version: number;
+    shadowAtlasResolution: number;
+    shadowAtlas: ShadowMap;
+    shadowEdgePixels: number;
+    cookieAtlasResolution: number;
+    cookieAtlas: Texture;
+    cookieRenderTarget: RenderTarget;
+    slots: any[];
+    atlasSplit: any[];
+    cubeSlotsOffsets: Vec2[];
+    scissorVec: Vec4;
+    destroy(): void;
+    destroyShadowAtlas(): void;
+    destroyCookieAtlas(): void;
+    allocateShadowAtlas(resolution: any, shadowType?: number): void;
+    allocateCookieAtlas(resolution: any): void;
+    allocateUniforms(): void;
+    _shadowAtlasTextureId: any;
+    _shadowAtlasParamsId: any;
+    _shadowAtlasParams: Float32Array<ArrayBuffer>;
+    _cookieAtlasTextureId: any;
+    updateUniforms(): void;
+    subdivide(numLights: any, lightingParams: any): void;
+    collectLights(localLights: any, lightingParams: any): any[];
+    setupSlot(light: any, rect: any): void;
+    assignSlot(light: any, slotIndex: any, slotReassigned: any): void;
+    update(localLights: any, lightingParams: any): void;
+}
+import { ShadowMap } from '../renderer/shadow-map.js';
+import { Texture } from '../../platform/graphics/texture.js';
+import { RenderTarget } from '../../platform/graphics/render-target.js';
+import { Vec2 } from '../../core/math/vec2.js';
+import { Vec4 } from '../../core/math/vec4.js';

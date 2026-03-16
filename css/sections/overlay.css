@@ -1,0 +1,177 @@
+/* Overlay (dark + accent) */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(var(--color-accent-rgb), 0.2);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 180;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.loading-overlay.is-erasing {
+  background: linear-gradient(180deg, rgba(15, 30, 55, 0.9) 0%, var(--color-bg-primary) 100%);
+}
+
+.drop-overlay.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drop-overlay__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.drop-overlay__text {
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  color: var(--color-text-primary);
+  text-shadow: 0 8px 32px var(--color-shadow-strong);
+}
+
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-overlay);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2300;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.loading-overlay.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.loading-overlay__panel {
+  width: min(420px, 80vw);
+  padding: 22px 22px 18px;
+  border-radius: 16px;
+  background: rgba(35, 35, 35, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+}
+
+.loading-overlay__title {
+  width: 100%;
+  min-height: 1.2em;
+  font-size: 14px;
+  font-weight: 750;
+  color: var(--color-text-primary);
+  letter-spacing: 0.2px;
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.loading-overlay__spinner {
+  display: none;
+  color: var(--color-accent);
+  justify-content: center;
+  align-items: center;
+  padding: 12px 0;
+}
+
+.loading-overlay__spinner .rotating-semicircle {
+  width: 88px;
+  height: 88px;
+}
+
+.loading-overlay__spinner .rotating-semicircle::before {
+  width: 76px;
+  height: 76px;
+}
+
+.loading-overlay.is-spinner .loading-overlay__spinner {
+  display: flex;
+}
+
+.loading-overlay.is-spinner .loading-overlay__line {
+  display: none !important;
+}
+
+.loading-overlay__line {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 52px 1fr 64px;
+  align-items: center;
+  gap: 12px;
+}
+
+.loading-overlay__line--file {
+  display: none;
+}
+
+.loading-overlay.is-dual .loading-overlay__line--file {
+  display: grid;
+}
+
+.loading-overlay__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.loading-overlay__value {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.loading-progress {
+  width: 100%;
+  height: 14px;
+}
+
+.loading-overlay__actions {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.loading-overlay__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: none;
+  background: var(--color-bg-input);
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.loading-overlay__btn:hover {
+  background: var(--color-bg-input-focus);
+}

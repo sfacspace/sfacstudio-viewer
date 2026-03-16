@@ -1,0 +1,347 @@
+/* Header */
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  background: #03060c;
+  border-bottom: 2px solid var(--color-accent);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  height: 62px;
+  box-sizing: border-box;
+  overflow: visible;
+}
+
+/* Header content above fireflies */
+header > .header-left,
+header > .header-right {
+  position: relative;
+  z-index: 1;
+}
+
+/* Nebula glow layer 1 */
+header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(var(--color-accent-rgb), 0.04) 8%,
+    rgba(var(--color-accent-rgb), 0.12) 18%,
+    rgba(var(--color-accent-rgb), 0.08) 28%,
+    rgba(var(--color-accent-rgb), 0.06) 38%,
+    transparent 48%,
+    transparent 52%,
+    rgba(var(--color-accent-rgb), 0.05) 62%,
+    rgba(var(--color-accent-rgb), 0.14) 72%,
+    rgba(var(--color-accent-rgb), 0.07) 82%,
+    rgba(var(--color-accent-rgb), 0.04) 92%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  background-repeat: repeat-x;
+  background-position: 0 0;
+  animation: nebula-flow-bg 38s linear infinite;
+  opacity: 0.9;
+}
+
+/* Nebula glow layer 2 */
+header::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(var(--color-accent-rgb), 0.05) 12%,
+      rgba(var(--color-accent-rgb), 0.10) 22%,
+      rgba(var(--color-accent-rgb), 0.07) 32%,
+      transparent 42%,
+      transparent 58%,
+      rgba(var(--color-accent-rgb), 0.06) 68%,
+      rgba(var(--color-accent-rgb), 0.12) 78%,
+      rgba(var(--color-accent-rgb), 0.05) 88%,
+      transparent 100%
+    );
+  background-size: 200% 100%;
+  background-repeat: repeat-x;
+  background-position: 0 0;
+  animation: nebula-flow-bg 20s linear infinite;
+  mix-blend-mode: screen;
+  opacity: 0.95;
+  /* Fade at edges */
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+/* Keyframe: nebula flow */
+@keyframes nebula-flow-bg {
+  0% { background-position: 0 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Keyframe: edge glow */
+@keyframes edge-glow-breathe {
+  0%, 100% {
+    box-shadow:
+      0 4px 24px var(--color-shadow),
+      0 1px 0 0 transparent;
+  }
+  30% {
+    box-shadow:
+      0 4px 24px var(--color-shadow),
+      0 1px 15px -2px rgba(var(--color-accent-rgb), 0.25);
+  }
+  50% {
+    box-shadow:
+      0 4px 24px var(--color-shadow),
+      0 2px 25px -3px rgba(var(--color-accent-rgb), 0.4);
+  }
+  70% {
+    box-shadow:
+      0 4px 24px var(--color-shadow),
+      0 1px 15px -2px rgba(var(--color-accent-rgb), 0.25);
+  }
+}
+
+/* Header logo (center, glow on hover) */
+header > .header-center {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+  pointer-events: none;
+  text-align: center;
+}
+.header-center .header-logo-text {
+  pointer-events: auto;
+}
+
+.header-logo-text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+}
+
+.header-logo-img {
+  height: 60px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+  transform: translateY(3px);
+  transform-origin: 50% 50%;
+  transition: filter 1.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+  filter:
+    drop-shadow(0 0 6px rgba(150, 200, 255, 0.75))
+    drop-shadow(0 0 2px rgba(170, 210, 255, 0.6));
+}
+
+/* Logo glow on hover */
+.header-logo-text:hover .header-logo-img {
+  filter:
+    drop-shadow(0 0 6px rgba(180, 220, 255, 0.85))
+    drop-shadow(0 0 12px rgba(160, 210, 255, 0.6))
+    drop-shadow(0 0 20px rgba(140, 200, 255, 0.4));
+}
+
+/* Header right */
+.header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Header left (dropdown) */
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Dropdown common */
+.menu-dropdown {
+  position: relative;
+}
+
+.menu-dropdown__trigger {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.08s ease, color 0.18s ease;
+}
+
+.menu-dropdown__trigger:hover,
+.menu-dropdown:focus-within .menu-dropdown__trigger {
+  border-color: transparent;
+  background: rgba(var(--color-accent-rgb), 0.35);
+  box-shadow: none;
+}
+
+.menu-dropdown__trigger:active {
+  transform: translateY(1px);
+}
+
+.menu-dropdown__trigger::after {
+  content: "\25BE"; /* down triangle */
+  margin-left: 6px;
+  font-size: 11px;
+  opacity: 0.65;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.menu-dropdown:hover .menu-dropdown__trigger::after,
+.menu-dropdown:focus-within .menu-dropdown__trigger::after {
+  transform: rotate(180deg);
+  opacity: 1;
+}
+
+.menu-dropdown__list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 180px;
+  padding: 8px;
+  margin: 0;
+  list-style: none;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 10px;
+  box-shadow: 0 14px 30px var(--color-shadow-strong);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: block;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(6px) scaleY(0.98);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0.18s;
+}
+
+.menu-dropdown:hover .menu-dropdown__list,
+.menu-dropdown:focus-within .menu-dropdown__list {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0) scaleY(1);
+  pointer-events: auto;
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s;
+}
+
+.menu-dropdown__list li {
+  margin: 0;
+  padding: 0;
+}
+
+.menu-dropdown__list a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--color-text-primary);
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.menu-dropdown__list a:hover {
+  background: var(--color-accent-dim);
+}
+
+/* Disabled menu item */
+.menu-dropdown__list a.is-disabled,
+.menu-dropdown__list a[aria-disabled="true"] {
+  color: var(--color-text-muted);
+  background: transparent;
+  cursor: not-allowed;
+}
+
+.menu-dropdown__list a.is-disabled:hover,
+.menu-dropdown__list a[aria-disabled="true"]:hover {
+  background: transparent;
+}
+
+/* RAM / FPS HUD (Shift+0 toggle) */
+.stats-hud {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.stats-hud.stats-hud--hidden {
+  display: none;
+}
+
+.fps-counter {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-accent);
+  background: var(--color-bg-input);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-family: monospace;
+  min-width: 60px;
+  text-align: center;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.fps-counter.fps--good { color: var(--color-success); }
+.fps-counter.fps--warn { color: var(--color-warning); }
+.fps-counter.fps--bad { color: var(--color-error); }
+
+.memory-hud {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-input);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-family: monospace;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: var(--color-text-primary);
+}

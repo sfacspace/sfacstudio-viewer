@@ -1,0 +1,2 @@
+declare const _default: "\nuniform highp sampler2D packedSh0;\n\nuniform float sh0_mins;\nuniform float sh0_maxs;\n\nconst float SH_C0 = 0.28209479177387814;\n\nvec4 readColor(in SplatSource source) {\n    vec3 clr = mix(vec3(sh0_mins), vec3(sh0_maxs), unpack111110(pack8888(texelFetch(packedSh0, source.uv, 0))));\n    float alpha = float(packedSample.z & 0xffu) / 255.0;\n    return vec4(vec3(0.5) + clr.xyz * SH_C0, alpha);\n}\n";
+export default _default;

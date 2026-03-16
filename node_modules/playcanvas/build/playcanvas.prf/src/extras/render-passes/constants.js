@@ -1,0 +1,5 @@
+const SSAOTYPE_NONE = 'none';
+const SSAOTYPE_LIGHTING = 'lighting';
+const SSAOTYPE_COMBINE = 'combine';
+
+export { SSAOTYPE_COMBINE, SSAOTYPE_LIGHTING, SSAOTYPE_NONE };

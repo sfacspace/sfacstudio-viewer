@@ -1,0 +1,60 @@
+/* Timeline container */
+.timeline-container {
+  position: fixed;
+  top: 62px;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* No text selection in timeline */
+.timeline-container,
+.timeline-container * {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Inputs: allow selection */
+.timeline-container input,
+.timeline-container textarea,
+.timeline-container select {
+  user-select: auto;
+  -webkit-user-select: auto;
+  -moz-user-select: auto;
+  -ms-user-select: auto;
+}
+
+.timeline-container > * {
+  pointer-events: auto;
+}
+
+.timeline-container.is-collapsed > * {
+  pointer-events: none;
+}
+
+.timeline-container.is-collapsed .timeline-toggle-btn {
+  pointer-events: auto;
+}
+
+.timeline-bottom__content {
+  overflow: visible;
+  max-height: 420px;
+  transition: max-height 200ms ease, opacity 200ms ease;
+}
+
+.timeline-container.is-collapsed .timeline-bottom__content {
+  max-height: 0;
+  opacity: 0;
+}
+
+.timeline-container.is-collapsed .timeline-pin,
+.timeline-container.is-collapsed .timeline-camera-marker,
+.timeline-container.is-collapsed .timeline-keyframe-marker,
+.timeline-container.is-collapsed .timeline-camera-segment {
+  opacity: 0;
+  pointer-events: none;
+}

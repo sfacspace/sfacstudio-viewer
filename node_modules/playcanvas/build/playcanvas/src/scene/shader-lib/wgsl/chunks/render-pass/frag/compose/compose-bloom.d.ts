@@ -1,0 +1,2 @@
+declare const _default: "\n    #ifdef BLOOM\n        var bloomTexture: texture_2d<f32>;\n        var bloomTextureSampler: sampler;\n        uniform bloomIntensity: f32;\n        \n        // Global variable for debug\n        var<private> dBloom: vec3f;\n        \n        fn applyBloom(color: vec3f, uv: vec2f) -> vec3f {\n            dBloom = textureSampleLevel(bloomTexture, bloomTextureSampler, uv, 0.0).rgb;\n            return color + dBloom * uniform.bloomIntensity;\n        }\n    #endif\n";
+export default _default;

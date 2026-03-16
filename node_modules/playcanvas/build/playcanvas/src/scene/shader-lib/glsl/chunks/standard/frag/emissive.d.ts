@@ -1,0 +1,2 @@
+declare const _default: "\nuniform vec3 material_emissive;\nuniform float material_emissiveIntensity;\n\nvoid getEmission() {\n    dEmission = material_emissive * material_emissiveIntensity;\n\n    #ifdef STD_EMISSIVE_TEXTURE\n    dEmission *= {STD_EMISSIVE_TEXTURE_DECODE}(texture2DBias({STD_EMISSIVE_TEXTURE_NAME}, {STD_EMISSIVE_TEXTURE_UV}, textureBias)).{STD_EMISSIVE_TEXTURE_CHANNEL};\n    #endif\n\n    #ifdef STD_EMISSIVE_VERTEX\n    dEmission *= saturate(vVertexColor.{STD_EMISSIVE_VERTEX_CHANNEL});\n    #endif\n}\n";
+export default _default;

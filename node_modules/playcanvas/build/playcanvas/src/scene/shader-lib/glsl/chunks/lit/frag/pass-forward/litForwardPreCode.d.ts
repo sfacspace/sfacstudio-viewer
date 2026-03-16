@@ -1,0 +1,2 @@
+declare const _default: "\n\n#include \"basePS\"\n#include \"sphericalPS\"\n#include \"decodePS\"\n#include \"gammaPS\"\n#include \"tonemappingPS\"\n#include \"fogPS\"\n\n// 9-slice support code\n#if LIT_NONE_SLICE_MODE == SLICED\n    #include \"baseNineSlicedPS\"\n#elif LIT_NONE_SLICE_MODE == TILED\n    #include \"baseNineSlicedTiledPS\"\n#endif\n\n// TBN\n#ifdef LIT_TBN\n    #include \"TBNPS\"\n\n    #ifdef LIT_TWO_SIDED_LIGHTING\n        #include \"twoSidedLightingPS\"\n    #endif\n#endif\n\n";
+export default _default;

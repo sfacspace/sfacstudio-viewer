@@ -1,0 +1,2 @@
+declare const _default: "\n#if (TONEMAP == NONE)\n    #include \"tonemappingNonePS\"\n#elif TONEMAP == FILMIC\n    #include \"tonemappingFilmicPS\"\n#elif TONEMAP == LINEAR\n    #include \"tonemappingLinearPS\"\n#elif TONEMAP == HEJL\n    #include \"tonemappingHejlPS\"\n#elif TONEMAP == ACES\n    #include \"tonemappingAcesPS\"\n#elif TONEMAP == ACES2\n    #include \"tonemappingAces2PS\"\n#elif TONEMAP == NEUTRAL\n    #include \"tonemappingNeutralPS\"\n#endif\n";
+export default _default;

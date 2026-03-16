@@ -1,0 +1,2 @@
+declare const _default: "\n#ifdef STD_CLEARCOATNORMAL_TEXTURE\nuniform float material_clearCoatBumpiness;\n#endif\n\nvoid getClearCoatNormal() {\n#ifdef STD_CLEARCOATNORMAL_TEXTURE\n    vec3 normalMap = {STD_CLEARCOATNORMAL_TEXTURE_DECODE}(texture2DBias({STD_CLEARCOATNORMAL_TEXTURE_NAME}, {STD_CLEARCOATNORMAL_TEXTURE_UV}, textureBias));\n    normalMap = mix(vec3(0.0, 0.0, 1.0), normalMap, material_clearCoatBumpiness);\n    ccNormalW = normalize(dTBN * normalMap);\n#else\n    ccNormalW = dVertexNormalW;\n#endif\n}\n";
+export default _default;

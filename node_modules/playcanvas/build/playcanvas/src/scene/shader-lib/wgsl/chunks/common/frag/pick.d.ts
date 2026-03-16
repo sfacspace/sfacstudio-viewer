@@ -1,0 +1,2 @@
+declare const _default: "\nuniform meshInstanceId: u32;\n\nfn getPickOutput() -> vec4f {\n    let inv: vec4f = vec4f(1.0 / 255.0);\n    let shifts: vec4u = vec4u(16u, 8u, 0u, 24u);\n    let col: vec4u = (vec4u(uniform.meshInstanceId) >> shifts) & vec4u(0xffu);\n    return vec4f(col) * inv;\n}\n\n#ifdef DEPTH_PICK_PASS\n    #include \"floatAsUintPS\"\n\n    fn getPickDepth() -> vec4f {\n        return float2uint(pcPosition.z);\n    }\n#endif\n";
+export default _default;

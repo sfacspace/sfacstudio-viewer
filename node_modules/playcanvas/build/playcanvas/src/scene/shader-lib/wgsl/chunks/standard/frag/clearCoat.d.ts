@@ -1,0 +1,2 @@
+declare const _default: "\nuniform material_clearCoat: f32;\n\nfn getClearCoat() {\n    ccSpecularity = uniform.material_clearCoat;\n\n    #ifdef STD_CLEARCOAT_TEXTURE\n    ccSpecularity = ccSpecularity * textureSampleBias({STD_CLEARCOAT_TEXTURE_NAME}, {STD_CLEARCOAT_TEXTURE_NAME}Sampler, {STD_CLEARCOAT_TEXTURE_UV}, uniform.textureBias).{STD_CLEARCOAT_TEXTURE_CHANNEL};\n    #endif\n\n    #ifdef STD_CLEARCOAT_VERTEX\n    ccSpecularity = ccSpecularity * saturate(vVertexColor.{STD_CLEARCOAT_VERTEX_CHANNEL});\n    #endif\n}\n";
+export default _default;

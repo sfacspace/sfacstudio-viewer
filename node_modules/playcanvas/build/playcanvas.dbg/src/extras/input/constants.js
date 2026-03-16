@@ -1,0 +1,4 @@
+const DOUBLE_TAP_THRESHOLD = 250; // milliseconds
+const DOUBLE_TAP_VARIANCE = 100; // pixels
+
+export { DOUBLE_TAP_THRESHOLD, DOUBLE_TAP_VARIANCE };

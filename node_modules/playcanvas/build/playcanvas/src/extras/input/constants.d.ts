@@ -1,0 +1,2 @@
+export const DOUBLE_TAP_THRESHOLD: 250;
+export const DOUBLE_TAP_VARIANCE: 100;

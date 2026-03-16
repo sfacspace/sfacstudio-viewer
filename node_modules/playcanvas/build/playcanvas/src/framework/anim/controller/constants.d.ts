@@ -1,0 +1,143 @@
+/**
+ * Used to set the anim state graph transition interruption source to no state.
+ *
+ * @category Animation
+ */
+export const ANIM_INTERRUPTION_NONE: "NONE";
+/**
+ * Used to set the anim state graph transition interruption source as the previous state only.
+ *
+ * @category Animation
+ */
+export const ANIM_INTERRUPTION_PREV: "PREV_STATE";
+/**
+ * Used to set the anim state graph transition interruption source as the next state only.
+ *
+ * @category Animation
+ */
+export const ANIM_INTERRUPTION_NEXT: "NEXT_STATE";
+/**
+ * Used to set the anim state graph transition interruption sources as the previous state followed
+ * by the next state.
+ *
+ * @category Animation
+ */
+export const ANIM_INTERRUPTION_PREV_NEXT: "PREV_STATE_NEXT_STATE";
+/**
+ * Used to set the anim state graph transition interruption sources as the next state followed by
+ * the previous state.
+ *
+ * @category Animation
+ */
+export const ANIM_INTERRUPTION_NEXT_PREV: "NEXT_STATE_PREV_STATE";
+/**
+ * Used to set an anim state graph transition condition predicate as '>'.
+ *
+ * @category Animation
+ */
+export const ANIM_GREATER_THAN: "GREATER_THAN";
+/**
+ * Used to set an anim state graph transition condition predicate as '<'.
+ *
+ * @category Animation
+ */
+export const ANIM_LESS_THAN: "LESS_THAN";
+/**
+ * Used to set an anim state graph transition condition predicate as '>='.
+ *
+ * @category Animation
+ */
+export const ANIM_GREATER_THAN_EQUAL_TO: "GREATER_THAN_EQUAL_TO";
+/**
+ * Used to set an anim state graph transition condition predicate as '<='.
+ *
+ * @category Animation
+ */
+export const ANIM_LESS_THAN_EQUAL_TO: "LESS_THAN_EQUAL_TO";
+/**
+ * Used to set an anim state graph transition condition predicate as '==='.
+ *
+ * @category Animation
+ */
+export const ANIM_EQUAL_TO: "EQUAL_TO";
+/**
+ * Used to set an anim state graph transition condition predicate as '!=='.
+ *
+ * @category Animation
+ */
+export const ANIM_NOT_EQUAL_TO: "NOT_EQUAL_TO";
+/**
+ * Used to set an anim state graph parameter as type integer.
+ *
+ * @category Animation
+ */
+export const ANIM_PARAMETER_INTEGER: "INTEGER";
+/**
+ * Used to set an anim state graph parameter as type float.
+ *
+ * @category Animation
+ */
+export const ANIM_PARAMETER_FLOAT: "FLOAT";
+/**
+ * Used to set an anim state graph parameter as type boolean.
+ *
+ * @category Animation
+ */
+export const ANIM_PARAMETER_BOOLEAN: "BOOLEAN";
+/**
+ * Used to set an anim state graph parameter as type trigger.
+ *
+ * @category Animation
+ */
+export const ANIM_PARAMETER_TRIGGER: "TRIGGER";
+/**
+ * @type {string}
+ * @category Animation
+ */
+export const ANIM_BLEND_1D: string;
+/**
+ * @type {string}
+ * @category Animation
+ */
+export const ANIM_BLEND_2D_DIRECTIONAL: string;
+/**
+ * @type {string}
+ * @category Animation
+ */
+export const ANIM_BLEND_2D_CARTESIAN: string;
+/**
+ * @type {string}
+ * @category Animation
+ */
+export const ANIM_BLEND_DIRECT: string;
+/**
+ * The starting state in an anim state graph layer.
+ *
+ * @category Animation
+ */
+export const ANIM_STATE_START: "START";
+/**
+ * The ending state in an anim state graph layer.
+ *
+ * @category Animation
+ */
+export const ANIM_STATE_END: "END";
+/**
+ * Used to indicate any state in an anim state graph layer.
+ *
+ * @category Animation
+ */
+export const ANIM_STATE_ANY: "ANY";
+export const ANIM_CONTROL_STATES: string[];
+/**
+ * Used to indicate that a layers animations should overwrite all previous layers.
+ *
+ * @category Animation
+ */
+export const ANIM_LAYER_OVERWRITE: "OVERWRITE";
+/**
+ * Used to indicate that a layers animations should blend additively with previous layers.
+ *
+ * @category Animation
+ */
+export const ANIM_LAYER_ADDITIVE: "ADDITIVE";

@@ -1,0 +1,2 @@
+declare const _default: "\n    varying uv0: vec2f;\n    uniform invViewProj: mat4x4<f32>;\n    var blitTexture: texture_cube<f32>;\n    var blitTextureSampler : sampler;\n\n    @fragment\n    fn fragmentMain(input : FragmentInput) -> FragmentOutput {\n        var output: FragmentOutput;\n        var projPos = vec4f(input.uv0 * 2.0 - 1.0, 0.5, 1.0);\n        var worldPos = uniform.invViewProj * projPos;\n        output.color = textureSample(blitTexture, blitTextureSampler, worldPos.xyz);\n        return output;\n    }\n";
+export default _default;

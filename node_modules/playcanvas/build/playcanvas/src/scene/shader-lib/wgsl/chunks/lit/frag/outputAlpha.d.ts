@@ -1,0 +1,2 @@
+declare const _default: "\n\n#if LIT_BLEND_TYPE == NORMAL || LIT_BLEND_TYPE == ADDITIVEALPHA || defined(LIT_ALPHA_TO_COVERAGE)\n\n    output.color = vec4f(output.color.rgb, litArgs_opacity);\n\n#elif LIT_BLEND_TYPE == PREMULTIPLIED\n\n    output.color = vec4f(output.color.rgb * litArgs_opacity, litArgs_opacity);\n\n#else\n\n    output.color = vec4f(output.color.rgb, 1.0);\n\n#endif\n";
+export default _default;

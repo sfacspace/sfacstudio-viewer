@@ -1,0 +1,2 @@
+declare const _default: "\nfn readInput(uv: f32) {\n    let textureSize = textureDimensions(particleTexIN, 0);\n    let texel0: vec2i = vec2i(vec2f(uv, 0.25) * vec2f(textureSize));\n    let texel1: vec2i = vec2i(vec2f(uv, 0.75) * vec2f(textureSize));\n    let tex: vec4f = textureLoad(particleTexIN, texel0, 0);\n    let tex2: vec4f = textureLoad(particleTexIN, texel1, 0);\n\n    inPos = tex.xyz;\n    inVel = tex2.xyz;\n    inAngle = abs(tex.w) - 1000.0;\n    inShow = tex.w >= 0.0;\n    inLife = tex2.w;\n}\n";
+export default _default;

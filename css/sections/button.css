@@ -1,0 +1,130 @@
+/* Buttons and toggles */
+button:focus,
+button:focus-visible,
+[role="button"]:focus,
+[role="button"]:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.file-upload__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-bg-input);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.file-upload__btn:hover {
+  border-color: var(--color-border-focus);
+  background: var(--color-bg-input-focus);
+}
+
+.file-upload__btn:active {
+  transform: translateY(1px);
+}
+
+.grid-toggle,
+.panels-toggle,
+.orbit-toggle,
+.fullscreen-toggle,
+.settings-button {
+  height: 34px;
+  min-width: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--color-accent);
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 140ms ease, transform 120ms ease, opacity 140ms ease;
+}
+
+.grid-toggle:hover,
+.panels-toggle:hover,
+.orbit-toggle:hover,
+.fullscreen-toggle:hover,
+.settings-button:hover {
+  opacity: 0.9;
+}
+
+.grid-toggle:active,
+.panels-toggle:active,
+.orbit-toggle:active,
+.fullscreen-toggle:active,
+.settings-button:active {
+  transform: translateY(1px);
+}
+
+.grid-toggle.is-off,
+.panels-toggle.is-off,
+.orbit-toggle.is-off,
+.fullscreen-toggle.is-off,
+.settings-button.is-off {
+  color: var(--color-text-muted);
+  opacity: 0.85;
+}
+
+.grid-toggle.is-off:hover,
+.panels-toggle.is-off:hover,
+.orbit-toggle.is-off:hover,
+.fullscreen-toggle.is-off:hover,
+.settings-button.is-off:hover {
+  color: var(--color-text-secondary);
+  opacity: 0.95;
+}
+
+.export-button {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid var(--color-accent-border);
+  background: var(--color-accent-dim);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px var(--color-accent-glow);
+  transition: background 140ms ease, border-color 140ms ease, transform 120ms ease, box-shadow 140ms ease, opacity 140ms ease;
+}
+
+.export-button:hover {
+  background: var(--color-accent-dim-2);
+  border-color: var(--color-accent);
+}
+
+.export-button:active {
+  transform: translateY(1px);
+}
+
+.export-button:disabled {
+  background: var(--color-bg-input);
+  border-color: var(--color-border);
+  color: var(--color-text-dim);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.export-button:disabled:hover {
+  background: var(--color-bg-input);
+  border-color: var(--color-border);
+}

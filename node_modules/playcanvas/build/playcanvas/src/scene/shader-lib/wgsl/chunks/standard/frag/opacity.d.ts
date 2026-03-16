@@ -1,0 +1,2 @@
+declare const _default: "\nuniform material_opacity: f32;\n\nfn getOpacity() {\n    dAlpha = uniform.material_opacity;\n\n    #ifdef STD_OPACITY_TEXTURE\n    dAlpha = dAlpha * textureSampleBias({STD_OPACITY_TEXTURE_NAME}, {STD_OPACITY_TEXTURE_NAME}Sampler, {STD_OPACITY_TEXTURE_UV}, uniform.textureBias).{STD_OPACITY_TEXTURE_CHANNEL};\n    #endif\n\n    #ifdef STD_OPACITY_VERTEX\n    dAlpha = dAlpha * clamp(vVertexColor.{STD_OPACITY_VERTEX_CHANNEL}, 0.0, 1.0);\n    #endif\n}\n";
+export default _default;

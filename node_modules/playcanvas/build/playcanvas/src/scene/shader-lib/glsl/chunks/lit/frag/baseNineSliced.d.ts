@@ -1,0 +1,2 @@
+declare const _default: "\n#define NINESLICED\n\nvarying vec2 vMask;\nvarying vec2 vTiledUv;\n\nuniform mediump vec4 innerOffset;\nuniform mediump vec2 outerScale;\nuniform mediump vec4 atlasRect;\n\nvec2 nineSlicedUv;\n";
+export default _default;

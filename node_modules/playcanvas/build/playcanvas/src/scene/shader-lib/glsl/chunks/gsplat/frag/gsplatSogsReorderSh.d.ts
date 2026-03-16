@@ -1,0 +1,2 @@
+declare const _default: "\n#include \"gsplatPackingPS\"\n\nuniform highp sampler2D sh_centroids;\n\nuniform vec4 shN_codebook[64];\n\nvoid main(void) {\n    ivec2 uv = ivec2(gl_FragCoord.xy);\n\n    vec3 shNSample = texelFetch(sh_centroids, uv, 0).xyz;\n\n#ifdef REORDER_V1\n    pcFragColor0 = unpack8888(pack111110(shNSample));\n#else\n    pcFragColor0 = unpack8888(pack111110(resolveCodebook(shNSample, shN_codebook)));\n#endif\n}\n";
+export default _default;

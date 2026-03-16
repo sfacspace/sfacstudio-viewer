@@ -1,0 +1,2 @@
+declare const _default: "\nuniform exposure: f32;\n\nfn toneMap(color: vec3f) -> vec3f {\n    let A: f32 = 0.22;\n    let B: f32 = 0.3;\n    let C: f32 = 0.1;\n    let D: f32 = 0.2;\n    let E: f32 = 0.01;\n    let F: f32 = 0.3;\n    let Scl: f32 = 1.25;\n\n    let adjusted_color = color * uniform.exposure;\n    let h = max(vec3f(0.0), adjusted_color - vec3f(0.004));\n\n    return (h * ((Scl * A) * h + Scl * vec3f(C * B)) + Scl * vec3f(D * E)) /\n           (h * (A * h + vec3f(B)) + vec3f(D * F)) -\n           Scl * vec3f(E / F);\n}\n";
+export default _default;

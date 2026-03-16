@@ -1,0 +1,2 @@
+declare const _default: "\n#ifdef STD_THICKNESS_CONSTANT\nuniform float material_thickness;\n#endif\n\nvoid getThickness() {\n    dThickness = 1.0;\n\n    #ifdef STD_THICKNESS_CONSTANT\n    dThickness *= material_thickness;\n    #endif\n\n    #ifdef STD_THICKNESS_TEXTURE\n    dThickness *= texture2DBias({STD_THICKNESS_TEXTURE_NAME}, {STD_THICKNESS_TEXTURE_UV}, textureBias).{STD_THICKNESS_TEXTURE_CHANNEL};\n    #endif\n\n    #ifdef STD_THICKNESS_VERTEX\n    dThickness *= saturate(vVertexColor.{STD_THICKNESS_VERTEX_CHANNEL});\n    #endif\n}\n";
+export default _default;
