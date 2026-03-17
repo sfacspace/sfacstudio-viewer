@@ -176,6 +176,80 @@
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M4 7h3l2-2h6l2 2h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zm8 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0 2.5A1.5 1.5 0 1 1 12 15a1.5 1.5 0 0 1 0-3.5z'/%3E%3C/svg%3E");
 }
 
+.gizmo-controls__description-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.gizmo-controls__icon--description {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z'/%3E%3C/svg%3E");
+}
+
+#gizmoDescriptionTooltip {
+  background: rgba(13, 19, 32, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  bottom: -28px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.gizmo-tooltip__object-name {
+  display: block;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  margin-top: 4px;
+  word-break: break-all;
+}
+
+.gizmo-tooltip__input {
+  width: 100%;
+  height: 36px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.gizmo-tooltip__textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.gizmo-tooltip__add-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: rgb(var(--color-accent-rgb));
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gizmo-tooltip__add-btn:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.gizmo-tooltip__add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .gizmo-controls__tooltip {
   display: none;
   min-width: 220px;

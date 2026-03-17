@@ -48,14 +48,13 @@ export class FlyMode {
     // Orbit state saved when entering Fly; restored when returning
     this._savedOrbitState = null;
 
-    // Return-to-Orbit animation
+    // Return-to-Orbit animation (quaternion slerp)
     this._isReturning = false;
     this._returnStartTime = 0;
     this._returnDuration = 500;
     this._returnStartPos = null;
-    this._returnStartYaw = 0;
-    this._returnStartPitch = 0;
-    this._returnStartRoll = 0;
+    this._returnStartQuat = null;
+    this._returnTargetQuat = null;
 
     this._onMouseDown = this._onMouseDown.bind(this);
     this._onMouseMove = this._onMouseMove.bind(this);
@@ -160,6 +159,7 @@ export class FlyMode {
     };
   }
 
+  // Return: Quaternion slerp (roll 뒤집힘 없음)
   _startReturnAnimation() {
     if (!this._savedOrbitState) {
       this.viewer.setOrbitEnabled?.(true);
@@ -179,11 +179,23 @@ export class FlyMode {
     }
 
     const currentPos = camera.getPosition();
-    const currentEuler = camera.getLocalEulerAngles();
     this._returnStartPos = { x: currentPos.x, y: currentPos.y, z: currentPos.z };
-    this._returnStartYaw = currentEuler.y;
-    this._returnStartPitch = currentEuler.x;
-    this._returnStartRoll = currentEuler.z;
+    this._returnStartQuat = camera.getRotation().clone();
+
+    const saved = this._savedOrbitState;
+    this._returnTargetQuat = new pc.Quat();
+    this._returnTargetQuat.setFromEulerAngles(saved.pitch, saved.yaw, saved.roll);
+
+    if (this._returnStartQuat.x * this._returnTargetQuat.x +
+        this._returnStartQuat.y * this._returnTargetQuat.y +
+        this._returnStartQuat.z * this._returnTargetQuat.z +
+        this._returnStartQuat.w * this._returnTargetQuat.w < 0) {
+      this._returnTargetQuat.x *= -1;
+      this._returnTargetQuat.y *= -1;
+      this._returnTargetQuat.z *= -1;
+      this._returnTargetQuat.w *= -1;
+    }
+
     this._isReturning = true;
     this._returnStartTime = performance.now();
     this._animateReturn();
@@ -194,6 +206,12 @@ export class FlyMode {
 
     const camera = this.viewer?.cameraEntity;
     if (!camera || !this._savedOrbitState) {
+      this._finishReturn();
+      return;
+    }
+
+    const pc = window.pc;
+    if (!pc) {
       this._finishReturn();
       return;
     }
@@ -209,34 +227,17 @@ export class FlyMode {
     const x = start.x + (saved.position.x - start.x) * t;
     const y = start.y + (saved.position.y - start.y) * t;
     const z = start.z + (saved.position.z - start.z) * t;
-    const yaw = this._lerpAngle(this._returnStartYaw, saved.yaw, t);
-    const pitch = this._returnStartPitch + (saved.pitch - this._returnStartPitch) * t;
-    const startRoll = this._normalizeRollZ(this._returnStartRoll);
-    const endRoll = this._normalizeRollZ(saved.roll);
-    const roll = this._lerpAngle(startRoll, endRoll, t);
-
     camera.setPosition(x, y, z);
-    camera.setLocalEulerAngles(pitch, yaw, roll);
+
+    const q = new pc.Quat();
+    q.slerp(this._returnStartQuat, this._returnTargetQuat, t);
+    camera.setRotation(q);
 
     if (t >= 1) {
       this._finishReturn();
     } else {
       requestAnimationFrame(() => this._animateReturn());
     }
-  }
-
-  _lerpAngle(a, b, t) {
-    let diff = b - a;
-    while (diff > 180) diff -= 360;
-    while (diff < -180) diff += 360;
-    return a + diff * t;
-  }
-
-  _normalizeRollZ(zDeg) {
-    if (!Number.isFinite(zDeg)) return 0;
-    let z = zDeg % 360;
-    if (z < 0) z += 360;
-    return z >= 90 && z < 270 ? 180 : 0;
   }
 
   _finishReturn() {
@@ -249,12 +250,6 @@ export class FlyMode {
       this.viewer._orbitYaw = saved.orbitYaw;
       this.viewer._orbitPitch = saved.orbitPitch;
       this.viewer._updateCameraFromOrbit?.();
-
-      const camera = this.viewer?.cameraEntity;
-      if (camera && Number.isFinite(saved.roll)) {
-        const euler = camera.getLocalEulerAngles();
-        camera.setLocalEulerAngles(euler.x, euler.y, this._normalizeRollZ(saved.roll));
-      }
     }
 
     this.viewer.setOrbitEnabled?.(true);

@@ -1,18 +1,20 @@
 /**
  * Embedded script for exported single HTML app viewer. Reads META from <script id="META">.
- * Frame-based playback; camera interpolation; Space = play/pause.
+ * Frame-based playback; camera interpolation; Space = play/pause. Optional comments overlay.
  * @param {string} [playcanvasPath] - PlayCanvas module URL (default CDN; use local for file://)
+ * @param {{ hasCameraMarkers?: boolean, hasComments?: boolean }} [opts] - used for conditional UI
  */
-export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.net/npm/playcanvas@2.15.1/build/playcanvas.mjs') {
+export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.net/npm/playcanvas@2.15.1/build/playcanvas.mjs', opts = {}) {
   const pcUrl = JSON.stringify(playcanvasPath);
   return `
 (async function() {
   const META = JSON.parse(document.getElementById("META").textContent);
-  // Frame-based playback: totalFrames = timeline length in frames, fps = playback speed (frames per second)
-  const { fps: FPS, totalFrames: TOTAL_FRAMES, objects, keyframes = [], movingObjects = [], initialCamera, orbitTarget, orbitDistance = 6.4, sceneSettings = {}, cameraSpeedProfileStart = 0, cameraSpeedProfileEnd = 0 } = META;
+  const { fps: FPS, totalFrames: TOTAL_FRAMES, objects, keyframes = [], movingObjects = [], initialCamera, orbitTarget, orbitDistance = 6.4, sceneSettings = {}, cameraSpeedProfileStart = 0, cameraSpeedProfileEnd = 0, comments: META_COMMENTS = [] } = META;
   const totalFrames = Math.max(1, TOTAL_FRAMES | 0);
   const playbackFps = Math.max(1, Math.min(60, FPS | 0));
   const targetPos = orbitTarget || { x: 0, y: 0, z: 0 };
+  const hasPlaybackUI = (keyframes || []).length > 0;
+  const commentList = Array.isArray(META_COMMENTS) ? META_COMMENTS : [];
 
   const setProgress = (pct, text) => {
     const bar = document.getElementById("loading-bar");
@@ -53,7 +55,62 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
     if (!s) return;
     cameraEntity.setLocalPosition(s.position?.x ?? 0, s.position?.y ?? 0, s.position?.z ?? 0);
     if (s.rotation && typeof s.rotation.w === "number") cameraEntity.setLocalRotation(new pc.Quat(s.rotation.x, s.rotation.y, s.rotation.z, s.rotation.w));
-    else cameraEntity.lookAt(s.target?.x ?? targetPos.x, s.target?.y ?? targetPos.y, s.target?.z ?? targetPos.z);
+    else if (s.yaw != null && s.pitch != null) {
+      const pitchDeg = typeof s.pitch === "number" ? -s.pitch : 0;
+      const yawDeg = typeof s.yaw === "number" ? s.yaw : 0;
+      const rollDeg = typeof s.roll === "number" ? s.roll : 0;
+      cameraEntity.setLocalEulerAngles(pitchDeg, yawDeg, rollDeg);
+    } else cameraEntity.lookAt(s.target?.x ?? targetPos.x, s.target?.y ?? targetPos.y, s.target?.z ?? targetPos.z);
+    const euler = cameraEntity.getLocalEulerAngles();
+    const rollNorm = (() => { const z = euler.z; if (!Number.isFinite(z)) return 0; let a = z % 360; if (a < 0) a += 360; return a >= 90 && a < 270 ? 180 : 0; })();
+    cameraEntity.setLocalEulerAngles(euler.x, euler.y, rollNorm);
+  }
+  const CAMERA_TRANSITION_DURATION_MS = 700;
+  let cameraTransitionActive = false;
+  function runCameraTransitionLoop(startPos, startYaw, startPitch, startRoll, targetState) {
+    const startQuat = cameraEntity.getRotation().clone();
+    let targetQuat;
+    if (targetState.rotation && typeof targetState.rotation.w === "number") {
+      targetQuat = new pc.Quat(
+        targetState.rotation.x,
+        targetState.rotation.y,
+        targetState.rotation.z,
+        targetState.rotation.w
+      );
+    } else {
+      const endPitch = typeof targetState.pitch === "number" ? -targetState.pitch : 0;
+      const endYaw = typeof targetState.yaw === "number" ? targetState.yaw : 0;
+      targetQuat = new pc.Quat();
+      targetQuat.setFromEulerAngles(endPitch, endYaw, 0);
+    }
+    if (
+      startQuat.x * targetQuat.x + startQuat.y * targetQuat.y +
+      startQuat.z * targetQuat.z + startQuat.w * targetQuat.w < 0
+    ) {
+      targetQuat.x *= -1; targetQuat.y *= -1; targetQuat.z *= -1; targetQuat.w *= -1;
+    }
+    const startTime = performance.now();
+    const tick = () => {
+      const elapsed = performance.now() - startTime;
+      let t = Math.min(1, elapsed / CAMERA_TRANSITION_DURATION_MS);
+      t = 1 - Math.pow(1 - t, 3);
+      const x = startPos.x + (targetState.position.x - startPos.x) * t;
+      const y = startPos.y + (targetState.position.y - startPos.y) * t;
+      const z = startPos.z + (targetState.position.z - startPos.z) * t;
+      cameraEntity.setLocalPosition(x, y, z);
+      const q = new pc.Quat();
+      q.slerp(startQuat, targetQuat, t);
+      cameraEntity.setRotation(q);
+      if (t >= 1) {
+        cameraTransitionActive = false;
+        applyCameraState(targetState);
+        if (cameraMode === "orbit") syncOrbitFromCamera();
+        else syncFlyFromCamera();
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   }
   if (initialCamera) applyCameraState(initialCamera);
   else {
@@ -110,17 +167,132 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
         const entity = await loadSplat(f.base64, f.fileName, f.transform);
         if (entity) {
           const take = Math.floor(dur / n) + (i < dur % n ? 1 : 0);
-          splats.push({ entity, startFrame: start + acc, endFrame: start + acc + take });
+          splats.push({ entity, startFrame: start + acc, endFrame: start + acc + take, objectId: obj.id });
           acc += take;
         }
         setProgress(20 + (++idx / totalFiles) * 60, "Loading...");
       }
     } else if (obj.base64) {
       const entity = await loadSplat(obj.base64, obj.name, obj.transform);
-      if (entity) splats.push({ entity, startFrame: obj.startFrame | 0, endFrame: Math.max(1, obj.endFrame | 0) });
+      if (entity) splats.push({ entity, startFrame: obj.startFrame | 0, endFrame: Math.max(1, obj.endFrame | 0), objectId: obj.id });
       setProgress(20 + (++idx / totalFiles) * 60, "Loading...");
     }
   }
+
+  let selectedObjectId = null;
+  let selectionMaskLayerId = null;
+  let selectionMaskCameraEntity = null;
+  let selectionMaskRenderTarget = null;
+  let selectionTintEffect = null;
+  let selectionLayerRestore = [];
+  const SELECTION_YELLOW = { r: 1.0, g: 0.88, b: 0.25 };
+  const TINT_STRENGTH = 0.68;
+  const QUAD_VS = "attribute vec2 aPosition; varying vec2 vUv0; void main() { gl_Position = vec4(aPosition, 0.0, 1.0); vUv0 = (aPosition + 1.0) * 0.5; }";
+  const QUAD_FS = "precision mediump float; varying vec2 vUv0; uniform sampler2D uColorBuffer; uniform sampler2D uMaskBuffer; uniform vec3 uTintColor; uniform float uTintStrength; uniform float uHasMask; void main() { vec4 color = texture2D(uColorBuffer, vUv0); if (uHasMask < 0.5) { gl_FragColor = color; return; } vec4 maskTex = texture2D(uMaskBuffer, vUv0); float m = max(maskTex.r, max(maskTex.g, maskTex.b)); vec3 tintRgb = uTintColor; vec3 blended = mix(color.rgb, tintRgb, m * uTintStrength); gl_FragColor = vec4(blended, color.a); }";
+  function getDummyMaskTexture(device) {
+    if (!device._selectionTintDummyMask) {
+      const tex = new pc.Texture(device, { name: "SelectionTintDummyMask", width: 1, height: 1, format: pc.PIXELFORMAT_RGBA8, mipmaps: false });
+      const pixels = tex.lock();
+      pixels[0] = 0; pixels[1] = 0; pixels[2] = 0; pixels[3] = 0;
+      tex.unlock();
+      device._selectionTintDummyMask = tex;
+    }
+    return device._selectionTintDummyMask;
+  }
+  function createSelectionTintEffect(device) {
+    const shader = new pc.Shader(device, { attributes: { aPosition: pc.SEMANTIC_POSITION }, vshader: QUAD_VS, fshader: QUAD_FS });
+    return {
+      device,
+      needsDepthBuffer: false,
+      maskTexture: null,
+      tintColor: SELECTION_YELLOW,
+      tintStrength: TINT_STRENGTH,
+      _colorArray: new Float32Array(3),
+      shader,
+      render(inputTarget, outputTarget, rect) {
+        if (!this.shader || this.shader.failed) return;
+        this._colorArray[0] = this.tintColor.r; this._colorArray[1] = this.tintColor.g; this._colorArray[2] = this.tintColor.b;
+        const scope = this.device.scope;
+        if (scope) {
+          const c = scope.resolve("uTintColor"); const s = scope.resolve("uTintStrength"); const hm = scope.resolve("uHasMask");
+          const uColor = scope.resolve("uColorBuffer"); const uMask = scope.resolve("uMaskBuffer");
+          if (c) c.setValue(this._colorArray); if (s) s.setValue(this.tintStrength);
+          if (hm) hm.setValue(this.maskTexture ? 1 : 0);
+          if (uColor) uColor.setValue(inputTarget?.colorBuffer || null);
+          if (uMask) uMask.setValue(this.maskTexture || getDummyMaskTexture(this.device));
+        }
+        this.device.setBlendState(pc.BlendState.NOBLEND);
+        const w = inputTarget ? inputTarget.width : this.device.width;
+        const h = inputTarget ? inputTarget.height : this.device.height;
+        const viewport = rect ? new pc.Vec4(rect.x * w, rect.y * h, rect.z * w, rect.w * h) : null;
+        pc.drawQuadWithShader(this.device, outputTarget, this.shader, viewport);
+      }
+    };
+  }
+  function setupSelectionMask() {
+    try {
+      const device = app.graphicsDevice;
+      if (!device || !cameraEntity?.camera) return;
+      const layers = app.scene.layers;
+      if (!layers || typeof layers.getLayerByName !== "function") return;
+      let layer = layers.getLayerByName("SelectionMask");
+      if (!layer) {
+        layer = new pc.Layer({ name: "SelectionMask", clearDepthBuffer: true, opaqueSortMode: pc.SORTMODE_NONE, transparentSortMode: pc.SORTMODE_NONE });
+        layers.push(layer);
+      }
+      selectionMaskLayerId = layer.id;
+      const cw = Math.max(1, app.canvas?.clientWidth || device.width || 1);
+      const ch = Math.max(1, app.canvas?.clientHeight || device.height || 1);
+      const colorBuffer = new pc.Texture(device, { name: "SelectionMaskColor", width: cw, height: ch, format: pc.PIXELFORMAT_RGBA8, mipmaps: false, minFilter: pc.FILTER_NEAREST, magFilter: pc.FILTER_NEAREST, addressU: pc.ADDRESS_CLAMP_TO_EDGE, addressV: pc.ADDRESS_CLAMP_TO_EDGE });
+      selectionMaskRenderTarget = new pc.RenderTarget({ colorBuffer, depth: false, flipY: device.isWebGPU });
+      selectionMaskCameraEntity = new pc.Entity("SelectionMaskCamera");
+      selectionMaskCameraEntity.addComponent("camera", { clearColor: new pc.Color(0, 0, 0, 0), layers: [selectionMaskLayerId], priority: -1, renderTarget: selectionMaskRenderTarget });
+      app.root.addChild(selectionMaskCameraEntity);
+      selectionTintEffect = createSelectionTintEffect(device);
+      if (cameraEntity.camera.postEffects) cameraEntity.camera.postEffects.addEffect(selectionTintEffect);
+      app.on("resize", () => {
+        if (!selectionMaskRenderTarget || !app.canvas) return;
+        const w = app.canvas.clientWidth || device.width;
+        const h = app.canvas.clientHeight || device.height;
+        if (selectionMaskRenderTarget.width !== w || selectionMaskRenderTarget.height !== h) selectionMaskRenderTarget.resize(w, h);
+      });
+    } catch (err) {
+      console.warn("[AppViewer] Selection tint setup failed", err);
+    }
+  }
+  function syncSelectionMaskCamera() {
+    if (!selectionTintEffect?.maskTexture || !selectionMaskCameraEntity || !cameraEntity) return;
+    selectionMaskCameraEntity.setPosition(cameraEntity.getPosition());
+    selectionMaskCameraEntity.setRotation(cameraEntity.getRotation());
+    if (selectionMaskCameraEntity.camera && cameraEntity.camera) {
+      selectionMaskCameraEntity.camera.projection = cameraEntity.camera.projection;
+      selectionMaskCameraEntity.camera.fov = cameraEntity.camera.fov;
+      selectionMaskCameraEntity.camera.nearClip = cameraEntity.camera.nearClip;
+      selectionMaskCameraEntity.camera.farClip = cameraEntity.camera.farClip;
+    }
+  }
+  function setSelectionTint(objId) {
+    selectedObjectId = objId;
+    if (!selectionTintEffect || selectionMaskLayerId == null) return;
+    selectionLayerRestore.forEach(({ entity, prevLayers }) => {
+      const gsplat = entity?.gsplat;
+      if (gsplat && Array.isArray(prevLayers)) gsplat.layers = prevLayers.slice();
+    });
+    selectionLayerRestore = [];
+    selectionTintEffect.maskTexture = null;
+    if (objId == null) return;
+    const toSelect = splats.filter((s) => s.objectId === objId);
+    toSelect.forEach(({ entity }) => {
+      const gsplat = entity?.gsplat;
+      if (!gsplat) return;
+      const prev = gsplat.layers ? gsplat.layers.slice() : [];
+      const next = prev.includes(selectionMaskLayerId) ? prev : [...prev, selectionMaskLayerId];
+      gsplat.layers = next;
+      selectionLayerRestore.push({ entity, prevLayers: prev });
+    });
+    if (selectionMaskRenderTarget?.colorBuffer) selectionTintEffect.maskTexture = selectionMaskRenderTarget.colorBuffer;
+  }
+  setTimeout(() => setupSelectionMask(), 0);
 
   const kfs = keyframes.map(k => ({ ...k, frame: Math.max(0, Math.min(totalFrames - 1, k.frame | 0)) })).sort((a, b) => a.frame - b.frame);
   const mov = movingObjects || [];
@@ -197,7 +369,7 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
     cameraEntity.setLocalRotation(q);
   }
 
-  let isPlaying = true;
+  let isPlaying = hasPlaybackUI;
   let frameAcc = 0;
   let currentFrame = 0;
   let firstPlayTick = true;
@@ -211,10 +383,10 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
     frameSlider.max = Math.max(0, totalFrames - 1);
     frameSlider.step = 1;
   }
-  speedInput.value = playbackFps;
+  if (speedInput) speedInput.value = playbackFps;
 
   let playbackFpsCurrent = playbackFps;
-  speedInput.addEventListener("change", () => {
+  if (speedInput) speedInput.addEventListener("change", () => {
     const v = parseInt(speedInput.value, 10);
     if (!isNaN(v) && v >= 1 && v <= 60) playbackFpsCurrent = v;
   });
@@ -310,7 +482,7 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
     updateOrbit();
   }
 
-  let cameraMode = 'orbit';
+  let cameraMode = 'fly';
   const fly = {
     yaw: 0, pitch: 0, pos: new pc.Vec3(),
     targetYaw: 0, targetPitch: 0, targetPos: new pc.Vec3(),
@@ -352,6 +524,7 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
 
   const cameraModeCheckbox = document.getElementById("appViewerCameraMode");
   if (cameraModeCheckbox) {
+    cameraModeCheckbox.checked = true;
     cameraModeCheckbox.addEventListener("change", () => {
       cameraMode = cameraModeCheckbox.checked ? 'fly' : 'orbit';
       if (cameraMode === 'orbit') syncOrbitFromCamera();
@@ -391,15 +564,15 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
 
   function togglePlay() {
     isPlaying = !isPlaying;
-    playBtn.textContent = isPlaying ? "❚❚" : "▶";
-    playBtn.setAttribute("aria-pressed", isPlaying);
+    if (playBtn) { playBtn.textContent = isPlaying ? "❚❚" : "▶"; playBtn.setAttribute("aria-pressed", isPlaying); }
     if (isPlaying) firstPlayTick = true;
     if (!isPlaying && cameraMode === 'orbit') syncOrbitFromCamera();
     if (!isPlaying && cameraMode === 'fly') syncFlyFromCamera();
   }
-  playBtn.addEventListener("click", togglePlay);
+  if (playBtn) playBtn.addEventListener("click", togglePlay);
   window.addEventListener("keydown", (e) => {
     if ((e.key !== " " && e.code !== "Space") || e.target?.tagName === "INPUT" || e.target?.tagName === "TEXTAREA") return;
+    if (!playBtn) return;
     e.preventDefault();
     togglePlay();
   }, true);
@@ -493,6 +666,8 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
 
   app.on("update", (dt) => {
     tickFps();
+    if (selectionMaskCameraEntity) syncSelectionMaskCamera();
+    if (commentMarkers.length > 0) updateCommentMarkerPositions();
     if (isPlaying) {
       if (firstPlayTick) {
         firstPlayTick = false;
@@ -508,19 +683,103 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
         if (Math.floor(frameAcc) % 3 === 0) updateUI();
       }
     } else {
-      if (cameraMode === 'orbit') updateOrbitSmooth(dt);
-      else updateFly(dt);
+      if (!cameraTransitionActive) {
+        if (cameraMode === 'orbit') updateOrbitSmooth(dt);
+        else updateFly(dt);
+      }
     }
   });
 
   setVisibility(0);
   interpolateCamera(0);
   updateUI();
+  syncFlyFromCamera();
   syncOrbitFromCamera();
   orbit.targetTarget.set(orbit.target.x, orbit.target.y, orbit.target.z);
   orbit.targetDistance = orbit.distance;
   orbit.targetYaw = orbit.yaw;
   orbit.targetPitch = orbit.pitch;
+
+  const commentOverlay = document.getElementById("commentMarkersOverlay");
+  const commentPanel = document.getElementById("commentDescriptionPanel");
+  const commentPanelTitle = commentPanel?.querySelector(".comment-description-panel__title");
+  const commentPanelBody = commentPanel?.querySelector(".comment-description-panel__body");
+  const commentPanelClose = commentPanel?.querySelector(".comment-description-panel__close");
+  const commentMarkers = [];
+  let openCommentMarkerEl = null;
+  if (commentOverlay && commentPanel && commentList.length > 0) {
+    commentList.forEach((c) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "comment-marker comment-marker--bubble";
+      btn.setAttribute("aria-label", "코멘트 보기");
+      btn.innerHTML = '<span class="comment-marker__icon" aria-hidden="true"></span>';
+      btn.dataset.commentId = c.id || "";
+      commentOverlay.appendChild(btn);
+      commentMarkers.push({ comment: c, el: btn });
+    });
+    commentMarkers.forEach(({ comment, el }) => {
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const targetState = comment.cameraState;
+        if (targetState?.position) {
+          const pos = cameraEntity.getPosition();
+          const euler = cameraEntity.getLocalEulerAngles();
+          cameraTransitionActive = true;
+          runCameraTransitionLoop(
+            { x: pos.x, y: pos.y, z: pos.z },
+            euler.y, euler.x, euler.z,
+            targetState
+          );
+        } else if (targetState) {
+          applyCameraState(targetState);
+          if (cameraMode === "orbit") syncOrbitFromCamera();
+          else syncFlyFromCamera();
+        }
+        if (commentPanelTitle) commentPanelTitle.textContent = (comment.title && comment.title.trim()) ? comment.title.trim() : "설명";
+        if (commentPanelBody) commentPanelBody.textContent = comment.description || "(설명 없음)";
+        if (commentPanel) {
+          openCommentMarkerEl = el;
+          const rect = el.getBoundingClientRect();
+          commentPanel.style.left = (rect.right + 10) + "px";
+          commentPanel.style.top = (rect.top + rect.height / 2 - 60) + "px";
+          commentPanel.classList.add("is-visible");
+          commentPanel.setAttribute("aria-hidden", "false");
+        }
+      });
+    });
+    if (commentPanelClose) commentPanelClose.addEventListener("click", () => {
+      openCommentMarkerEl = null;
+      if (commentPanel) { commentPanel.classList.remove("is-visible"); commentPanel.setAttribute("aria-hidden", "true"); }
+    });
+  }
+
+  function updateCommentMarkerPositions() {
+    if (commentMarkers.length === 0 || !cameraEntity?.camera) return;
+    const cam = cameraEntity.camera;
+    const canvas = app.graphicsDevice?.canvas;
+    if (!canvas) return;
+    const w = canvas.clientWidth || canvas.width;
+    const h = canvas.clientHeight || canvas.height;
+    const worldPos = new pc.Vec3();
+    const screenPos = new pc.Vec3();
+    commentMarkers.forEach(({ comment, el }) => {
+      const p = comment.worldPosition || {};
+      worldPos.set(p.x ?? 0, p.y ?? 0, p.z ?? 0);
+      cam.worldToScreen(worldPos, screenPos);
+      if (screenPos.z < 0) { el.style.display = "none"; return; }
+      const size = 40;
+      el.style.display = "";
+      el.style.left = (screenPos.x - size / 2) + "px";
+      el.style.top = (screenPos.y - size / 2) + "px";
+    });
+    if (openCommentMarkerEl && commentPanel?.classList.contains("is-visible")) {
+      const rect = openCommentMarkerEl.getBoundingClientRect();
+      commentPanel.style.left = (rect.right + 10) + "px";
+      commentPanel.style.top = (rect.top + rect.height / 2 - 60) + "px";
+    }
+  }
+
   setProgress(100, "Ready");
   setTimeout(() => document.getElementById("loading")?.classList.add("hidden"), 300);
 })().catch(err => {

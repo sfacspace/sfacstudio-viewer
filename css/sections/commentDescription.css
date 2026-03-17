@@ -1,0 +1,140 @@
+/* 코멘트 마커 오버레이: 캔버스 위 2D 말풍선 */
+.comment-markers-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.comment-markers-overlay > * {
+  pointer-events: auto;
+}
+
+.comment-marker {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  transition: transform 0.15s ease;
+}
+
+.comment-marker:hover {
+  transform: scale(1.1);
+}
+
+.comment-marker--bubble {
+  background: rgba(61, 93, 133, 0.9);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 0 2px rgba(255, 255, 255, 0.2);
+}
+
+.comment-marker--bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-top-color: rgba(61, 93, 133, 0.9);
+  border-bottom: none;
+}
+
+.comment-marker__icon {
+  width: 20px;
+  height: 20px;
+  background-color: #fff;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z'/%3E%3C/svg%3E");
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
+
+.comment-description-panel {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 280px;
+  max-width: min(320px, 85vw);
+  max-height: 70vh;
+  min-height: 80px;
+  background: rgba(13, 19, 32, 0.75);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 100200;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  pointer-events: none;
+}
+
+.comment-description-panel::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 8px solid transparent;
+  border-right-color: rgba(13, 19, 32, 0.75);
+  border-left: none;
+}
+
+.comment-description-panel.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.comment-description-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.comment-description-panel__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text-primary, #f4f7ff);
+}
+
+.comment-description-panel__close {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary, #c8d4e4);
+  font-size: 22px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.comment-description-panel__close:hover {
+  color: var(--color-text-primary, #f4f7ff);
+}
+
+.comment-description-panel__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(244, 247, 255, 0.9);
+  white-space: pre-wrap;
+}

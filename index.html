@@ -441,6 +441,31 @@
         </div>
       </div>
     </div>
+    <div class="gizmo-controls__description-row">
+      <button id="gizmoDescriptionBtn" class="gizmo-controls__button is-off" type="button" aria-pressed="false" title="설명 추가">
+        <span class="gizmo-controls__icon gizmo-controls__icon--description" aria-hidden="true"></span>
+      </button>
+      <div id="gizmoDescriptionTooltip" class="gizmo-controls__tooltip" role="status" aria-live="polite">
+        <div class="gizmo-tooltip__header-row" style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 8px;">
+          <span class="gizmo-tooltip__title">설명 추가</span>
+        </div>
+        <div class="gizmo-tooltip__section">
+          <span class="gizmo-tooltip__label">선택된 오브젝트</span>
+          <span id="gizmoDescriptionObjectName" class="gizmo-tooltip__object-name">—</span>
+        </div>
+        <div class="gizmo-tooltip__section">
+          <label class="gizmo-tooltip__label" for="gizmoDescriptionTitleInput">제목</label>
+          <input type="text" id="gizmoDescriptionTitleInput" class="gizmo-tooltip__input" placeholder="제목을 입력하세요" />
+        </div>
+        <div class="gizmo-tooltip__section">
+          <label class="gizmo-tooltip__label" for="gizmoDescriptionInput">설명</label>
+          <textarea id="gizmoDescriptionInput" class="gizmo-tooltip__textarea" rows="3" placeholder="설명을 입력하세요"></textarea>
+        </div>
+        <div class="gizmo-tooltip__section">
+          <button type="button" id="gizmoDescriptionAddBtn" class="gizmo-tooltip__add-btn" disabled>추가</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="dropOverlay" class="drop-overlay" aria-hidden="true">

@@ -12,6 +12,7 @@ import { exportSingleHTML } from "./export/index.js";
 import { exportVideo } from "./export/exportVideo.js";
 import { CameraTemplatesManager } from "./timeline/cameraTemplates.js";
 import { ObjectDetailsPanel } from "./ui/objectDetailsPanel.js";
+import { ObjectDescription } from "./ui/objectDescription.js";
 import { SelectionTool } from "./tools/selectionTool.js";
 import { CameraSettings } from "./ui/cameraSettings.js";
 import { PerformanceSettings } from "./ui/performanceSettings.js";
@@ -47,6 +48,9 @@ let inspector = null;
 
 /** @type {GizmoController|null} */
 let gizmo = null;
+
+/** @type {import("./ui/objectDescription.js").ObjectDescription|null} */
+let objectDescription = null;
 
 /** @type {PerformanceSettings|null} */
 let performanceSettings = null;
@@ -1186,6 +1190,8 @@ function initTimeline() {
       if (activeBtn === 3) {
         detailsPanel?.onButtonClick?.(activeBtn);
       }
+
+      objectDescription?.updateFromSelection();
     } else {
       // Deselect on viewer
       if (viewer) {
@@ -1206,6 +1212,8 @@ function initTimeline() {
       if (detailsPanel) {
         detailsPanel.hide();
       }
+
+      objectDescription?.updateFromSelection();
     }
   };
   
@@ -2615,6 +2623,19 @@ async function bootstrap() {
       // Init Object Details Panel
       detailsPanel = new ObjectDetailsPanel();
       window.__detailsPanel = detailsPanel;
+
+      // Init Object Description (설명 추가 / 코멘트)
+      objectDescription = new ObjectDescription({
+        viewer,
+        timeline,
+        getSelection: () => {
+          const id = timeline?.selectedObjectId;
+          if (id == null) return null;
+          const obj = timeline?.objects?.find(o => o.id === id);
+          return obj ? { id: obj.id, name: obj.name ?? '' } : null;
+        },
+      });
+      window.__objectDescription = objectDescription;
 
       // Draggable panels
       const objectInspectorEl = document.getElementById('objectInspector');

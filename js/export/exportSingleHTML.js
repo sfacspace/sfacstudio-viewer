@@ -274,6 +274,9 @@ export async function serializeViewer(options = {}) {
       orbitTarget,
       orbitDistance,
       sceneSettings,
+      comments: (typeof window !== 'undefined' && window.__objectDescription?.comments)
+        ? window.__objectDescription.comments
+        : [],
     }, exportOpts);
 
     const marker = JSON.stringify(placeholder);
@@ -623,7 +626,10 @@ export async function serializeViewer(options = {}) {
 function generateHTML(viewerSettingsJson, opts = {}) {
   const metaJson = JSON.stringify(viewerSettingsJson);
   const playcanvasPath = opts.playcanvasPath || 'https://cdn.jsdelivr.net/npm/playcanvas@2.15.1/build/playcanvas.mjs';
-  const scriptBody = getEmbeddedViewerScript(playcanvasPath);
+  const comments = viewerSettingsJson.comments || [];
+  const hasComments = comments.length > 0;
+  const hasCameraMarkers = (viewerSettingsJson.keyframes || []).length > 0;
+  const scriptBody = getEmbeddedViewerScript(playcanvasPath, { hasCameraMarkers, hasComments });
   const faviconTag = opts.iconBase64
     ? (opts.iconType === 'svg'
         ? `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,${opts.iconBase64}">`
@@ -686,6 +692,20 @@ function generateHTML(viewerSettingsJson, opts = {}) {
     #loading-bar { height: 100%; background: linear-gradient(90deg, #3d5d85, #5a7fa8); width: 0%; transition: width 0.2s; }
     #loading-logo { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); }
     #loading-logo .logo-text { font-size: 28px; color: #c8d4e4; }
+    .comment-markers-overlay { position: fixed; top: 52px; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 100; }
+    .comment-markers-overlay > * { pointer-events: auto; }
+    .comment-marker { position: absolute; width: 40px; height: 40px; margin: 0; padding: 0; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; background: transparent; transition: transform 0.15s ease; }
+    .comment-marker:hover { transform: scale(1.1); }
+    .comment-marker--bubble { background: rgba(61,93,133,0.9); box-shadow: 0 4px 16px rgba(0,0,0,0.35), 0 0 0 2px rgba(255,255,255,0.2); }
+    .comment-marker--bubble::after { content: ""; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); border: 8px solid transparent; border-top-color: rgba(61,93,133,0.9); border-bottom: none; }
+    .comment-marker__icon { width: 20px; height: 20px; background: #fff; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z'/%3E%3C/svg%3E") center/contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z'/%3E%3C/svg%3E") center/contain no-repeat; }
+    .comment-description-panel { position: fixed; left: 0; top: 0; width: 280px; max-width: min(320px, 85vw); max-height: 70vh; min-height: 80px; background: rgba(13,19,32,0.75); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: 0 8px 32px rgba(0,0,0,0.4); z-index: 100200; display: flex; flex-direction: column; border-radius: 12px; opacity: 0; visibility: hidden; transition: opacity 0.2s ease, visibility 0.2s ease; pointer-events: none; }
+    .comment-description-panel::before { content: ""; position: absolute; left: -8px; top: 50%; transform: translateY(-50%); border: 8px solid transparent; border-right-color: rgba(13,19,32,0.75); border-left: none; }
+    .comment-description-panel.is-visible { opacity: 1; visibility: visible; pointer-events: auto; }
+    .comment-description-panel__header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; }
+    .comment-description-panel__title { font-size: 15px; font-weight: 700; color: #f4f7ff; }
+    .comment-description-panel__close { background: none; border: none; color: #c8d4e4; font-size: 22px; cursor: pointer; padding: 0 4px; line-height: 1; }
+    .comment-description-panel__body { padding: 14px 16px; overflow: auto; color: rgba(244,247,255,0.9); font-size: 14px; }
   </style>
 </head>
 <body>
@@ -697,12 +717,13 @@ function generateHTML(viewerSettingsJson, opts = {}) {
     <div id="loading-logo"><span class="logo-text">SFACSTUDIO</span></div>
     </div>
   <div id="hudRow"><span id="memoryHud" class="memory-hud" aria-hidden="true">RAM — MB</span><span id="fpsCounter">0 FPS</span></div>
-  <div id="controls">
+  ${hasCameraMarkers ? `<div id="controls">
     <button id="playBtn" type="button" aria-pressed="true">❚❚</button>
     <input type="range" id="frameSlider" min="0" max="100" value="0" step="1">
     <span id="frameLabel">Frame 0 / 0</span>
     <span id="speedControl">FPS: <input type="number" id="speedInput" value="30" min="1" max="60" step="1"></span>
-    </div>
+    </div>` : ''}
+  ${hasComments ? `<div id="commentMarkersOverlay" class="comment-markers-overlay"></div><div id="commentDescriptionPanel" class="comment-description-panel" aria-hidden="true"><div class="comment-description-panel__header"><span class="comment-description-panel__title">설명</span><button type="button" class="comment-description-panel__close" aria-label="닫기">&times;</button></div><div class="comment-description-panel__body"></div></div>` : ''}
   <script id="META" type="application/json">${metaJson}</script>
   <script type="module">` + scriptBody + `</script>
 </body>
