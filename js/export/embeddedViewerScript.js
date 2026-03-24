@@ -294,7 +294,11 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
   }
   setTimeout(() => setupSelectionMask(), 0);
 
-  const kfs = keyframes.map(k => ({ ...k, frame: Math.max(0, Math.min(totalFrames - 1, k.frame | 0)) })).sort((a, b) => a.frame - b.frame);
+  let kfs = keyframes.map(k => ({ ...k, frame: Math.max(0, Math.min(totalFrames - 1, k.frame | 0)) })).sort((a, b) => a.frame - b.frame);
+  // initialCamera를 frame 0 키프레임으로 넣어, frame 0에서 initial vs kfs[0] 이중 경로로 인한 카메라 튐·루프 경계 튐 방지
+  if (initialCamera && (kfs.length === 0 || kfs[0].frame !== 0)) {
+    kfs = [{ frame: 0, state: initialCamera, id: '__initial__' }, ...kfs];
+  }
   const mov = movingObjects || [];
 
   function setVisibility(frame) {
@@ -325,8 +329,10 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
   }
 
   function interpolateCamera(frameIndex) {
-    if (frameIndex === 0 && initialCamera) { applyCameraState(initialCamera); return; }
-    if (kfs.length === 0) return;
+    if (kfs.length === 0) {
+      if (initialCamera) applyCameraState(initialCamera);
+      return;
+    }
     if (kfs.length === 1) { applyCameraState(kfs[0].state); return; }
     const norm = ((frameIndex % totalFrames) + totalFrames) % totalFrames;
     let prev = kfs[0], next = kfs[1];
@@ -372,7 +378,6 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
   let isPlaying = hasPlaybackUI;
   let frameAcc = 0;
   let currentFrame = 0;
-  let firstPlayTick = true;
   const playBtn = document.getElementById("playBtn");
   const frameSlider = document.getElementById("frameSlider");
   const frameLabel = document.getElementById("frameLabel");
@@ -565,7 +570,6 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
   function togglePlay() {
     isPlaying = !isPlaying;
     if (playBtn) { playBtn.textContent = isPlaying ? "❚❚" : "▶"; playBtn.setAttribute("aria-pressed", isPlaying); }
-    if (isPlaying) firstPlayTick = true;
     if (!isPlaying && cameraMode === 'orbit') syncOrbitFromCamera();
     if (!isPlaying && cameraMode === 'fly') syncFlyFromCamera();
   }
@@ -669,19 +673,12 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
     if (selectionMaskCameraEntity) syncSelectionMaskCamera();
     if (commentMarkers.length > 0) updateCommentMarkerPositions();
     if (isPlaying) {
-      if (firstPlayTick) {
-        firstPlayTick = false;
-        setVisibility(currentFrame);
-        interpolateCamera(frameAcc);
-        updateUI();
-      } else {
-        frameAcc = (frameAcc + dt * playbackFpsCurrent) % totalFrames;
-        if (frameAcc < 0) frameAcc += totalFrames;
-        currentFrame = Math.max(0, Math.min(totalFrames - 1, Math.floor(frameAcc)));
-        setVisibility(currentFrame);
-        interpolateCamera(frameAcc);
-        if (Math.floor(frameAcc) % 3 === 0) updateUI();
-      }
+      frameAcc = (frameAcc + dt * playbackFpsCurrent) % totalFrames;
+      if (frameAcc < 0) frameAcc += totalFrames;
+      currentFrame = Math.max(0, Math.min(totalFrames - 1, Math.floor(frameAcc)));
+      setVisibility(currentFrame);
+      interpolateCamera(frameAcc);
+      if (Math.floor(frameAcc) % 3 === 0) updateUI();
     } else {
       if (!cameraTransitionActive) {
         if (cameraMode === 'orbit') updateOrbitSmooth(dt);
