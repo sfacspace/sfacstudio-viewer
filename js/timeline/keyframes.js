@@ -38,8 +38,7 @@ export class KeyframesManager {
     // Camera frustum manager
     /** @type {CameraFrustumManager|null} */
     this._frustumManager = null;
-    
-    // Camera moving object manager
+
     /** @type {CameraMovingObjectManager|null} */
     this._movingObjectManager = null;
   }
@@ -53,8 +52,8 @@ export class KeyframesManager {
       }
     }
   }
-  
-  /** Init camera moving object manager. */
+
+  /** Init camera moving object manager (마커 사이 연결선). */
   initMovingObjectManager() {
     if (!this._movingObjectManager) {
       this._movingObjectManager = new CameraMovingObjectManager({
@@ -66,7 +65,7 @@ export class KeyframesManager {
       this._movingObjectManager.init();
     }
   }
-
+  
   refresh() {
     this.initFrustumManager();
     this.initMovingObjectManager();
@@ -450,8 +449,11 @@ export class KeyframesManager {
    */
   clear() {
     this._frustumManager?.clear();
-    this._movingObjectManager?.dispose();
-    
+    if (this._movingObjectManager) {
+      this._movingObjectManager.dispose();
+      this._movingObjectManager = null;
+    }
+
     this.keys = [];
     this.keyframes = [];
     this.renderMarkers();
@@ -599,7 +601,6 @@ export class KeyframesManager {
       
       const rect = marker.getBoundingClientRect();
       this._showTooltip(frameIndex, rect.left + rect.width / 2, rect.top);
-      
       this._movingObjectManager?.onMarkerMove(kf.id, newT);
     };
     

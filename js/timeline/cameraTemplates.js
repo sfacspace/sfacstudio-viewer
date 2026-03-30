@@ -15,7 +15,6 @@ export class CameraTemplatesManager {
    * @param {Function} options.getKeyframes - 키프레임 getter
    * @param {Function} options.addKeyframe - 키프레임 추가 함수 (t: 초, state: 카메라 상태)
    * @param {Function} options.clearKeyframes - 키프레임 전체 삭제 함수
-   * @param {Function} options.getMovingObjects - 카메라 이동 오브젝트 getter
    * @param {Function} options.showConfirmModal - 확인 모달 표시 함수
    */
   constructor(options) {
@@ -26,7 +25,6 @@ export class CameraTemplatesManager {
     this._getKeyframes = options.getKeyframes;
     this._addKeyframe = options.addKeyframe;
     this._clearKeyframes = options.clearKeyframes;
-    this._getMovingObjects = options.getMovingObjects;
     this._showConfirmModal = options.showConfirmModal;
 
     this._setCameraMoveSpeedProfile = options.setCameraMoveSpeedProfile;
@@ -466,8 +464,6 @@ export class CameraTemplatesManager {
       const camState = i === 0 ? state : this._calculateOrbitPosition(target, distance, yaw, pitch);
       this._addKeyframe?.(t, camState);
     }
-
-    this._setSegmentCurvatures(1, 0);
   }
   
   /**
@@ -496,8 +492,6 @@ export class CameraTemplatesManager {
       const camState = i === 0 ? state : this._calculateOrbitPosition(target, distance, yaw, pitch);
       this._addKeyframe?.(t, camState);
     }
-    
-    this._setSegmentCurvatures(0, 0);
   }
   
   /**
@@ -529,8 +523,6 @@ export class CameraTemplatesManager {
       const camState = i === 0 ? state : this._calculateOrbitPosition(target, distance, yaw, configs[i].pitch);
       this._addKeyframe?.(t, camState);
     }
-    
-    this._setSegmentCurvaturesAlternating();
   }
   
   /**
@@ -558,8 +550,6 @@ export class CameraTemplatesManager {
       const camState = i === 0 ? state : this._calculateOrbitPosition(target, distance, yaw, pitch);
       this._addKeyframe?.(t, camState);
     }
-    
-    this._setSegmentCurvatures(1, 180);
   }
   
   /**
@@ -602,35 +592,6 @@ export class CameraTemplatesManager {
       yaw: yawDeg,
       pitch: pitchDeg,
     };
-  }
-  
-  /**
-   * 세그먼트 곡률 일괄 설정
-   * @private
-   */
-  _setSegmentCurvatures(curvature, angle) {
-    // 약간의 지연 후 설정 (키프레임 생성 완료 후)
-    setTimeout(() => {
-      const movingObjects = this._getMovingObjects?.() || [];
-      movingObjects.forEach(obj => {
-        obj.curvature = curvature;
-        obj.angle = angle;
-      });
-    }, 150);
-  }
-  
-  /**
-   * 세그먼트 곡률 번갈아 설정 (롤러코스터용)
-   * @private
-   */
-  _setSegmentCurvaturesAlternating() {
-    setTimeout(() => {
-      const movingObjects = this._getMovingObjects?.() || [];
-      movingObjects.forEach((obj, idx) => {
-        obj.curvature = 1;
-        obj.angle = idx % 2 === 0 ? 90 : 270;
-      });
-    }, 150);
   }
   
   /**

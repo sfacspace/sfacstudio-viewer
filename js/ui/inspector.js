@@ -60,7 +60,7 @@ export class InspectorController {
           this._syncUniformScaleToGizmo();
         });
     }
-    this.hide();
+    this.hide("idle");
     this._setupInputEvents();
     this._syncUniformScaleToGizmo();
   }
@@ -97,13 +97,14 @@ export class InspectorController {
     const primaryEntity = this._getPrimaryEntity(obj);
     
     if (!obj || !primaryEntity) {
-      this.hide();
+      this.hide("idle");
       return;
     }
     
     this._currentObject = obj;
     if (this._containerEl) {
       this._containerEl.classList.remove("is-hidden");
+      this._containerEl.classList.remove("is-inspector-idle");
     }
     if (this._nameEl) {
       this._nameEl.textContent = obj.name || "Unknown";
@@ -114,19 +115,29 @@ export class InspectorController {
 
   _getPrimaryEntity(obj) {
     if (!obj) return null;
-    if (obj.isSequence) return obj.entity || null;
-    if (obj.isMultiFile && obj.files?.length > 0) return obj.files[0].entity;
+    if (obj.isMultiFile && obj.files?.length > 0) {
+      return obj.files[0].entity || obj.entity || null;
+    }
     return obj.entity;
   }
 
-  hide() {
+  /**
+   * @param {'idle'|'collapse'} mode - idle: no selection, panel still visible; collapse: tool panels off (hide block)
+   */
+  hide(mode = "idle") {
     this._currentObject = null;
     if (this._containerEl) {
-      this._containerEl.classList.add("is-hidden");
+      if (mode === "collapse") {
+        this._containerEl.classList.add("is-hidden");
+        this._containerEl.classList.remove("is-inspector-idle");
+      } else {
+        this._containerEl.classList.remove("is-hidden");
+        this._containerEl.classList.add("is-inspector-idle");
+      }
     }
-    
+
     if (this._nameEl) {
-      this._nameEl.textContent = "No selection";
+      this._nameEl.textContent = "";
     }
     this._resetFields();
   }
@@ -207,16 +218,6 @@ export class InspectorController {
     const rot = { x: rotX, y: rotY, z: rotZ };
     const scale = { x: scaleX, y: scaleY, z: scaleZ };
 
-    if (obj.isSequence) {
-      if (obj.entity) {
-        obj.entity.setLocalPosition(posX, posY, posZ);
-        obj.entity.setLocalEulerAngles(rotX, rotY, rotZ);
-        obj.entity.setLocalScale(scaleX, scaleY, scaleZ);
-      }
-      obj._sequenceTransform = { position: pos, rotation: rot, scale };
-      return;
-    }
-
     if (obj.isMultiFile && obj.files) {
       for (const f of obj.files) {
         if (f.entity) {
@@ -225,7 +226,8 @@ export class InspectorController {
           f.entity.setLocalScale(scaleX, scaleY, scaleZ);
         }
       }
-    } else if (obj.entity) {
+    }
+    if (obj.entity) {
       obj.entity.setLocalPosition(posX, posY, posZ);
       obj.entity.setLocalEulerAngles(rotX, rotY, rotZ);
       obj.entity.setLocalScale(scaleX, scaleY, scaleZ);

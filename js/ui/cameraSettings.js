@@ -2,7 +2,6 @@
 export class CameraSettings {
   constructor(viewer) {
     this.viewer = viewer;
-    this.tooltip = document.getElementById('gizmoCameraTooltip');
     this.fovSlider = document.getElementById('gizmoFovSlider');
     this.fovInput = document.getElementById('gizmoFovInput');
     this.frustumSizeSlider = document.getElementById('gizmoFrustumSizeSlider');

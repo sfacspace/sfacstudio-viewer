@@ -1,10 +1,14 @@
 /** Object details panel: selection tools, complement/eraser/export, undo/redo. */
 import { exportFilteredPlyForSelectedObject } from '../export/exportPly.js';
 import { exportFilteredCompressedPlyForSelectedObject } from '../export/compressedPlyExport.js';
+import { runCreateObjectFromSelection } from '../export/createObjectFromSelection.js';
 
 export class ObjectDetailsPanel {
   constructor() {
-    this.panel = document.getElementById('objectDetailsPanel');
+    /** 오른쪽 도구 열: 셀렉션 블록 래퍼 (표시/숨김) */
+    this.panelWrap = document.getElementById('gizmoSelectionToolsWrap');
+    /** 툴팁 기준·레이아웃용 내부 컨테이너 */
+    this.panel = document.getElementById('gizmoSelectionTools');
     this.buttons = [
       document.getElementById('objectDetailsPanelBtn1'),
       document.getElementById('objectDetailsPanelBtn2'),
@@ -58,13 +62,32 @@ export class ObjectDetailsPanel {
   }
 
   positionTooltipOverButton(tooltipEl, buttonEl) {
-    if (!tooltipEl || !buttonEl || !this.panel) return;
-    const panelRect = this.panel.getBoundingClientRect();
+    if (!tooltipEl || !buttonEl) return;
     const btnRect = buttonEl.getBoundingClientRect();
-    const btnCenterX = btnRect.left + btnRect.width / 2;
-    const leftInPanel = btnCenterX - panelRect.left;
+    const centerX = btnRect.left + btnRect.width / 2;
+    const inGizmo = this.panel?.classList?.contains('gizmo-controls__selection-tools');
+
+    if (inGizmo) {
+      tooltipEl.style.position = 'fixed';
+      tooltipEl.style.left = `${centerX}px`;
+      tooltipEl.style.top = `${btnRect.top}px`;
+      tooltipEl.style.right = 'auto';
+      tooltipEl.style.bottom = 'auto';
+      tooltipEl.style.transform = 'translate(-50%, calc(-100% - 12px))';
+      tooltipEl.style.zIndex = '500';
+      return;
+    }
+
+    if (!this.panel) return;
+    const panelRect = this.panel.getBoundingClientRect();
+    const leftInPanel = centerX - panelRect.left;
+    tooltipEl.style.position = 'absolute';
     tooltipEl.style.left = `${leftInPanel}px`;
+    tooltipEl.style.top = '';
+    tooltipEl.style.right = '';
+    tooltipEl.style.bottom = '';
     tooltipEl.style.transform = 'translateX(-50%)';
+    tooltipEl.style.zIndex = '';
   }
 
   getVolumeShape() {
@@ -110,9 +133,29 @@ export class ObjectDetailsPanel {
     }
   }
 
+  /** 객체 내보내기: 선택된 점만 PLY 저장 → 지우기 → 저장한 PLY 로드 (createObjectFromSelection.js) */
+  async runCreateObject() {
+    const viewer = this.selectionTool?.viewer ?? window.__viewer;
+    await runCreateObjectFromSelection(viewer, this.selectionTool, {
+      onExportClick: this.onExportClick,
+      updateUndoRedoButtons: this.updateUndoRedoButtons,
+      onAfterLoad: () => this.onClearSpatialSelectors?.(),
+    });
+  }
+
   init() {
-    if (this.panel) {
-      this.panel.style.display = 'none';
+    if (this.panelWrap) {
+      this.panelWrap.style.display = 'flex';
+      this.panelWrap.setAttribute('aria-hidden', 'false');
+    }
+
+    this._onWinResizeVolume = () => {
+      if (this.volumeTooltip?.style.display === 'none') return;
+      if (this.activeButtonIndex !== 3 || !this.buttons[3]) return;
+      this.positionTooltipOverButton(this.volumeTooltip, this.buttons[3]);
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', this._onWinResizeVolume, { passive: true });
     }
     this.buttons.forEach((btn, index) => {
       if (btn) {
@@ -121,6 +164,9 @@ export class ObjectDetailsPanel {
           this.toggleButton(index);
         });
       }
+    });
+    [this.eraserButton, this.complementButton, this.exportButton].forEach((btn) => {
+      if (btn) btn.classList.add('is-off');
     });
     this.toggleTooltip = (tooltip, forceHide = false) => {
       if (!tooltip) return;
@@ -301,6 +347,9 @@ export class ObjectDetailsPanel {
           } else {
             alert('뷰어 또는 선택 도구가 준비되지 않았습니다.');
           }
+        }
+        if (action === 'create-object') {
+          this.runCreateObject();
         }
       });
     }
@@ -582,24 +631,20 @@ export class ObjectDetailsPanel {
   }
 
   show() {
-    if (this.panel) {
-      this.panel.style.display = 'flex';
-      this.isVisible = true;
-    }
+    this.isVisible = true;
     this.syncComplementButtonState();
     this.updateEraserComplementDisabledState();
   }
 
   hide() {
-    if (this.panel) {
-      this.panel.style.display = 'none';
-      this.isVisible = false;
-      this.buttons.forEach(btn => {
-        if (btn) btn.classList.add('is-off');
-      });
-      this.activeButtonIndex = null;
-      this.hideAllTooltips();
-    }
+    this.isVisible = false;
+    this.buttons.forEach((btn) => {
+      if (btn) btn.classList.add('is-off');
+    });
+    this.activeButtonIndex = null;
+    this.hideAllTooltips();
+    this.syncComplementButtonState();
+    this.updateEraserComplementDisabledState();
   }
 
   toggle() {
@@ -612,5 +657,14 @@ export class ObjectDetailsPanel {
 
   getActiveButton() {
     return this.activeButtonIndex;
+  }
+
+  /** 공간 셀렉터(스피어/박스) 버튼 포함 모든 선택 도구 버튼 해제 */
+  deselectShapeButtons() {
+    this.buttons.forEach((btn) => {
+      if (btn) btn.classList.add('is-off');
+    });
+    this.activeButtonIndex = null;
+    this.hideAllTooltips?.();
   }
 }

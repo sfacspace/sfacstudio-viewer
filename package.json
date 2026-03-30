@@ -12,7 +12,6 @@
   "license": "MIT",
   "scripts": {
     "copy-assets": "node -e \"const fs=require('fs');const path=require('path');const p=(...a)=>path.join(...a);const d=p('public','js');try{fs.mkdirSync(d,{recursive:true});}catch(e){};fs.copyFileSync(p('node_modules','playcanvas','build','playcanvas.mjs'),p('public','js','playcanvas.mjs'));\"",
-    "predev": "npm run copy-assets",
     "dev": "vite",
     "start": "vite preview --port 8000",
     "build": "npm run copy-assets && vite build"
@@ -21,6 +20,7 @@
     "@playcanvas/splat-transform": "^1.6.0",
     "fflate": "^0.8.2",
     "mediabunny": "^1.31.0",
+    "occt-import-js": "^0.0.23",
     "playcanvas": "^2.15.1"
   },
   "devDependencies": {

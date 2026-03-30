@@ -7,6 +7,40 @@
 import { InfiniteGrid } from "../ui/gridDraw.js";
 import { loadGSplatDataWithMorton, loadGSplatDataFromUrl } from "./splatLoader.js";
 
+/** R/Y/B/G — js/main.js EDITOR_TINT_PRESETS(색 값)와 동기화 */
+const EDITOR_MULTI_TINT_PRESETS = [
+  { r: 1, g: 0.22, b: 0.22 },
+  { r: 1, g: 0.88, b: 0.25 },
+  { r: 0.25, g: 0.55, b: 1 },
+  { r: 0.2, g: 0.82, b: 0.38 },
+];
+
+function presetIndexForEditorTintRgb(rgb) {
+  if (!rgb) return 1;
+  const eps = 0.06;
+  for (let i = 0; i < EDITOR_MULTI_TINT_PRESETS.length; i++) {
+    const p = EDITOR_MULTI_TINT_PRESETS[i];
+    if (
+      Math.abs(rgb.r - p.r) < eps &&
+      Math.abs(rgb.g - p.g) < eps &&
+      Math.abs(rgb.b - p.b) < eps
+    ) {
+      return i;
+    }
+  }
+  let best = 0;
+  let bestD = Infinity;
+  for (let i = 0; i < EDITOR_MULTI_TINT_PRESETS.length; i++) {
+    const p = EDITOR_MULTI_TINT_PRESETS[i];
+    const d = (rgb.r - p.r) ** 2 + (rgb.g - p.g) ** 2 + (rgb.b - p.b) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
 export class PlayCanvasViewer {
   constructor() {
     /** @type {pc.Application|null} */
@@ -103,6 +137,106 @@ export class PlayCanvasViewer {
     this._cameraUpdatePending = false;
     this._lastCameraUpdateTime = 0;
     this._lastOverlayUpdateTime = 0;
+
+    /** @type {boolean} Unified Rendering (Work Buffer 글로벌 소팅). true면 멀티 PLY overlap artifact 해소. Beta. */
+    this._useUnifiedRendering = true;
+
+    /** 코멘트/에디터 틴트: 프리셋 색마다 전용 마스크 레이어 + 단일 멀티마스크 post-effect */
+    this._multiTintSetupDone = false;
+    /** @type {number[]} */
+    this._multiTintLayerIds = [];
+    /** @type {pc.Entity[]} */
+    this._multiTintMaskCameraEntities = [];
+    /** @type {pc.RenderTarget[]} */
+    this._multiTintRenderTargets = [];
+    this._multiTintEffect = null;
+    this._commentHighlightLayerRestore = [];
+    this._commentHighlightUpdateBound = null;
+
+    /** 코멘트 읽기 패널용 하이라이트 (에디터 색지정보다 우선, 노랑 슬롯) */
+    this._commentHighlightReadActive = false;
+    /** @type {pc.Entity[]} */
+    this._commentHighlightReadEntities = [];
+    /** 오브젝트별 색지정 저장 (objectId -> {r,g,b}) @type {Map<string, {r:number,g:number,b:number}>} */
+    this._objectTintMap = new Map();
+    /** @type {((objectId: string) => (pc.Entity[]|null|undefined))|null} */
+    this._editorTintEntityResolver = null;
+  }
+
+  /** Unified Rendering 사용 여부. 새로 로드되는 splat에 적용됨. */
+  get useUnifiedRendering() {
+    return this._useUnifiedRendering;
+  }
+  set useUnifiedRendering(value) {
+    this._useUnifiedRendering = !!value;
+  }
+
+  /**
+   * 선택/지움/Undo/Redo 등으로 색상 텍스처가 바뀐 뒤 화면 갱신 요청.
+   * - 변경된 텍스처를 즉시 GPU에 업로드 (다음 프레임 update()에서 director가 읽기 전에 반영되도록)
+   * - app.renderNextFrame 설정 + Unified 경로에서 레이어를 dirty로 표시
+   */
+  requestRenderAfterSelectionChange() {
+    if (!this.app) return;
+    const device = this.app.graphicsDevice;
+    if (device && typeof device._uploadDirtyTextures === 'function') {
+      device._uploadDirtyTextures();
+    }
+    if (typeof this.app.renderNextFrame !== 'undefined') {
+      this.app.renderNextFrame = true;
+    }
+    let dirtyCount = 0;
+    const layers = this.app.scene?.layers;
+    if (layers && Array.isArray(layers.layerList)) {
+      for (let i = 0; i < layers.layerList.length; i++) {
+        const layer = layers.layerList[i];
+        if (layer && (layer.gsplatPlacements?.length > 0 || layer.gsplatShadowCasters?.length > 0)) {
+          layer.gsplatPlacementsDirty = true;
+          dirtyCount++;
+        }
+      }
+    }
+    // 다음 프레임에서 정렬·work buffer 재구축 유도 (sortedState에 우리 splat이 없을 수 있음)
+    const director = this.app.renderer?.gsplatDirector;
+    if (director && director.camerasMap) {
+      director.camerasMap.forEach((cameraData) => {
+        if (cameraData?.layersMap) {
+          cameraData.layersMap.forEach((layerData) => {
+            if (layerData?.gsplatManager && typeof (layerData.gsplatManager.sortNeeded) !== 'undefined') {
+              layerData.gsplatManager.sortNeeded = true;
+            }
+          });
+        }
+      });
+    }
+    // Work Buffer 색상 강제 갱신 (colorTexture 수정이 즉시 화면에 반영되도록)
+    this.forceWorkBufferColorUpdate();
+  }
+
+  /**
+   * 엔진 내부 경로로 workBuffer.renderColor(splats)를 호출해, colorTexture 수정을 즉시 Work Buffer에 반영.
+   * PlayCanvas 2.15.1 내부 API에 의존하며, 버전 업 시 경로가 바뀔 수 있음.
+   * @returns {boolean} 하나라도 갱신했으면 true
+   */
+  forceWorkBufferColorUpdate() {
+    const director = this.app?.renderer?.gsplatDirector;
+    if (!director?.camerasMap) return false;
+
+    let updated = false;
+    director.camerasMap.forEach((cameraData) => {
+      if (!cameraData?.layersMap) return;
+      cameraData.layersMap.forEach((layerData) => {
+        const mgr = layerData?.gsplatManager;
+        if (!mgr?.workBuffer || typeof mgr.workBuffer.renderColor !== 'function') return;
+        const state = mgr.worldStates?.get?.(mgr.sortedVersion) || mgr.worldStates?.get?.(mgr.lastWorldStateVersion);
+        const splats = state?.splats;
+        if (splats?.length && typeof mgr.getDebugColors === 'function') {
+          mgr.workBuffer.renderColor(splats, mgr.cameraNode, mgr.getDebugColors());
+          updated = true;
+        }
+      });
+    });
+    return updated;
   }
 
   _cleanupSplatResources(splatId, { destroyEntity = true } = {}) {
@@ -294,6 +428,57 @@ export class PlayCanvasViewer {
       this.app.root.addChild(this.lightEntity);
     }
 
+    if (!this._multiTintSetupDone) {
+      setTimeout(() => this._setupCommentHighlight(), 0);
+    }
+  }
+
+  /**
+   * 계층용 빈 Transform 엔티티 (렌더 없음, 부모/기즈모/인스펙터만).
+   * @returns {object|null}
+   */
+  createEmptyObjectEntity() {
+    const pc = window.pc;
+    if (!pc || !this.app) return null;
+    this.ensureScene();
+    if (!this.splatRoot) return null;
+    const ent = new pc.Entity("EmptyObject");
+    this.splatRoot.addChild(ent);
+    return ent;
+  }
+
+  /**
+   * 계층 패널과 동일한 순서로 splatRoot 직계 자식을 정렬한다 (가우시안 합성 순서).
+   * @param {Array<{ entity?: object, files?: Array<{ entity?: object }>, loadedWithGlb?: boolean, isMultiFile?: boolean }>} objects
+   */
+  syncSplatRootOrderFromObjects(objects) {
+    if (!this.splatRoot || !Array.isArray(objects) || objects.length === 0) return;
+
+    /** @type {object[]} */
+    const orderedEntities = [];
+    for (const obj of objects) {
+      if (obj.loadedWithGlb) continue;
+      if (obj.parentId) continue;
+      if (obj.isMultiFile && Array.isArray(obj.files)) {
+        for (const f of obj.files) {
+          if (f?.entity) orderedEntities.push(f.entity);
+        }
+      } else if (obj.entity) {
+        orderedEntities.push(obj.entity);
+      }
+    }
+
+    const root = this.splatRoot;
+    const orderedSet = new Set(orderedEntities);
+    const others = root.children.filter((c) => !orderedSet.has(c));
+
+    let idx = 0;
+    for (const ent of orderedEntities) {
+      ent.reparent(root, idx++);
+    }
+    for (const node of others) {
+      node.reparent(root, idx++);
+    }
   }
 
   /** @private */
@@ -365,13 +550,9 @@ export class PlayCanvasViewer {
       gizmoCanvas.width = 150;
       gizmoCanvas.height = 150;
       gizmoCanvas.style.cssText = `
-        position: fixed;
-        bottom: 18px;
-        right: 18px;
         width: 150px;
         height: 150px;
         pointer-events: auto;
-        z-index: 100;
         cursor: pointer;
       `;
       document.body.appendChild(gizmoCanvas);
@@ -379,13 +560,9 @@ export class PlayCanvasViewer {
       gizmoCanvas.width = 150;
       gizmoCanvas.height = 150;
       gizmoCanvas.style.cssText = `
-        position: fixed;
-        bottom: 18px;
-        right: 18px;
         width: 150px;
         height: 150px;
         pointer-events: auto;
-        z-index: 100;
         cursor: pointer;
       `;
     }
@@ -440,6 +617,328 @@ export class PlayCanvasViewer {
   /** @returns {number|null} */
   getGizmoLayerId() {
     return this._gizmoLayerId || null;
+  }
+
+  /**
+   * 코멘트(노랑) + 에디터 색지정(R/Y/B/G): 프리셋마다 전용 마스크 레이어·RT·카메라, 단일 멀티마스크 포스트 이펙트.
+   * @private
+   */
+  _setupCommentHighlight() {
+    const pc = window.pc;
+    if (!pc || !this.app || !this.cameraEntity?.camera) return;
+    const device = this.app.graphicsDevice;
+    if (!device) return;
+    try {
+      const layers = this.app.scene.layers;
+      if (!layers || typeof layers.getLayerByName !== "function") return;
+
+      const layerNames = ["EditorTintR", "EditorTintY", "EditorTintB", "EditorTintG"];
+      this._multiTintLayerIds = [];
+      this._multiTintMaskCameraEntities = [];
+      this._multiTintRenderTargets = [];
+
+      for (let i = 0; i < layerNames.length; i++) {
+        const name = layerNames[i];
+        let layer = layers.getLayerByName(name);
+        if (!layer) {
+          layer = new pc.Layer({
+            name,
+            clearDepthBuffer: true,
+            opaqueSortMode: pc.SORTMODE_NONE,
+            transparentSortMode: pc.SORTMODE_NONE,
+          });
+          layers.push(layer);
+        }
+        this._multiTintLayerIds.push(layer.id);
+
+        const cw = Math.max(1, device.width || 1);
+        const ch = Math.max(1, device.height || 1);
+        const colorBuffer = new pc.Texture(device, {
+          name: `EditorTintMask_${name}`,
+          width: cw,
+          height: ch,
+          format: pc.PIXELFORMAT_RGBA8,
+          mipmaps: false,
+          minFilter: pc.FILTER_NEAREST,
+          magFilter: pc.FILTER_NEAREST,
+          addressU: pc.ADDRESS_CLAMP_TO_EDGE,
+          addressV: pc.ADDRESS_CLAMP_TO_EDGE,
+        });
+        const rt = new pc.RenderTarget({
+          colorBuffer,
+          depth: false,
+          flipY: device.isWebGPU,
+        });
+        this._multiTintRenderTargets.push(rt);
+
+        const maskCam = new pc.Entity(`EditorTintMaskCam_${name}`);
+        maskCam.addComponent("camera", {
+          clearColor: new pc.Color(0, 0, 0, 0),
+          layers: [layer.id],
+          priority: -1 - i,
+          renderTarget: rt,
+        });
+        this.app.root.addChild(maskCam);
+        this._multiTintMaskCameraEntities.push(maskCam);
+      }
+
+      const TINT_STRENGTH = 0.42;
+      const QUAD_VS =
+        "attribute vec2 aPosition; varying vec2 vUv0; void main() { gl_Position = vec4(aPosition, 0.0, 1.0); vUv0 = (aPosition + 1.0) * 0.5; }";
+      const QUAD_FS =
+        "precision mediump float; varying vec2 vUv0; uniform sampler2D uColorBuffer; uniform sampler2D uMaskR; uniform sampler2D uMaskY; uniform sampler2D uMaskB; uniform sampler2D uMaskG; uniform float uTintStrength; void main() { vec4 color = texture2D(uColorBuffer, vUv0); vec3 outc = color.rgb; vec4 mR = texture2D(uMaskR, vUv0); vec4 mY = texture2D(uMaskY, vUv0); vec4 mB = texture2D(uMaskB, vUv0); vec4 mG = texture2D(uMaskG, vUv0); float sr = max(mR.r, max(mR.g, mR.b)); float sy = max(mY.r, max(mY.g, mY.b)); float sb = max(mB.r, max(mB.g, mB.b)); float sg = max(mG.r, max(mG.g, mG.b)); vec3 TR = vec3(1.0, 0.22, 0.22); vec3 TY = vec3(1.0, 0.88, 0.25); vec3 TB = vec3(0.25, 0.55, 1.0); vec3 TG = vec3(0.2, 0.82, 0.38); float s = uTintStrength; outc = mix(outc, TR, sr * s); outc = mix(outc, TY, sy * s); outc = mix(outc, TB, sb * s); outc = mix(outc, TG, sg * s); gl_FragColor = vec4(outc, color.a); }";
+      const shader = new pc.Shader(device, {
+        attributes: { aPosition: pc.SEMANTIC_POSITION },
+        vshader: QUAD_VS,
+        fshader: QUAD_FS,
+      });
+
+      this._multiTintEffect = {
+        device,
+        /** @type {(pc.Texture|null)[]} */
+        maskTextures: [null, null, null, null],
+        tintStrength: TINT_STRENGTH,
+        shader,
+        render: (inputTarget, outputTarget, rect) => {
+          const eff = this._multiTintEffect;
+          if (!eff?.shader || eff.shader.failed) return;
+          const dm = device._commentHighlightDummyMask;
+          const scope = device.scope;
+          if (scope) {
+            const uColor = scope.resolve("uColorBuffer");
+            const uR = scope.resolve("uMaskR");
+            const uY = scope.resolve("uMaskY");
+            const uB = scope.resolve("uMaskB");
+            const uG = scope.resolve("uMaskG");
+            const uS = scope.resolve("uTintStrength");
+            if (uColor) uColor.setValue(inputTarget?.colorBuffer || null);
+            if (uR) uR.setValue(eff.maskTextures[0] || dm);
+            if (uY) uY.setValue(eff.maskTextures[1] || dm);
+            if (uB) uB.setValue(eff.maskTextures[2] || dm);
+            if (uG) uG.setValue(eff.maskTextures[3] || dm);
+            if (uS) uS.setValue(eff.tintStrength);
+          }
+          device.setBlendState(pc.BlendState.NOBLEND);
+          const w = inputTarget ? inputTarget.width : device.width;
+          const h = inputTarget ? inputTarget.height : device.height;
+          const viewport = rect ? new pc.Vec4(rect.x * w, rect.y * h, rect.z * w, rect.w * h) : null;
+          pc.drawQuadWithShader(device, outputTarget, eff.shader, viewport);
+        },
+      };
+
+      if (!device._commentHighlightDummyMask) {
+        const tex = new pc.Texture(device, {
+          name: "CommentHighlightDummyMask",
+          width: 1,
+          height: 1,
+          format: pc.PIXELFORMAT_RGBA8,
+          mipmaps: false,
+        });
+        const pixels = tex.lock();
+        pixels[0] = 0;
+        pixels[1] = 0;
+        pixels[2] = 0;
+        pixels[3] = 0;
+        tex.unlock();
+        device._commentHighlightDummyMask = tex;
+      }
+
+      for (let i = 0; i < 4; i++) {
+        const rt = this._multiTintRenderTargets[i];
+        this._multiTintEffect.maskTextures[i] =
+          rt?.colorBuffer || device._commentHighlightDummyMask;
+      }
+
+      if (this.cameraEntity.camera.postEffects) {
+        this.cameraEntity.camera.postEffects.addEffect(this._multiTintEffect);
+      }
+      this._commentHighlightUpdateBound = () => this._syncCommentHighlightCamera();
+      this.app.on("update", this._commentHighlightUpdateBound);
+      this.app.on("resize", () => {
+        this._resizeCommentHighlightRT();
+        this._applyHighlightState();
+      });
+      this._multiTintSetupDone = true;
+    } catch (err) {
+      console.warn("[PlayCanvasViewer] Comment highlight setup failed", err);
+    }
+  }
+
+  /** @private */
+  _syncCommentHighlightCamera() {
+    if (!this.cameraEntity || !this._multiTintMaskCameraEntities?.length) return;
+    for (const maskCamEnt of this._multiTintMaskCameraEntities) {
+      if (!maskCamEnt) continue;
+      maskCamEnt.setPosition(this.cameraEntity.getPosition());
+      maskCamEnt.setRotation(this.cameraEntity.getRotation());
+      if (maskCamEnt.camera && this.cameraEntity.camera) {
+        maskCamEnt.camera.projection = this.cameraEntity.camera.projection;
+        maskCamEnt.camera.fov = this.cameraEntity.camera.fov;
+        maskCamEnt.camera.nearClip = this.cameraEntity.camera.nearClip;
+        maskCamEnt.camera.farClip = this.cameraEntity.camera.farClip;
+        maskCamEnt.camera.aspectRatio = this.cameraEntity.camera.aspectRatio;
+        maskCamEnt.camera.aspectRatioMode = this.cameraEntity.camera.aspectRatioMode;
+      }
+    }
+  }
+
+  /** @private */
+  _resizeCommentHighlightRT() {
+    const device = this.app?.graphicsDevice;
+    if (!device || !this._multiTintRenderTargets?.length) return;
+    const w = Math.max(1, device.width);
+    const h = Math.max(1, device.height);
+    const first = this._multiTintRenderTargets[0];
+    if (first && first.width === w && first.height === h) return;
+
+    for (let i = 0; i < this._multiTintRenderTargets.length; i++) {
+      const oldRt = this._multiTintRenderTargets[i];
+      if (oldRt) {
+        const oldCb = oldRt.colorBuffer;
+        oldRt.destroy();
+        if (oldCb) oldCb.destroy();
+      }
+      const colorBuffer = new pc.Texture(device, {
+        name: `EditorTintMask_resize_${i}`,
+        width: w,
+        height: h,
+        format: pc.PIXELFORMAT_RGBA8,
+        mipmaps: false,
+        minFilter: pc.FILTER_NEAREST,
+        magFilter: pc.FILTER_NEAREST,
+        addressU: pc.ADDRESS_CLAMP_TO_EDGE,
+        addressV: pc.ADDRESS_CLAMP_TO_EDGE,
+      });
+      const rt = new pc.RenderTarget({
+        colorBuffer,
+        depth: false,
+        flipY: device.isWebGPU,
+      });
+      this._multiTintRenderTargets[i] = rt;
+      const camEnt = this._multiTintMaskCameraEntities[i];
+      if (camEnt?.camera) {
+        camEnt.camera.renderTarget = rt;
+      }
+      if (this._multiTintEffect?.maskTextures) {
+        this._multiTintEffect.maskTextures[i] = colorBuffer;
+      }
+    }
+  }
+
+  /**
+   * 코멘트 읽기 패널 열림: 노란 하이라이트 (에디터 색지정보다 우선).
+   * @param {pc.Entity[]} entities
+   */
+  beginCommentHighlightRead(entities) {
+    this._commentHighlightReadActive = true;
+    this._commentHighlightReadEntities = Array.isArray(entities) ? entities.filter(Boolean) : [];
+    this._applyHighlightState();
+  }
+
+  /**
+   * 코멘트 읽기 패널 닫음. 에디터 색지정이 켜져 있으면 다시 적용.
+   */
+  endCommentHighlightRead() {
+    this._commentHighlightReadActive = false;
+    this._commentHighlightReadEntities = [];
+    this._applyHighlightState();
+  }
+
+  /**
+   * objectId → gsplat 엔티티 목록 (에디터 색지정·해제 시 마스크 레이어 부착용).
+   * @param {(objectId: string) => (pc.Entity[]|null|undefined)|null} fn
+   */
+  setEditorTintEntityResolver(fn) {
+    this._editorTintEntityResolver = typeof fn === "function" ? fn : null;
+  }
+
+  /**
+   * 에디터에서 오브젝트에 색 덮기. 맵에 저장하며 선택 여부와 관계없이 씬에 유지.
+   * @param {string} objectId - 오브젝트 ID
+   * @param {{r:number,g:number,b:number}|null} rgb - null이면 해제
+   */
+  setEditorObjectTint(objectId, rgb) {
+    if (!objectId) return;
+    if (rgb == null) {
+      this._objectTintMap.delete(objectId);
+    } else {
+      this._objectTintMap.set(objectId, {
+        r: Number(rgb.r),
+        g: Number(rgb.g),
+        b: Number(rgb.b),
+      });
+    }
+    if (!this._commentHighlightReadActive) {
+      this._applyHighlightState();
+    }
+  }
+
+  /**
+   * 오브젝트의 색지정 조회
+   * @param {string} objectId
+   * @returns {{r:number,g:number,b:number}|null}
+   */
+  getEditorObjectTint(objectId) {
+    if (!objectId) return null;
+    return this._objectTintMap.get(objectId) || null;
+  }
+
+  /** 오브젝트 로드/교체 후 마스크 엔티티 재구성 */
+  refreshEditorObjectTint() {
+    if (this._commentHighlightReadActive) return;
+    this._applyHighlightState();
+  }
+
+  /**
+   * 코멘트 읽기(노랑 슬롯) / 에디터 맵의 모든 오브젝트에 마스크 레이어 부착.
+   * @private
+   */
+  _applyHighlightState() {
+    if (!this._multiTintEffect || this._multiTintLayerIds.length < 4) return;
+    const device = this.app?.graphicsDevice;
+
+    this._commentHighlightLayerRestore.forEach(({ entity, prevLayers }) => {
+      const gsplat = entity?.gsplat;
+      if (gsplat && Array.isArray(prevLayers)) gsplat.layers = prevLayers.slice();
+    });
+    this._commentHighlightLayerRestore = [];
+
+    const assignToLayer = (entities, layerId) => {
+      if (layerId == null) return;
+      const list = Array.isArray(entities) ? entities.filter(Boolean) : [];
+      list.forEach((entity) => {
+        const gsplat = entity?.gsplat;
+        if (!gsplat) return;
+        const prev = gsplat.layers ? gsplat.layers.slice() : [];
+        const next = prev.includes(layerId) ? prev : [...prev, layerId];
+        gsplat.layers = next;
+        this._commentHighlightLayerRestore.push({ entity, prevLayers: prev });
+      });
+    };
+
+    if (this._commentHighlightReadActive) {
+      const yellowLayerId = this._multiTintLayerIds[1];
+      assignToLayer(this._commentHighlightReadEntities || [], yellowLayerId);
+    } else {
+      const resolve = this._editorTintEntityResolver;
+      if (resolve) {
+        this._objectTintMap.forEach((tintRgb, objectId) => {
+          const idx = presetIndexForEditorTintRgb(tintRgb);
+          const layerId = this._multiTintLayerIds[idx];
+          const entities = resolve(objectId);
+          assignToLayer(entities || [], layerId);
+        });
+      }
+    }
+
+    const dm = device?._commentHighlightDummyMask;
+    for (let i = 0; i < 4; i++) {
+      const rt = this._multiTintRenderTargets[i];
+      const cb = rt?.colorBuffer;
+      if (this._multiTintEffect.maskTextures) {
+        this._multiTintEffect.maskTextures[i] = cb || dm;
+      }
+    }
   }
 
   /**
@@ -980,6 +1479,7 @@ export class PlayCanvasViewer {
 
   _updateOrbitSmoothing(dt) {
     if (!this._orbitEnabled) return;
+    if (this._cameraTransitionActive) return;
     if (!Number.isFinite(dt) || dt <= 0) return;
     if (!this.cameraEntity) return;
 
@@ -1182,6 +1682,7 @@ export class PlayCanvasViewer {
     if (!pc || !this.app || !this.splatRoot) return null;
 
     const { rotationFixZ180 = true, onProgress, session, signal } = options;
+    const useUnified = options?.unified ?? this._useUnifiedRendering;
     const disableNormalize = !!options?.disableNormalize;
     const skipReorder = options?.skipReorder === true;
     const __dev = (() => {
@@ -1402,7 +1903,7 @@ export class PlayCanvasViewer {
         asset.fire("load", asset);
         const splatEntity = new pc.Entity("GaussianSplat_" + file.name);
         splatEntity._splatId = splatId;
-        splatEntity.addComponent("gsplat", { asset });
+        splatEntity.addComponent("gsplat", { asset, unified: useUnified });
         if (rotationFixZ180) splatEntity.setEulerAngles(0, 0, 180);
         this.splatRoot.addChild(splatEntity);
         session?.trackSplatId?.(splatId);
@@ -1511,6 +2012,7 @@ export class PlayCanvasViewer {
       
       splatEntity.addComponent("gsplat", {
         asset: asset,
+        unified: useUnified,
       });
 
       session?.trackEntity?.(splatEntity);
@@ -1577,6 +2079,7 @@ export class PlayCanvasViewer {
     if (!pc || !this.app || !this.splatRoot) return null;
 
     const { rotationFixZ180 = true, onProgress, session } = options;
+    const useUnified = options?.unified ?? this._useUnifiedRendering;
 
     this._loadingCount = (this._loadingCount || 0) + 1;
     onProgress?.(5, "Creating asset...");
@@ -1608,7 +2111,7 @@ export class PlayCanvasViewer {
         asset.fire("load", asset);
         const splatEntity = new pc.Entity("GaussianSplat");
         splatEntity._splatId = splatId;
-        splatEntity.addComponent("gsplat", { asset });
+        splatEntity.addComponent("gsplat", { asset, unified: useUnified });
         if (rotationFixZ180) splatEntity.setEulerAngles(0, 0, 180);
         this.splatRoot.addChild(splatEntity);
         session?.trackEntity?.(splatEntity);
@@ -1643,7 +2146,7 @@ export class PlayCanvasViewer {
       onProgress?.(80, "Creating entity...");
       const splatEntity = new pc.Entity("GaussianSplat");
       splatEntity._splatId = splatId;
-      splatEntity.addComponent("gsplat", { asset: asset });
+      splatEntity.addComponent("gsplat", { asset: asset, unified: useUnified });
       if (rotationFixZ180) splatEntity.setEulerAngles(0, 0, 180);
       this.splatRoot.addChild(splatEntity);
       session?.trackEntity?.(splatEntity);
@@ -1659,6 +2162,66 @@ export class PlayCanvasViewer {
 
     } catch (err) {
       this._loadingCount = Math.max(0, (this._loadingCount || 1) - 1);
+      onProgress?.(0, "Error: " + (err?.message || err));
+      return null;
+    }
+  }
+
+  /**
+   * STEP / STP / IGES / IGS → 삼각 메시 (OpenCascade WASM, occt-import-js)
+   * @param {File} file
+   * @param {{ append?: boolean, session?: object, onProgress?: (n:number,s?:string)=>void, rotationFixZ180?: boolean }} options
+   * @returns {Promise<{entity: pc.Entity, splatId: string}|null>}
+   */
+  async loadCadMeshFromFile(file, options = {}) {
+    if (!this.initialized) return null;
+    const pc = window.pc;
+    if (!pc || !this.app || !this.splatRoot) return null;
+
+    const append = !!(options?.append || options?.session?.meta?.append);
+    this._loadingCount = this._loadingCount || 0;
+    if (this._loadingCount > 0 && !append) return null;
+    this._loadingCount += 1;
+
+    const { session, onProgress, rotationFixZ180 = true } = options;
+    const cadId = `cad_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+    try {
+      const { importCadFileToEntity } = await import("./cadMeshLoader.js");
+      const entity = await importCadFileToEntity(this.app, file, (pct, msg) => {
+        onProgress?.(pct, msg);
+      });
+
+      if (rotationFixZ180) {
+        entity.setEulerAngles(0, 0, 180);
+      }
+
+      entity._splatId = cadId;
+      this.splatRoot.addChild(entity);
+      session?.trackEntity?.(entity);
+      session?.trackSplatId?.(cadId);
+      this._splatMap.set(cadId, {
+        entity,
+        asset: null,
+        blobUrl: "",
+        fileName: file.name,
+        kind: "cad",
+      });
+      try {
+        entity._onSplatDestroy = () => {
+          try {
+            this._cleanupSplatResources(cadId, { destroyEntity: false });
+          } catch (e) {}
+        };
+        entity.on?.("destroy", entity._onSplatDestroy);
+      } catch (e) {}
+
+      this._loadingCount = Math.max(0, this._loadingCount - 1);
+      onProgress?.(100, "Complete");
+      return { entity, splatId: cadId };
+    } catch (err) {
+      this._loadingCount = Math.max(0, this._loadingCount - 1);
+      console.error("[PlayCanvasViewer] CAD load failed", err);
       onProgress?.(0, "Error: " + (err?.message || err));
       return null;
     }
@@ -1829,6 +2392,7 @@ export class PlayCanvasViewer {
 
     this._updateOrbitTargetMarker();
     this.renderNextFrame = true;
+    if (this.app && typeof this.app.renderNextFrame !== 'undefined') this.app.renderNextFrame = true;
     window.dispatchEvent(new CustomEvent('liamviewer:camerastateapplied'));
     return;
   }
@@ -1883,6 +2447,7 @@ export class PlayCanvasViewer {
     this.cameraEntity.setLocalEulerAngles(pitchDeg, yawDeg, 0);
     
     this.renderNextFrame = true;
+    if (this.app && typeof this.app.renderNextFrame !== 'undefined') this.app.renderNextFrame = true;
   }
   
   /**
@@ -1918,6 +2483,7 @@ export class PlayCanvasViewer {
 
     this._updateOrbitTargetMarker();
     this.renderNextFrame = true;
+    if (this.app && typeof this.app.renderNextFrame !== 'undefined') this.app.renderNextFrame = true;
   }
 
   /**
@@ -2045,6 +2611,9 @@ export class PlayCanvasViewer {
           device.resizeCanvas(pixelWidth, pixelHeight);
         }
       }
+
+      // 코멘트 하이라이트 렌더 타겟도 동기화 (resize() 직접 호출 시에도 적용)
+      this._resizeCommentHighlightRT();
     }
   }
 

@@ -1,4 +1,43 @@
 /* Settings modal switch */
+.settings-modal__camera-block {
+  padding: 0 0 4px;
+}
+
+.settings-modal__camera-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.settings-modal__camera-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.settings-modal__camera-block .gizmo-tooltip__section {
+  margin-bottom: 12px;
+}
+
+.settings-modal__camera-block .gizmo-tooltip__section:last-child {
+  margin-bottom: 0;
+}
+
+.settings-modal__camera-block .gizmo-tooltip__control-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-modal__camera-block .gizmo-tooltip__slider {
+  flex: 1;
+  min-width: 0;
+}
+
 .settings-modal__list {
   display: flex;
   flex-direction: column;

@@ -80,7 +80,6 @@ export class GizmoController {
         this._applyUniformScaleFromGizmo();
       }
       this._syncMultiFileTransform();
-      this._persistSequenceTransform();
       if (this.onTransformChange && this._targetObject) {
         this.onTransformChange(this._targetObject, true);
       }
@@ -114,7 +113,6 @@ export class GizmoController {
         this._resumeRigidbodyAndSyncForTarget();
       }
       this._syncMultiFileTransform();
-      this._persistSequenceTransform();
       if (this.onTransformChange && this._targetObject) {
         this.onTransformChange(this._targetObject);
       }
@@ -206,22 +204,6 @@ export class GizmoController {
     }
   }
 
-  _persistSequenceTransform() {
-    const obj = this._targetObject;
-    if (!obj?.isSequence) return;
-    const primaryEntity = this._getPrimaryEntity(obj);
-    if (!primaryEntity) return;
-
-    const pos = primaryEntity.getLocalPosition();
-    const rot = primaryEntity.getLocalEulerAngles();
-    const scale = primaryEntity.getLocalScale();
-    obj._sequenceTransform = {
-      position: { x: pos.x, y: pos.y, z: pos.z },
-      rotation: { x: rot.x, y: rot.y, z: rot.z },
-      scale: { x: scale.x, y: scale.y, z: scale.z },
-    };
-  }
-
   setMode(mode) {
     this._mode = mode;
     this._updateGizmoVisibility();
@@ -272,11 +254,8 @@ export class GizmoController {
 
   _getPrimaryEntity(obj) {
     if (!obj) return null;
-    if (obj.isSequence) {
-      return obj.entity || null;
-    }
     if (obj.isMultiFile && obj.files?.length > 0) {
-      return obj.files[0].entity;
+      return obj.files[0].entity || obj.entity || null;
     }
     return obj.entity;
   }

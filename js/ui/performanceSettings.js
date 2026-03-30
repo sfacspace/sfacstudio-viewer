@@ -28,14 +28,6 @@ const PRESETS = {
 const DEFAULTS = {
   preset: 'quality',
   ...PRESETS.quality,
-  seqCacheLimit: '3',
-  seqPrefetchDepth: '1',
-  seqPrefetchDirMode: 'auto',
-  seqScrubbing: true,
-  seqScrubWindow: '200',
-  seqScrubDelta: '2',
-  seqPrefetchConcurrency: '1',
-  seqMemoryPressure: 'auto'
 };
 
 export class PerformanceSettings {
@@ -50,14 +42,6 @@ export class PerformanceSettings {
       aabbSampling: null,
       aabbSamples: null,
       aabbSamplesRow: null,
-      seqCacheLimit: null,
-      seqPrefetchDepth: null,
-      seqPrefetchDirMode: null,
-      seqScrubbing: null,
-      seqScrubWindow: null,
-      seqScrubDelta: null,
-      seqPrefetchConcurrency: null,
-      seqMemoryPressure: null,
       resetBtn: null
     };
     this._cameraUpdatePending = false;
@@ -65,19 +49,6 @@ export class PerformanceSettings {
     this._cameraThrottleInterval = null;
     this._overlayUpdatePending = false;
     this._lastOverlayUpdateTime = 0;
-  }
-
-  getSequencePrefetchConfig() {
-    return {
-      cacheLimit: parseInt(this.settings.seqCacheLimit, 10) || 3,
-      prefetchDepth: parseInt(this.settings.seqPrefetchDepth, 10) || 0,
-      prefetchDirectionMode: this.settings.seqPrefetchDirMode || 'auto',
-      scrubbing: !!this.settings.seqScrubbing,
-      scrubbingThresholdMs: parseInt(this.settings.seqScrubWindow, 10) || 200,
-      scrubbingDeltaIndex: parseInt(this.settings.seqScrubDelta, 10) || 2,
-      prefetchConcurrency: parseInt(this.settings.seqPrefetchConcurrency, 10) || 1,
-      memoryPressureMode: this.settings.seqMemoryPressure || 'auto',
-    };
   }
 
   init() {
@@ -88,14 +59,6 @@ export class PerformanceSettings {
     this.elements.aabbSampling = document.getElementById('settingsAabbSampling');
     this.elements.aabbSamples = document.getElementById('settingsAabbSamples');
     this.elements.aabbSamplesRow = document.getElementById('settingsAabbSamplesRow');
-    this.elements.seqCacheLimit = document.getElementById('settingsSeqCacheLimit');
-    this.elements.seqPrefetchDepth = document.getElementById('settingsSeqPrefetchDepth');
-    this.elements.seqPrefetchDirMode = document.getElementById('settingsSeqPrefetchDirMode');
-    this.elements.seqScrubbing = document.getElementById('settingsSeqScrubbing');
-    this.elements.seqScrubWindow = document.getElementById('settingsSeqScrubWindow');
-    this.elements.seqScrubDelta = document.getElementById('settingsSeqScrubDelta');
-    this.elements.seqPrefetchConcurrency = document.getElementById('settingsSeqPrefetchConcurrency');
-    this.elements.seqMemoryPressure = document.getElementById('settingsSeqMemoryPressure');
     this.elements.resetBtn = document.getElementById('settingsPerfReset');
     this._loadFromStorage();
     this._syncUIFromSettings();
@@ -142,45 +105,6 @@ export class PerformanceSettings {
       this._saveToStorage();
     });
 
-    this.elements.seqCacheLimit?.addEventListener('change', (e) => {
-      this.settings.seqCacheLimit = e.target.value;
-      this._saveToStorage();
-    });
-
-    this.elements.seqPrefetchDepth?.addEventListener('change', (e) => {
-      this.settings.seqPrefetchDepth = e.target.value;
-      this._saveToStorage();
-    });
-
-    this.elements.seqPrefetchDirMode?.addEventListener('change', (e) => {
-      this.settings.seqPrefetchDirMode = e.target.value;
-      this._saveToStorage();
-    });
-
-    this.elements.seqScrubbing?.addEventListener('change', (e) => {
-      this.settings.seqScrubbing = !!e.target.checked;
-      this._saveToStorage();
-    });
-
-    this.elements.seqScrubWindow?.addEventListener('change', (e) => {
-      this.settings.seqScrubWindow = e.target.value;
-      this._saveToStorage();
-    });
-
-    this.elements.seqScrubDelta?.addEventListener('change', (e) => {
-      this.settings.seqScrubDelta = e.target.value;
-      this._saveToStorage();
-    });
-
-    this.elements.seqPrefetchConcurrency?.addEventListener('change', (e) => {
-      this.settings.seqPrefetchConcurrency = e.target.value;
-      this._saveToStorage();
-    });
-
-    this.elements.seqMemoryPressure?.addEventListener('change', (e) => {
-      this.settings.seqMemoryPressure = e.target.value;
-      this._saveToStorage();
-    });
     this.elements.resetBtn?.addEventListener('click', () => {
       this.reset();
     });
@@ -245,30 +169,6 @@ export class PerformanceSettings {
       this.elements.aabbSamples.value = this.settings.aabbSamples;
     }
 
-    if (this.elements.seqCacheLimit) {
-      this.elements.seqCacheLimit.value = this.settings.seqCacheLimit;
-    }
-    if (this.elements.seqPrefetchDepth) {
-      this.elements.seqPrefetchDepth.value = this.settings.seqPrefetchDepth;
-    }
-    if (this.elements.seqPrefetchDirMode) {
-      this.elements.seqPrefetchDirMode.value = this.settings.seqPrefetchDirMode;
-    }
-    if (this.elements.seqScrubbing) {
-      this.elements.seqScrubbing.checked = !!this.settings.seqScrubbing;
-    }
-    if (this.elements.seqScrubWindow) {
-      this.elements.seqScrubWindow.value = this.settings.seqScrubWindow;
-    }
-    if (this.elements.seqScrubDelta) {
-      this.elements.seqScrubDelta.value = this.settings.seqScrubDelta;
-    }
-    if (this.elements.seqPrefetchConcurrency) {
-      this.elements.seqPrefetchConcurrency.value = this.settings.seqPrefetchConcurrency;
-    }
-    if (this.elements.seqMemoryPressure) {
-      this.elements.seqMemoryPressure.value = this.settings.seqMemoryPressure;
-    }
     if (this.elements.aabbSamplesRow) {
       this.elements.aabbSamplesRow.style.display = this.settings.aabbSampling ? 'flex' : 'none';
     }
@@ -435,7 +335,13 @@ export class PerformanceSettings {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        this.settings = { ...DEFAULTS, ...parsed };
+        const next = { ...DEFAULTS };
+        for (const k of Object.keys(next)) {
+          if (Object.prototype.hasOwnProperty.call(parsed, k)) {
+            next[k] = parsed[k];
+          }
+        }
+        this.settings = next;
       }
     } catch (err) {
       this.settings = { ...DEFAULTS };

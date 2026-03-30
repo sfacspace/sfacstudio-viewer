@@ -1,33 +1,360 @@
 /* Layout and global (dark + gold theme) */
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
+:root {
+  --header-height: 62px;
+  /* 패널·캔버스 상단 (뷰 도구 스트립은 오버레이만, 레이아웃에 포함 안 함) */
+  --app-chrome-top: var(--header-height);
+  --objects-panel-width: 288px;
+  /* 오른쪽 아이콘 열: border(2) + 패딩(8+8) + 버튼(44) = 62px, 리사이즈 없음 */
+  --right-tools-strip-width: 62px;
+}
+
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: 100%;
+  height: 100%;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .app-shell {
   position: relative;
-  min-height: 100vh;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
   overflow: hidden;
 }
 
+/* 왼쪽 전체 높이 오브젝트 목록 */
+.objects-panel {
+  position: fixed;
+  top: var(--app-chrome-top);
+  left: 0;
+  width: var(--objects-panel-width);
+  bottom: 0;
+  z-index: 90;
+  box-sizing: border-box;
+  background: rgba(18, 18, 18, 0.92);
+  backdrop-filter: blur(10px);
+  border-right: 2px solid rgb(var(--color-accent-rgb));
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+}
+
+/* 우측 세로 구분선 드래그로 패널 너비 조절 */
+.objects-panel__resize-handle {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  width: 8px;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  cursor: col-resize;
+  z-index: 96;
+  flex-shrink: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.objects-panel__resize-handle:hover,
+.objects-panel__resize-handle:focus-visible {
+  background: rgba(var(--color-accent-rgb), 0.2);
+}
+
+.objects-panel__resize-handle:focus {
+  outline: none;
+}
+
+.objects-panel__resize-handle:focus-visible {
+  box-shadow: inset 0 0 0 1px rgb(var(--color-accent-rgb));
+}
+
+/* 오른쪽 패널: 리사이즈 핸들이 왼쪽 가장자리 */
+.objects-panel__resize-handle--left {
+  left: -4px;
+  right: auto;
+}
+
+body.is-resizing-objects-panel {
+  cursor: col-resize !important;
+  user-select: none;
+}
+
+.right-tools-panel.is-hidden,
+.objects-panel.is-hidden {
+  display: none !important;
+}
+
+/* 오른쪽 도구 패널: 아이콘 열 고정 너비, 리사이즈 없음 */
+.right-tools-panel {
+  position: fixed;
+  top: var(--app-chrome-top);
+  right: 0;
+  bottom: 0;
+  width: var(--right-tools-strip-width);
+  z-index: 90;
+  box-sizing: border-box;
+  background: rgba(18, 18, 18, 0.92);
+  backdrop-filter: blur(10px);
+  border-left: 2px solid rgb(var(--color-accent-rgb));
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+}
+
+.right-tools-panel__inner {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 14px 0 12px;
+  box-sizing: border-box;
+  overflow-x: visible;
+  overflow-y: auto;
+}
+
+.objects-panel__inner {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  box-sizing: border-box;
+  gap: 0;
+}
+
+.objects-panel__hierarchy {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 8px 8px;
+  box-sizing: border-box;
+}
+
+/* 파일·뷰 도구: 계층 패널 하단 */
+.objects-panel__bottom-tools {
+  flex-shrink: 0;
+  border-top: 2px solid rgb(var(--color-accent-rgb));
+  padding: 4px 6px 6px;
+  box-sizing: border-box;
+  background: rgba(14, 16, 22, 0.96);
+  pointer-events: auto;
+  overflow-x: visible;
+}
+
+.objects-panel__bottom-tools-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.objects-panel__view-tools-inner {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  flex-wrap: nowrap;
+  padding: 3px 4px;
+  box-sizing: border-box;
+  overflow-x: visible;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.28);
+  border-radius: 8px;
+  width: 100%;
+  min-height: 28px;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.objects-panel__view-tools-inner > .camera-mode-switch,
+.objects-panel__view-tools-inner > button {
+  flex-shrink: 0;
+}
+
+.objects-panel__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  min-height: 22px;
+}
+
+.objects-panel__section-head .objects-panel__section-heading {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  line-height: 1;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.objects-panel__section-heading {
+  margin: 0 0 8px;
+  padding: 0 2px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.objects-panel__section-head-actions {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.objects-panel__hierarchy-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text-primary);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.objects-panel__hierarchy-add-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.objects-panel__add-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  min-width: 168px;
+  padding: 4px 0;
+  margin: 0;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 6px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  z-index: 220;
+  box-sizing: border-box;
+}
+
+.objects-panel__add-menu[hidden] {
+  display: none !important;
+}
+
+.objects-panel__add-menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.objects-panel__add-menu-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Hierarchy / Inspector 제목 아래 회색 구분선 */
+.objects-panel__section-rule--gray {
+  flex-shrink: 0;
+  width: 100%;
+  height: 0;
+  margin: 0 0 8px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  box-sizing: border-box;
+}
+
+.objects-panel__list-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.objects-panel__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 오른쪽 패널 내 섹션 구분 */
+.objects-panel__inspector-rule {
+  flex-shrink: 0;
+  width: 100%;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-top: 2px solid rgb(var(--color-accent-rgb));
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+/* 3D 월드: 헤더 아래 가로 전체(왼쪽 패널 뒤까지 렌더, 패널은 z-index로 오버레이) */
 .pc-render-container {
   position: fixed;
-  top: 62px;
+  top: var(--app-chrome-top);
   left: 0;
   right: 0;
   bottom: 0;
   background: var(--color-bg-primary);
   overflow: hidden;
   z-index: 0;
+  display: flex;
+  flex-direction: column;
 }
 
+/* 코멘트 오버레이 등 형제 노드가 있어도 캔버스가 영역을 꽉 채우고 하단 빈 줄이 생기지 않게 */
 .pc-render-container canvas {
   display: block;
+  flex: 1 1 auto;
   width: 100%;
-  height: 100%;
+  min-height: 0;
+  height: 0;
 }

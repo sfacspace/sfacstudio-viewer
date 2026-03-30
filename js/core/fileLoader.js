@@ -1,5 +1,5 @@
 /**
- * FileLoader – loads .ply (3DGS) and .glb files into PlayCanvas viewer.
+ * FileLoader – loads .ply (3DGS) 및 CAD (.step .stp .iges .igs) into PlayCanvas viewer.
  * Cleans previous assets on new load; updates loading UI.
  */
 
@@ -47,14 +47,22 @@ export class FileLoader {
     this._loadSessionManager?.endLoadSession?.(session?.id);
   }
 
+  /** @returns {'ply'|'cad'|null} */
+  _fileKind(filename) {
+    if (!filename) return null;
+    const ext = filename.split(".").pop()?.toLowerCase();
+    if (ext === "ply") return "ply";
+    if (ext === "step" || ext === "stp" || ext === "iges" || ext === "igs") return "cad";
+    return null;
+  }
+
   validateFileExtension(filename) {
     if (!filename) return false;
-    const ext = filename.split(".").pop()?.toLowerCase();
-    if (ext !== "ply") {
-      this.showError("지원하지 않는 파일 형식입니다. .ply 파일만 지원합니다.");
-      return false;
-    }
-    return true;
+    if (this._fileKind(filename)) return true;
+    this.showError(
+      "지원하지 않는 파일 형식입니다. .ply, .step, .stp, .iges, .igs 파일만 지원합니다."
+    );
+    return false;
   }
 
   getLastLoadResult() {
@@ -101,21 +109,36 @@ export class FileLoader {
         this.setLoadingProgress(0);
       }
 
+      const kind = this._fileKind(file.name);
       const disableNormalize = options?.disableNormalize !== undefined
         ? !!options.disableNormalize
         : (typeof file?.size === 'number' && file.size > 128 * 1024 * 1024);
-      const splatEntity = await this.viewer.loadSplatFromFile(file, {
-        rotationFixZ180,
-        session: loadSession,
-        disableNormalize,
-        onProgress: (percent, status) => {
-          if (silent) return;
-          this.setLoadingProgress(percent);
-          if (status) this.setLoadingText(status);
-        },
-      });
 
-      if (splatEntity) {
+      let loaded = null;
+      if (kind === "ply") {
+        loaded = await this.viewer.loadSplatFromFile(file, {
+          rotationFixZ180,
+          session: loadSession,
+          disableNormalize,
+          onProgress: (percent, status) => {
+            if (silent) return;
+            this.setLoadingProgress(percent);
+            if (status) this.setLoadingText(status);
+          },
+        });
+      } else if (kind === "cad") {
+        loaded = await this.viewer.loadCadMeshFromFile(file, {
+          rotationFixZ180,
+          session: loadSession,
+          onProgress: (percent, status) => {
+            if (silent) return;
+            this.setLoadingProgress(percent);
+            if (status) this.setLoadingText(status);
+          },
+        });
+      }
+
+      if (loaded?.entity) {
         this._state = "loaded";
         if (!silent) {
           this.setLoadingText(`Loaded: ${file.name}`);
@@ -125,7 +148,7 @@ export class FileLoader {
         this._endLoadSession(loadSession);
         return true;
       }
-      throw new Error("Splat entity creation failed");
+      throw new Error("3D 오브젝트 생성에 실패했습니다.");
     } catch (err) {
       console.error("[FileLoader.loadFile] Load failed:", err);
       this._state = "error";
@@ -151,19 +174,18 @@ export class FileLoader {
       return { success: false, results: [] };
     }
 
-    const plyFiles = Array.from(files).filter(f => {
-      const ext = f.name.split(".").pop()?.toLowerCase();
-      return ext === "ply";
-    });
-    if (plyFiles.length === 0) {
-      this.showError("지원하지 않는 파일 형식입니다. .ply 파일만 지원합니다.");
+    const loadable = Array.from(files).filter((f) => this._fileKind(f.name));
+    if (loadable.length === 0) {
+      this.showError(
+        "지원하지 않는 파일 형식입니다. .ply, .step, .stp, .iges, .igs 파일만 지원합니다."
+      );
       return { success: false, results: [] };
     }
 
     const requestedAppend = options?.append;
     const hasExistingSplat = !!this.viewer?.getSplatEntity?.();
     const append = requestedAppend === undefined ? hasExistingSplat : !!requestedAppend;
-    const meta = options?.sessionMeta || { source: 'local_files', fileCount: plyFiles.length, append };
+    const meta = options?.sessionMeta || { source: 'local_files', fileCount: loadable.length, append };
     if (meta && typeof meta === 'object') meta.append = append;
 
     const session = options?.session || this._beginLoadSession(meta);
@@ -172,10 +194,10 @@ export class FileLoader {
 
     const results = [];
     let successCount = 0;
-    const totalFiles = plyFiles.length;
+    const totalFiles = loadable.length;
 
     for (let i = 0; i < totalFiles; i++) {
-      const file = plyFiles[i];
+      const file = loadable[i];
       if (totalFiles > 1) {
         const result = await this._loadFileSingleBatch(file, optionsWithSession, i, totalFiles);
         if (result) {
@@ -197,21 +219,31 @@ export class FileLoader {
 
   async _loadFileSingleBatch(file, options, currentIndex, totalFiles) {
     if (!file) return null;
-    if (!this.validateFileExtension(file.name)) return null;
+    if (!this._fileKind(file.name)) return null;
     if (!this.viewer || !this.viewer.initialized) return null;
 
     const { rotationFixZ180 = true, session } = options;
     const skipReorder = options?.skipReorder === true;
+    const kind = this._fileKind(file.name);
 
     try {
-      const disableNormalize = options?.disableNormalize !== undefined ? !!options.disableNormalize : true;
-      const result = await this.viewer.loadSplatFromFile(file, {
-        rotationFixZ180,
-        session,
-        disableNormalize,
-        skipReorder,
-        onProgress: () => {},
-      });
+      let result = null;
+      if (kind === "ply") {
+        const disableNormalize = options?.disableNormalize !== undefined ? !!options.disableNormalize : true;
+        result = await this.viewer.loadSplatFromFile(file, {
+          rotationFixZ180,
+          session,
+          disableNormalize,
+          skipReorder,
+          onProgress: () => {},
+        });
+      } else {
+        result = await this.viewer.loadCadMeshFromFile(file, {
+          rotationFixZ180,
+          session,
+          onProgress: () => {},
+        });
+      }
 
       if (result && result.entity) {
         const ext = file.name.split(".").pop()?.toLowerCase() || "ply";
@@ -260,6 +292,7 @@ export class FileLoader {
     const signal = options?.signal;
     const allowConcurrent = !!options?.allowConcurrent;
     const skipReorder = options?.skipReorder === true;
+    const kind = this._fileKind(file.name);
 
     const waitForViewerIdle = async () => {
       const start = Date.now();
@@ -302,24 +335,38 @@ export class FileLoader {
       const disableNormalize = options?.disableNormalize !== undefined
         ? !!options.disableNormalize
         : (typeof file?.size === 'number' && file.size > 128 * 1024 * 1024);
-      const result = await this.viewer.loadSplatFromFile(file, {
-        rotationFixZ180,
-        session,
-        disableNormalize,
-        skipReorder,
-        signal,
-        onProgress: (percent, status) => {
-          if (silent) return;
-          this.setLoadingProgress(percent);
-          if (status) {
-            let s = status;
-            if (s === 'Loading...') s = t('loading.default');
-            else if (s === 'Processing...') s = t('loading.processing');
-            else if (s === 'Loading GSplat asset...') s = t('loading.loadingGsset');
-            this.setLoadingText(file.name + ': ' + s);
-          }
-        },
-      });
+
+      let result = null;
+      if (kind === "ply") {
+        result = await this.viewer.loadSplatFromFile(file, {
+          rotationFixZ180,
+          session,
+          disableNormalize,
+          skipReorder,
+          signal,
+          onProgress: (percent, status) => {
+            if (silent) return;
+            this.setLoadingProgress(percent);
+            if (status) {
+              let s = status;
+              if (s === 'Loading...') s = t('loading.default');
+              else if (s === 'Processing...') s = t('loading.processing');
+              else if (s === 'Loading GSplat asset...') s = t('loading.loadingGsset');
+              this.setLoadingText(file.name + ': ' + s);
+            }
+          },
+        });
+      } else if (kind === "cad") {
+        result = await this.viewer.loadCadMeshFromFile(file, {
+          rotationFixZ180,
+          session,
+          onProgress: (percent, status) => {
+            if (silent) return;
+            this.setLoadingProgress(percent);
+            if (status) this.setLoadingText(file.name + ': ' + status);
+          },
+        });
+      }
 
       if (result && result.entity) {
         this._state = "loaded";
@@ -340,7 +387,7 @@ export class FileLoader {
       }
 
       if (signal?.aborted || this.viewer?.isLoading?.()) return null;
-      throw new Error("Splat entity creation failed");
+      throw new Error("3D 오브젝트 생성에 실패했습니다.");
     } catch (err) {
       if (err?.name === 'AbortError' || signal?.aborted) {
         this._state = "idle";

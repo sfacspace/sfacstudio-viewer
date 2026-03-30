@@ -613,6 +613,15 @@ function createSingleSplat(gsplatData, propNames, opts) {
         data.scale_2 += Math.log(worldScale.z);
       }
 
+    }
+    // 선택 중심을 원점으로: PLY에 쓸 때 중심이 (0,0,0)이 되도록 이동 (worldMat4 유무와 무관)
+    if (opts.translateToOrigin && hasPos) {
+      data.x -= opts.translateToOrigin.x;
+      data.y -= opts.translateToOrigin.y;
+      data.z -= opts.translateToOrigin.z;
+    }
+
+    if (opts.worldMat4) {
       // 4. [v7] SH coefficient rotation (f_rest channel-major; band1: 3, band2: 5, band3: 7 coeffs)
       if (shRotMats && cpc > 0) {
         for (let ch = 0; ch < 3; ch++) {
@@ -788,10 +797,73 @@ export async function saveBlobWithDialog(blob, suggestedName, mime, fileHandlePr
   URL.revokeObjectURL(url);
 }
 
+/** Unified/Non-unified 공통: entity에서 GSplat 리소스 획득 (selectionTool._getGsplatResource와 동일 경로). */
+export function getGsplatResourceFromEntity(entity, selectionTool) {
+  if (selectionTool && typeof selectionTool._getGsplatResource === 'function') {
+    return selectionTool._getGsplatResource(entity) ?? null;
+  }
+  const c = entity?.gsplat;
+  return c?.instance?.resource ?? c?.asset?.resource ?? c?._placement?.resource ?? null;
+}
+
+/**
+ * 선택된 점들(노란 점, lastSelectedIndices)만의 무게중심(평균 위치)을 월드 좌표로 반환.
+ * 선택 도구가 가리키는 엔티티만 사용하며, 그 엔티티의 선택된 점들만으로 중심을 계산. (다른 엔티티·나머지 점은 사용하지 않음)
+ * @param {import('../core/viewer.js').PlayCanvasViewer|null} viewer
+ * @param {Object} selectionTool - lastSelectedIndices, getGsplatEntityFromSelection, _getGsplatResource
+ * @returns {{ x: number, y: number, z: number } | null}
+ */
+export function getSelectedPointsCenter(viewer, selectionTool) {
+  const selectedIndices = selectionTool?.lastSelectedIndices;
+  if (!selectedIndices?.length) return null;
+
+  const entity = selectionTool?.getGsplatEntityFromSelection?.();
+  if (!entity?.gsplat) return null;
+
+  const resource = getGsplatResourceFromEntity(entity, selectionTool);
+  const gsplatData = resource?.gsplatData;
+  if (!gsplatData?.elements?.length) return null;
+
+  const getProp =
+    typeof gsplatData.getProp === 'function'
+      ? (name) => gsplatData.getProp(name)
+      : (name) => {
+          const el = gsplatData?.elements?.find((e) => e.name === 'vertex') || gsplatData?.elements?.[0];
+          return el?.properties?.find((pr) => pr.name === name)?.storage ?? null;
+        };
+  const xArr = getProp('x');
+  const yArr = getProp('y');
+  const zArr = getProp('z');
+  if (!xArr || !yArr || !zArr) return null;
+
+  let worldMat4 = null;
+  if (typeof entity.getWorldTransform === 'function') {
+    const world = entity.getWorldTransform();
+    worldMat4 = extractUserTransform(world, false) || getDataFromMat4(world);
+  }
+  const d = worldMat4 && (worldMat4.data ?? worldMat4);
+  const hasTransform = d && d.length >= 16;
+
+  let sx = 0, sy = 0, sz = 0;
+  const n = selectedIndices.length;
+  for (let k = 0; k < n; k++) {
+    const i = selectedIndices[k];
+    let x = xArr[i] ?? 0, y = yArr[i] ?? 0, z = zArr[i] ?? 0;
+    if (hasTransform) {
+      const tx = d[0]*x + d[4]*y + d[8]*z + d[12];
+      const ty = d[1]*x + d[5]*y + d[9]*z + d[13];
+      const tz = d[2]*x + d[6]*y + d[10]*z + d[14];
+      x = tx; y = ty; z = tz;
+    }
+    sx += x; sy += y; sz += z;
+  }
+  if (n === 0) return null;
+  return { x: sx / n, y: sy / n, z: sz / n };
+}
+
 /** Build PLY bytes for entity; optional bakeWorldTransform (strip Rz180, apply user transform + SH). */
 function buildPlyForEntity(selectionTool, entity, _fileName, options = {}) {
-  const instance = entity?.gsplat?.instance;
-  const resource = instance?.resource;
+  const resource = getGsplatResourceFromEntity(entity, selectionTool);
   const gsplatData = resource?.gsplatData;
   if (!gsplatData?.elements?.length) return null;
 
@@ -818,6 +890,39 @@ function buildPlyForEntity(selectionTool, entity, _fileName, options = {}) {
   return writePlyBinary(gsplatData, keepMask, opts);
 }
 
+/**
+ * 선택된 점(노란 점)만 포함한 PLY 바이트 생성. 객체 만들기용.
+ * @param {import('../core/viewer.js').PlayCanvasViewer|null} viewer
+ * @param {Object} selectionTool - lastSelectedIndices, getGsplatEntityFromSelection, _getGsplatResource
+ * @param {Object} [options] - bakeWorldTransform 등
+ * @returns {Uint8Array|null}
+ */
+export function buildPlyBytesForSelectedPointsOnly(viewer, selectionTool, options = {}) {
+  const v = viewer ?? window.__viewer;
+  const entity = v?.getSelectedObject?.()?.entity ?? selectionTool?.getGsplatEntityFromSelection?.();
+  if (!entity?.gsplat) return null;
+
+  const selectedIndices = selectionTool?.lastSelectedIndices;
+  if (!selectedIndices?.length) return null;
+
+  const resource = getGsplatResourceFromEntity(entity, selectionTool);
+  const gsplatData = resource?.gsplatData;
+  if (!gsplatData?.elements?.length) return null;
+
+  const selectedSet = new Set(selectedIndices);
+  const keepMask = (i) => selectedSet.has(i);
+  const opts = { ...DEFAULT_OPTIONS, ...options };
+
+  if (opts.bakeWorldTransform !== false && typeof entity.getWorldTransform === 'function') {
+    const world = entity.getWorldTransform();
+    const userTransform = extractUserTransform(world, opts.debug);
+    if (userTransform) opts.worldMat4 = userTransform;
+  }
+  // opts.translateToOrigin이 있으면 PLY 내 위치가 해당 점을 원점으로 하여 기록됨 (객체 만들기 시 선택 중심)
+  const bytes = writePlyBinary(gsplatData, keepMask, opts);
+  return bytes ? (bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)) : null;
+}
+
 export function getExportOptionsFromWorldMat4(worldMat4, options = {}) {
   const base = { ...DEFAULT_OPTIONS };
   if (!worldMat4) return base;
@@ -842,6 +947,12 @@ function createZipWriteCallback(writable) {
   return { ondata, zipDone };
 }
 
+/**
+ * 선택된 오브젝트(단일/멀티/시퀀스) 기준으로 지움 반영 PLY 내보내기.
+ * @param {import('../core/viewer.js').PlayCanvasViewer|null} [viewer] - 없으면 window.__viewer 사용
+ * @param {Object} selectionTool - SelectionTool (getResource, erase 등)
+ * @param {Object} [options] - getExportOptionsFromWorldMat4 등 PLY 옵션
+ */
 export async function exportFilteredPlyForSelectedObject(viewer, selectionTool, options = {}) {
   const opts = { ...DEFAULT_OPTIONS, ...options };
   const v = viewer ?? window.__viewer;
@@ -852,53 +963,9 @@ export async function exportFilteredPlyForSelectedObject(viewer, selectionTool, 
   }
 
   const base = getExportBaseName(selectedObject.name || selectedObject.id);
-  const isSequence = !!(selectedObject.isSequence && Array.isArray(selectedObject.files) && selectedObject.files.length > 0);
   const isMulti = !!(selectedObject.isMultiFile && Array.isArray(selectedObject.files) && selectedObject.files.length > 0);
 
   try {
-    // Sequence
-    if (isSequence) {
-      const totalCount = selectedObject.files.length;
-      const timeline = window.__timeline;
-      if (!timeline?.onSequenceFrameChange) { alert('시퀀스 내보내기에 타임라인이 필요합니다.'); return; }
-
-      const suggestedName = `with_${base}.zip`;
-      let fileHandle = null;
-      if (typeof window.showSaveFilePicker === 'function') {
-        try { fileHandle = await window.showSaveFilePicker({ suggestedName, types: [{ description: 'ZIP', accept: { 'application/zip': ['.zip'] } }] }); }
-        catch (e) { if (e?.name === 'AbortError') return; }
-      }
-      if (!fileHandle) { alert('저장할 위치를 선택해 주세요.'); return; }
-
-      let writable;
-      try { writable = await fileHandle.createWritable({ keepExistingData: false }); }
-      catch (e) { if (e?.name === 'AbortError') return; alert('파일을 쓸 수 없습니다.'); return; }
-
-      let cancel = false;
-      window.__showGlobalLoadingOverlay?.(t('loading.exportingPlySequence'), 0, { showCancel: true, onCancel: () => { cancel = true; } });
-
-      const { ondata: zipOnData, zipDone } = createZipWriteCallback(writable);
-      const zip = new Zip(zipOnData);
-      let written = 0;
-
-      for (let i = 0; i < totalCount; i++) {
-        if (cancel) break;
-        window.__showGlobalLoadingOverlay?.(t('loading.exportingPlySequence'), Math.round((i/totalCount)*100), { showCancel: true, onCancel: () => { cancel = true; } });
-        await timeline.onSequenceFrameChange(selectedObject, i);
-        const entity = selectedObject?.entity;
-        if (!entity?.gsplat) continue;
-        const bytes = buildPlyForEntity(selectionTool, entity, selectedObject.files[i]?.fileName, opts);
-        if (!bytes) continue;
-        const entryBase = getExportBaseName(selectedObject.files[i]?.fileName || `frame_${String(i+1).padStart(6,'0')}`);
-        const entryName = `${entryBase}.ply`;
-        const pt = new ZipPassThrough(entryName);
-        zip.add(pt); pt.push(bytes, true); written++;
-      }
-      if (cancel) { try { await writable.abort?.(); } catch(_){} return; }
-      if (written === 0) { try { await writable.close(); } catch(_){} return; }
-      zip.end(); await zipDone; return;
-    }
-
     // Multi
     if (isMulti) {
       const suggestedName = `with_${base}.zip`;
@@ -954,8 +1021,8 @@ export async function exportFilteredPlyForSelectedObject(viewer, selectionTool, 
     if (!bytes) { alert('PLY 데이터를 생성할 수 없습니다.'); return; }
 
     if (opts.debug) {
-      const gd = entity.gsplat.instance.resource.gsplatData;
-      comparePlyWithSource(gd, bytes, [0, 1, 2]);
+      const res = getGsplatResourceFromEntity(entity, selectionTool);
+      if (res?.gsplatData) comparePlyWithSource(res.gsplatData, bytes, [0, 1, 2]);
     }
 
     window.__showGlobalLoadingOverlay?.(t('loading.exportingPly'), 100);

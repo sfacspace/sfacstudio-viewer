@@ -6,6 +6,7 @@ import { TooltipManager } from './tooltip.js';
 import { TicksRenderer } from './ticks.js';
 import { PinManager } from './pin.js';
 import { ObjectsManager } from './objects.js';
+import { syncSceneHierarchy } from './objectHierarchy.js';
 import { KeyframesManager } from './keyframes.js';
 import { PlaybackController } from './playback.js';
 
@@ -29,7 +30,6 @@ export class TimelineController {
     // DOM cache
     this._ticksEl = null;
     this._objectsListEl = null;
-    this._rightListEl = null;
     this._cameraLineRightEl = null;
 
     this._frameGridTopEl = null;
@@ -67,6 +67,8 @@ export class TimelineController {
     this.onObjectSelect = null;
     /** @type {Function|null} - delete request (objectId, objectName) */
     this.onDeleteRequest = null;
+    /** @type {Function|null} - duplicate request (objectId) */
+    this.onDuplicateRequest = null;
   }
 
   _ensureFrameGridEls() {
@@ -78,14 +80,7 @@ export class TimelineController {
       this._frameGridTopEl = el;
     }
 
-    if (this._rightListEl) {
-      try {
-        const prev = this._rightListEl.querySelector?.('.timeline__frame-grid--right');
-        prev?.remove?.();
-      } catch (e) {
-      }
-      this._frameGridRightEl = null;
-    }
+    this._frameGridRightEl = null;
   }
 
   _updateFrameGridStyle() {
@@ -115,7 +110,6 @@ export class TimelineController {
     // DOM cache
     this._ticksEl = document.getElementById("timelineTicks");
     this._objectsListEl = document.getElementById("timelineSpacerObjectsList");
-    this._rightListEl = document.getElementById("timelineSpacerRightList");
     this._cameraLineRightEl = document.querySelector(".timeline-camera-line__right");
 
     // Tooltip init
@@ -150,8 +144,7 @@ export class TimelineController {
           // CRITICAL: Commit scrub to trigger final frame load after debounce
           // This ensures we load the final frame after scrubbing ends, not during
           this._objects.commitScrub?.();
-          // Force a final visibility update at the stop position so expensive
-          // operations (e.g. sequence frame load) are retriggered.
+          // Force a final visibility update at the stop position.
           this._objects.updateVisibilityByTime(t);
           this.onTimeUpdate?.(t);
         } catch (e) {
@@ -169,19 +162,50 @@ export class TimelineController {
     // Objects manager init
     this._objects = new ObjectsManager({
       objectsListEl: this._objectsListEl,
-      rightListEl: this._rightListEl,
       getMaxSeconds: () => this.getMaxSeconds(),
       getCurrentTime: () => this._playback?.currentTime ?? 0,
       getFps: () => this.fps,
       getTotalFrames: () => this.totalFrames,
       showTooltip: (s, x, y) => this._tooltip.show(s, x, y),
       hideTooltip: () => this._tooltip.hide(),
-      onSequenceFrameChange: (obj, frameIndex) => this.onSequenceFrameChange?.(obj, frameIndex),
+      syncEntityOrder: () => {
+        try {
+          if (this.viewer && this._objects?.objects) {
+            syncSceneHierarchy(this.viewer, this._objects.objects);
+          }
+        } catch (e) {
+          /* ignore */
+        }
+      },
     });
     this._objects.onObjectsChange = (objs) => this.onObjectsChange?.(objs);
     this._objects.onObjectSelect = (obj) => this.onObjectSelect?.(obj);
+    this._objects.onHierarchyChange = (childId) => {
+      if (this.selectedObjectId === childId) {
+        const o = this._objects.objects.find((x) => x.id === childId);
+        if (o) this.onObjectSelect?.(o);
+      }
+    };
     this._objects.onDeleteRequest = (id, name) => this.onDeleteRequest?.(id, name);
-    
+    this._objects.onDuplicateRequest = (id) => this.onDuplicateRequest?.(id);
+
+    const objectsPanelEl = document.getElementById("objectsPanel");
+    if (objectsPanelEl) {
+      objectsPanelEl.addEventListener("contextmenu", (e) => {
+        const btn = e.target.closest(".timeline__obj-row");
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const objectId = btn.dataset.objectId;
+        if (!objectId) return;
+        if (btn.classList.contains("is-multi-file")) {
+          this._objects._showMultiFileContextMenu(e.clientX, e.clientY, objectId);
+        } else {
+          this._objects._showObjectBlockContextMenu(e.clientX, e.clientY, objectId);
+        }
+      }, true);
+    }
+
     // Keyframes manager init (SuperSplat)
     this._keyframes = new KeyframesManager({
       viewer: this.viewer,
@@ -233,18 +257,12 @@ export class TimelineController {
     if (viewer) viewer._exportVideoActive = true;
 
     playback.setTime(animationTimeSec);
-    objects._collectSequencePromises = true;
     const t = Math.max(0, Number(animationTimeSec) || 0);
     const fps = Math.max(1, Math.min(60, parseInt(this.fps, 10) || 30));
     const frameIndex = Math.floor(t * fps);
     objects.updateVisibilityByTime(t, { isPlaying: false, frameIndex });
 
-    const promises = Array.isArray(objects._sequencePromises) && objects._sequencePromises.length > 0
-      ? Promise.all(objects._sequencePromises)
-      : Promise.resolve();
-    objects._collectSequencePromises = false;
-
-    return promises
+    return Promise.resolve()
       .then(() => {
         playback.setTime(animationTimeSec);
       })
@@ -256,48 +274,42 @@ export class TimelineController {
   setCameraMoveSpeedProfile(startValue, endValue) {
     this._playback?.setCameraMoveSpeedProfile?.(startValue, endValue);
   }
-  
+
   /**
-   * Set camera moving object UI visibility (hidden while playing).
+   * 재생 중 카메라 궤도 보조 UI(3D 곡선 등) 표시 토글 — 연결선(마커 간)은 유지.
    * @private
    */
   _setMovingObjectsUIVisible(visible) {
     const manager = this._keyframes?._movingObjectManager;
     if (!manager) return;
-    
-    // Timeline UI visibility (white line always visible)
-    manager.getAll().forEach(obj => {
-      // Keep white line visible
+
+    manager.getAll().forEach((obj) => {
       if (obj.element) {
         const whiteLines = obj.element.querySelectorAll('.camera-moving-object__line');
-        whiteLines.forEach(line => {
+        whiteLines.forEach((line) => {
           line.style.opacity = '1';
         });
-        
-        // Control other UI only
         const otherElements = obj.element.querySelectorAll(':not(.camera-moving-object__line)');
-        otherElements.forEach(el => {
+        otherElements.forEach((el) => {
           el.style.opacity = visible ? '1' : '0';
         });
       }
       if (obj._element2) {
         const whiteLines2 = obj._element2.querySelectorAll('.camera-moving-object__line');
-        whiteLines2.forEach(line => {
+        whiteLines2.forEach((line) => {
           line.style.opacity = '1';
         });
-        
         const otherElements2 = obj._element2.querySelectorAll(':not(.camera-moving-object__line)');
-        otherElements2.forEach(el => {
+        otherElements2.forEach((el) => {
           el.style.opacity = visible ? '1' : '0';
         });
       }
     });
-    
-    // Toggle world curve only (green 3D path)
+
     if (!visible) {
       manager._removeWorldCurve?.();
     } else if (manager._selectedId) {
-      const selectedObj = manager._objects.find(o => o.id === manager._selectedId);
+      const selectedObj = manager._objects.find((o) => o.id === manager._selectedId);
       if (selectedObj) {
         manager._createWorldCurve?.(selectedObj);
       }
@@ -325,20 +337,6 @@ export class TimelineController {
    */
   addMultiFileObject(files) {
     return this._objects.addMultiFile(files);
-  }
-
-  addSequenceObject(frames) {
-    const seqMin = Array.isArray(frames) ? frames.length : 1;
-    // IMPORTANT: bump totalFrames BEFORE creating the object so addSequence() uses
-    // the correct maxSeconds for endSeconds initialization.
-    this._minTotalFrames = Math.max(1, this._minTotalFrames || 1, seqMin);
-    if (seqMin > this.totalFrames) {
-      this.setTotalFrames(seqMin);
-    }
-
-    const obj = this._objects.addSequence(frames);
-    this._syncTotalFramesFloor();
-    return obj;
   }
 
   /**
@@ -615,16 +613,6 @@ export class TimelineController {
         if (sF > totalFrames) sF = totalFrames;
         if (eF > totalFrames) eF = totalFrames;
 
-        if (obj?.isSequence && Array.isArray(obj.files) && obj.files.length > 0) {
-          const minLen = obj.files.length;
-          if (eF - sF < minLen) {
-            eF = Math.min(totalFrames, sF + minLen);
-          }
-          if (eF - sF < minLen) {
-            sF = Math.max(0, eF - minLen);
-          }
-        }
-
         if (eF < sF) eF = sF;
         obj.startSeconds = Math.max(0, Math.min(maxSecondsNew, sF / fps));
         obj.endSeconds = Math.max(0, Math.min(maxSecondsNew, eF / fps));
@@ -703,21 +691,8 @@ export class TimelineController {
         if (sF > newFrames) sF = newFrames;
         if (eF > newFrames) eF = newFrames;
 
-        if (obj?.isSequence && Array.isArray(obj.files) && obj.files.length > 0) {
-          const minLen = obj.files.length;
-          if (eF - sF < minLen) {
-            eF = sF + minLen;
-          }
-        }
-
         if (eF > newFrames) {
           eF = newFrames;
-        }
-        if (obj?.isSequence && Array.isArray(obj.files) && obj.files.length > 0) {
-          const minLen = obj.files.length;
-          if (eF - sF < minLen) {
-            sF = Math.max(0, eF - minLen);
-          }
         }
 
         if (eF < sF) eF = sF;
@@ -783,14 +758,7 @@ export class TimelineController {
   }
 
   _computeMinTotalFramesFromSequences() {
-    const objs = this.objects || [];
-    let minFrames = 1;
-    for (const o of objs) {
-      if (o?.isSequence && Array.isArray(o.files)) {
-        minFrames = Math.max(minFrames, o.files.length);
-      }
-    }
-    return minFrames;
+    return 1;
   }
 
   _syncTotalFramesFloor() {

@@ -138,3 +138,26 @@
   color: rgba(244, 247, 255, 0.9);
   white-space: pre-wrap;
 }
+
+.comment-description-panel__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 16px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.comment-description-panel__delete {
+  padding: 6px 14px;
+  font-size: 13px;
+  color: rgba(244, 247, 255, 0.9);
+  background: rgba(200, 80, 80, 0.5);
+  border: 1px solid rgba(200, 80, 80, 0.6);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.comment-description-panel__delete:hover {
+  background: rgba(200, 80, 80, 0.7);
+  border-color: rgba(220, 100, 100, 0.8);
+}

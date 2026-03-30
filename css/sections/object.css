@@ -4,23 +4,54 @@
 .object-inspector__scale-link svg path {
   stroke: var(--color-accent);
 }
-/* Object inspector, camera path editor */
+/* Object inspector (docked in left scene panel) */
 .object-inspector {
-  position: fixed;
-  left: 16px;
-  bottom: 16px;
-  width: 300px;
-  padding: 12px;
-  border-radius: 14px;
-  background: rgba(26, 26, 26, 0.42);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.15);
-  z-index: 120;
-  border: none;
   user-select: none;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
-  backdrop-filter: blur(8px);
+  box-sizing: border-box;
+}
+
+.object-inspector--docked {
+  flex: 0 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  background: rgba(12, 12, 12, 0.55);
+  overflow: visible;
+}
+
+/* 선택 없음: Inspector 헤더·오브젝트명은 유지, P/R/S 행만 숨김·행 영역 높이 유지 */
+/* 행 1개 ≈ 패딩 16 + 입력 28 + 테두리 ≈ 48px, gap 8px × 2 */
+.object-inspector.is-inspector-idle .object-inspector__rows {
+  min-height: 168px;
+  flex-shrink: 0;
+}
+
+.object-inspector.is-inspector-idle .object-inspector__row {
+  display: none;
+}
+
+.object-inspector.is-inspector-idle .object-inspector__title {
+  min-height: 1.35em;
+}
+
+.object-inspector__dock-head {
+  margin: 0 0 6px;
+}
+
+.object-inspector__dock-head .objects-panel__section-rule--gray {
+  margin-bottom: 6px;
+}
+
+.object-inspector__dock-header {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  margin: 0 0 6px;
+  padding: 0 2px;
 }
 
 .object-inspector.is-hidden {
@@ -32,7 +63,7 @@
   font-weight: 800;
   color: var(--color-text-primary);
   letter-spacing: 0.2px;
-  margin-bottom: 10px;
+  margin: 0 0 8px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -114,12 +145,53 @@
   user-select: none;
 }
 
-/* CAM panel: same window style as gizmo/inspector, draggable */
+.object-inspector__scale-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 6px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.object-inspector__scale-link:hover {
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Active: no bg, icon color only */
+.object-inspector__scale-link[aria-pressed="true"] {
+  background: transparent;
+  box-shadow: none;
+}
+
+.object-inspector__scale-link svg {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
+.object-inspector__scale-link[aria-pressed="true"] svg,
+.object-inspector__scale-link[aria-pressed="true"] svg path {
+  stroke: var(--color-accent);
+}
+
+/* 카메라 궤도(마커 간): 곡률·각도 패널 */
 .camera-path-editor {
   position: fixed;
-  left: 16px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 762px;
+  right: auto;
+  bottom: auto;
+  left: 216px;
   width: 200px;
   padding: 0;
   border-radius: 12px;
@@ -240,7 +312,6 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 0 0 2px rgba(var(--color-accent-rgb), 0.25);
 }
 
-/* Hide number input spin buttons for all browsers */
 .camera-path-editor__input[type="number"]::-webkit-outer-spin-button,
 .camera-path-editor__input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -250,43 +321,4 @@
 .camera-path-editor__input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
-}
-.object-inspector__scale-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  margin-left: 6px;
-  padding: 0;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  cursor: pointer;
-  transition: background 0.2s;
-  flex-shrink: 0;
-}
-
-.object-inspector__scale-link:hover {
-  background: transparent;
-  box-shadow: none;
-}
-
-/* Active: no bg, icon color only */
-.object-inspector__scale-link[aria-pressed="true"] {
-  background: transparent;
-  box-shadow: none;
-}
-
-.object-inspector__scale-link svg {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  align-items: center;
-  justify-content: center;
-}
-
-.object-inspector__scale-link[aria-pressed="true"] svg,
-.object-inspector__scale-link[aria-pressed="true"] svg path {
-  stroke: var(--color-accent);
 }

@@ -22,8 +22,8 @@ export class SelectionTask {
     }
     if (!gsplatEntity?.gsplat) return;
 
-    const instance = gsplatEntity.gsplat.instance;
-    const colorTexture = instance?.resource?.colorTexture;
+    const resource = selectionTool._getGsplatResource?.(gsplatEntity);
+    const colorTexture = resource?.colorTexture;
     if (!colorTexture) return;
 
     try {
@@ -38,12 +38,12 @@ export class SelectionTask {
       }
 
       colorTexture.unlock();
+      if (resource) resource._colorTextureDirty = true;
       selectionTool.lastSelectedIndices = [];
 
-      const mesh = instance.mesh;
-      if (mesh) {
-        mesh.dirtyBound = true;
-      }
+      const instance = gsplatEntity.gsplat?.instance;
+      if (instance?.mesh) instance.mesh.dirtyBound = true;
+      selectionTool._requestRenderAfterColorChange?.();
     } catch (err) {}
   }
 }
@@ -59,8 +59,7 @@ export class MultiEraseTask extends SelectionTask {
       const gsplatEntity = item?.gsplatEntity;
       if (!gsplatEntity?.gsplat) continue;
 
-      const instance = gsplatEntity.gsplat.instance;
-      const resource = instance?.resource;
+      const resource = selectionTool._getGsplatResource?.(gsplatEntity);
       if (!resource) continue;
 
       try {
@@ -114,11 +113,12 @@ export class MultiEraseTask extends SelectionTask {
         }
 
         colorTexture.unlock();
+        if (resource) resource._colorTextureDirty = true;
         selectionTool.lastSelectedIndices = [];
 
-        if (instance.mesh) {
-          instance.mesh.dirtyBound = true;
-        }
+        const instance = gsplatEntity.gsplat?.instance;
+        if (instance?.mesh) instance.mesh.dirtyBound = true;
+        selectionTool._requestRenderAfterColorChange?.();
       } catch (err) {}
     }
   }
@@ -128,8 +128,7 @@ export class MultiEraseTask extends SelectionTask {
       const gsplatEntity = item?.gsplatEntity;
       if (!gsplatEntity?.gsplat) continue;
 
-      const instance = gsplatEntity.gsplat.instance;
-      const resource = instance?.resource;
+      const resource = selectionTool._getGsplatResource?.(gsplatEntity);
       if (!resource) continue;
 
       try {
@@ -166,6 +165,7 @@ export class MultiEraseTask extends SelectionTask {
         }
 
         colorTexture.unlock();
+        if (resource) resource._colorTextureDirty = true;
 
         if (typeof selectionTool._getErasedIndicesForEntity === 'function' && typeof selectionTool._setErasedIndicesForEntity === 'function') {
           const erasedSet = selectionTool._getErasedIndicesForEntity(gsplatEntity);
@@ -177,9 +177,9 @@ export class MultiEraseTask extends SelectionTask {
 
         selectionTool.lastSelectedIndices = [];
 
-        if (instance.mesh) {
-          instance.mesh.dirtyBound = true;
-        }
+        const instance = gsplatEntity.gsplat?.instance;
+        if (instance?.mesh) instance.mesh.dirtyBound = true;
+        selectionTool._requestRenderAfterColorChange?.();
       } catch (err) {}
     }
   }
@@ -213,8 +213,7 @@ export class EraseTask extends SelectionTask {
     const gsplatEntity = selectionTool.getGsplatEntityFromSelection();
     if (!gsplatEntity?.gsplat) return;
 
-    const instance = gsplatEntity.gsplat.instance;
-    const resource = instance?.resource;
+    const resource = selectionTool._getGsplatResource?.(gsplatEntity);
     if (!resource) return;
 
     try {
@@ -265,12 +264,13 @@ export class EraseTask extends SelectionTask {
       }
 
       colorTexture.unlock();
+      if (resource) resource._colorTextureDirty = true;
 
       selectionTool.lastSelectedIndices = [];
 
-      if (instance.mesh) {
-        instance.mesh.dirtyBound = true;
-      }
+      const instance = gsplatEntity.gsplat?.instance;
+      if (instance?.mesh) instance.mesh.dirtyBound = true;
+      selectionTool._requestRenderAfterColorChange?.();
     } catch (err) {}
   }
 
@@ -278,8 +278,7 @@ export class EraseTask extends SelectionTask {
     const gsplatEntity = selectionTool.getGsplatEntityFromSelection();
     if (!gsplatEntity?.gsplat) return;
 
-    const instance = gsplatEntity.gsplat.instance;
-    const resource = instance?.resource;
+    const resource = selectionTool._getGsplatResource?.(gsplatEntity);
     if (!resource) return;
 
     try {
@@ -319,6 +318,7 @@ export class EraseTask extends SelectionTask {
       }
 
       colorTexture.unlock();
+      if (resource) resource._colorTextureDirty = true;
 
       if (typeof selectionTool._getErasedIndicesForEntity === 'function' && typeof selectionTool._setErasedIndicesForEntity === 'function') {
         const erasedSet = selectionTool._getErasedIndicesForEntity(gsplatEntity);
@@ -330,9 +330,9 @@ export class EraseTask extends SelectionTask {
 
       selectionTool.lastSelectedIndices = [];
 
-      if (instance.mesh) {
-        instance.mesh.dirtyBound = true;
-      }
+      const instance = gsplatEntity.gsplat?.instance;
+      if (instance?.mesh) instance.mesh.dirtyBound = true;
+      selectionTool._requestRenderAfterColorChange?.();
     } catch (err) {}
   }
 }

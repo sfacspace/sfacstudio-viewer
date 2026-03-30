@@ -100,6 +100,33 @@
   transform: translateX(-50%) scale(1);
 }
 
+/* 오른쪽 도구 열: 보내기 메뉴를 열 왼쪽(뷰 쪽)으로 펼침 */
+.object-details-panel__export-wrap--in-gizmo {
+  margin-left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.object-details-panel__export-wrap--in-gizmo .object-details-panel__export-menu {
+  left: auto;
+  right: calc(100% + 8px);
+  bottom: auto;
+  top: 50%;
+  margin-bottom: 0;
+  transform: translateY(-50%) scale(0.95);
+  transform-origin: center right;
+}
+
+.object-details-panel__export-wrap--in-gizmo .object-details-panel__export-menu.is-visible {
+  transform: translateY(-50%) scale(1);
+}
+
+.object-details-panel__tooltip--in-gizmo.object-details-panel__tooltip--volume {
+  position: fixed;
+  bottom: auto;
+}
+
 .object-details-panel__export-menu .context-menu__item {
   display: flex;
   align-items: center;

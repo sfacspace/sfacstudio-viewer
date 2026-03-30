@@ -1,12 +1,28 @@
-/* Timeline container */
+/* Timeline container (기본: 상단 전체 폭 —보내기 HTML 등 호환) */
 .timeline-container {
   position: fixed;
-  top: 62px;
+  top: var(--app-chrome-top, var(--header-height, 62px));
   left: 0;
   right: 0;
   z-index: 100;
   overflow: visible;
   pointer-events: none;
+}
+
+/* 앱: 상단(헤더 아래), 왼쪽 계층 패널 ~ 오른쪽 도구 열 사이 — 하단 액센트 선(패널 세로선과 동일) */
+.timeline-container.timeline-container--dock-top {
+  left: var(--objects-panel-width);
+  right: var(--right-tools-strip-width);
+  border-bottom: 2px solid rgb(var(--color-accent-rgb));
+  box-sizing: border-box;
+}
+
+body:has(#objectsPanel.is-hidden) .timeline-container.timeline-container--dock-top {
+  left: 0;
+}
+
+body:has(#rightToolsPanel.is-hidden) .timeline-container.timeline-container--dock-top {
+  right: 0;
 }
 
 /* No text selection in timeline */
@@ -32,29 +48,14 @@
   pointer-events: auto;
 }
 
-.timeline-container.is-collapsed > * {
-  pointer-events: none;
-}
-
-.timeline-container.is-collapsed .timeline-toggle-btn {
-  pointer-events: auto;
-}
-
 .timeline-bottom__content {
   overflow: visible;
-  max-height: 420px;
+  max-height: 220px;
   transition: max-height 200ms ease, opacity 200ms ease;
 }
 
-.timeline-container.is-collapsed .timeline-bottom__content {
-  max-height: 0;
-  opacity: 0;
+/* 타임블록(스페이서) 없음: 재생 줄 + 카메라 라인만 */
+.timeline-container--dock-top .timeline-bottom__content {
+  max-height: 120px;
 }
 
-.timeline-container.is-collapsed .timeline-pin,
-.timeline-container.is-collapsed .timeline-camera-marker,
-.timeline-container.is-collapsed .timeline-keyframe-marker,
-.timeline-container.is-collapsed .timeline-camera-segment {
-  opacity: 0;
-  pointer-events: none;
-}

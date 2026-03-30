@@ -1,6 +1,8 @@
 /**
  * Embedded script for exported single HTML app viewer. Reads META from <script id="META">.
- * Frame-based playback; camera interpolation; Space = play/pause. Optional comments overlay.
+ * META.orbitTarget, META.orbitDistance, META.initialCamera는 exportSingleHTML에서
+ * PlayCanvasViewer.getCameraState(), _orbitTarget, _orbitDistance로 채워짐.
+ * Standalone PlayCanvas app (viewer.js 미참조). Frame-based playback; camera interpolation; Space = play/pause.
  * @param {string} [playcanvasPath] - PlayCanvas module URL (default CDN; use local for file://)
  * @param {{ hasCameraMarkers?: boolean, hasComments?: boolean }} [opts] - used for conditional UI
  */
@@ -9,7 +11,7 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
   return `
 (async function() {
   const META = JSON.parse(document.getElementById("META").textContent);
-  const { fps: FPS, totalFrames: TOTAL_FRAMES, objects, keyframes = [], movingObjects = [], initialCamera, orbitTarget, orbitDistance = 6.4, sceneSettings = {}, cameraSpeedProfileStart = 0, cameraSpeedProfileEnd = 0, comments: META_COMMENTS = [] } = META;
+  const { fps: FPS, totalFrames: TOTAL_FRAMES, objects, keyframes = [], initialCamera, orbitTarget, orbitDistance = 6.4, sceneSettings = {}, cameraSpeedProfileStart = 0, cameraSpeedProfileEnd = 0, comments: META_COMMENTS = [] } = META;
   const totalFrames = Math.max(1, TOTAL_FRAMES | 0);
   const playbackFps = Math.max(1, Math.min(60, FPS | 0));
   const targetPos = orbitTarget || { x: 0, y: 0, z: 0 };
@@ -39,7 +41,12 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
   const app = new pc.Application(canvas, { graphicsDeviceOptions: { antialias: false, alpha: false, preferWebGl2: true } });
   app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
   app.setCanvasResolution(pc.RESOLUTION_AUTO);
-  window.addEventListener("resize", () => app.resizeCanvas());
+  window.addEventListener("resize", () => {
+    app.resizeCanvas();
+    resizeSelectionMaskRT();
+    const id = selectedObjectId;
+    if (id != null) setSelectionTint(id);
+  });
   app.start();
 
   if (sceneSettings.fogColor) {
@@ -128,7 +135,7 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
       app.assets.add(asset);
       await new Promise((resolve, reject) => { asset.ready(resolve); asset.on("error", reject); app.assets.load(asset); });
       const entity = new pc.Entity(name || "splat");
-      entity.addComponent("gsplat", { asset });
+      entity.addComponent("gsplat", { asset, unified: true });
       if (transform) {
         entity.setLocalPosition(transform.position?.x ?? 0, transform.position?.y ?? 0, transform.position?.z ?? 0);
         const rot = transform.rotation;
@@ -152,8 +159,53 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
   }
 
   const splats = [];
+  const pathAnimatedSplats = [];
   let idx = 0;
   const totalFiles = objects.reduce((n, o) => n + (o.isMultiFile && o.files ? o.files.length : (o.base64 ? 1 : 0)), 0);
+  function catmullRomPath(p0, p1, p2, p3, t) {
+    const t2 = t * t, t3 = t2 * t;
+    return {
+      x: 0.5 * (2 * p1.x + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+      y: 0.5 * (2 * p1.y + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
+      z: 0.5 * (2 * p1.z + (-p0.z + p2.z) * t + (2 * p0.z - 5 * p1.z + 4 * p2.z - p3.z) * t2 + (-p0.z + 3 * p1.z - 3 * p2.z + p3.z) * t3),
+    };
+  }
+  function buildPathState(points) {
+    if (!points || points.length < 2) return null;
+    const pts = points.map((p) => ({ x: Array.isArray(p) ? p[0] : p.x, y: Array.isArray(p) ? p[1] : p.y, z: Array.isArray(p) ? p[2] : p.z }));
+    const n = pts.length;
+    const segmentLengths = [];
+    const samples = 24;
+    let totalLength = 0;
+    for (let i = 0; i < n; i++) {
+      const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
+      let len = 0;
+      let prev = catmullRomPath(p0, p1, p2, p3, 0);
+      for (let k = 1; k <= samples; k++) {
+        const next = catmullRomPath(p0, p1, p2, p3, k / samples);
+        len += Math.sqrt((next.x - prev.x) ** 2 + (next.y - prev.y) ** 2 + (next.z - prev.z) ** 2);
+        prev = next;
+      }
+      segmentLengths.push(len);
+      totalLength += len;
+    }
+    return { pts, segmentLengths, totalLength };
+  }
+  function getPositionAtPath(state, pathTime) {
+    if (!state || state.totalLength <= 0) return state?.pts?.[0] || { x: 0, y: 0, z: 0 };
+    let t = ((pathTime % state.totalLength) + state.totalLength) % state.totalLength;
+    const n = state.pts.length;
+    for (let i = 0; i < n; i++) {
+      const segLen = state.segmentLengths[i];
+      if (t <= segLen) {
+        const p0 = state.pts[(i - 1 + n) % n], p1 = state.pts[i], p2 = state.pts[(i + 1) % n], p3 = state.pts[(i + 2) % n];
+        const r = segLen > 0 ? t / segLen : 0;
+        return catmullRomPath(p0, p1, p2, p3, r);
+      }
+      t -= segLen;
+    }
+    return state.pts[0];
+  }
   for (const obj of objects) {
     if (obj.isMultiFile && obj.files?.length) {
       const start = Math.max(0, obj.startFrame | 0);
@@ -174,7 +226,17 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
       }
     } else if (obj.base64) {
       const entity = await loadSplat(obj.base64, obj.name, obj.transform);
-      if (entity) splats.push({ entity, startFrame: obj.startFrame | 0, endFrame: Math.max(1, obj.endFrame | 0), objectId: obj.id });
+      if (entity) {
+        splats.push({ entity, startFrame: obj.startFrame | 0, endFrame: Math.max(1, obj.endFrame | 0), objectId: obj.id });
+        if (obj.pathAnimation?.points?.length >= 2 && typeof obj.pathAnimation.speed === "number") {
+          const rotZ = (obj.pathAnimation.rotZCorrection != null) ? obj.pathAnimation.rotZCorrection : 180;
+          entity.setLocalEulerAngles(0, 0, rotZ);
+          const pathState = buildPathState(obj.pathAnimation.points);
+          if (pathState) {
+            pathAnimatedSplats.push({ entity, pathState, speed: obj.pathAnimation.speed, pathTime: 0, useLocalPosition: true });
+          }
+        }
+      }
       setProgress(20 + (++idx / totalFiles) * 60, "Loading...");
     }
   }
@@ -186,7 +248,7 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
   let selectionTintEffect = null;
   let selectionLayerRestore = [];
   const SELECTION_YELLOW = { r: 1.0, g: 0.88, b: 0.25 };
-  const TINT_STRENGTH = 0.68;
+  const TINT_STRENGTH = 0.42;
   const QUAD_VS = "attribute vec2 aPosition; varying vec2 vUv0; void main() { gl_Position = vec4(aPosition, 0.0, 1.0); vUv0 = (aPosition + 1.0) * 0.5; }";
   const QUAD_FS = "precision mediump float; varying vec2 vUv0; uniform sampler2D uColorBuffer; uniform sampler2D uMaskBuffer; uniform vec3 uTintColor; uniform float uTintStrength; uniform float uHasMask; void main() { vec4 color = texture2D(uColorBuffer, vUv0); if (uHasMask < 0.5) { gl_FragColor = color; return; } vec4 maskTex = texture2D(uMaskBuffer, vUv0); float m = max(maskTex.r, max(maskTex.g, maskTex.b)); vec3 tintRgb = uTintColor; vec3 blended = mix(color.rgb, tintRgb, m * uTintStrength); gl_FragColor = vec4(blended, color.a); }";
   function getDummyMaskTexture(device) {
@@ -241,8 +303,8 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
         layers.push(layer);
       }
       selectionMaskLayerId = layer.id;
-      const cw = Math.max(1, app.canvas?.clientWidth || device.width || 1);
-      const ch = Math.max(1, app.canvas?.clientHeight || device.height || 1);
+      const cw = Math.max(1, device.width || 1);
+      const ch = Math.max(1, device.height || 1);
       const colorBuffer = new pc.Texture(device, { name: "SelectionMaskColor", width: cw, height: ch, format: pc.PIXELFORMAT_RGBA8, mipmaps: false, minFilter: pc.FILTER_NEAREST, magFilter: pc.FILTER_NEAREST, addressU: pc.ADDRESS_CLAMP_TO_EDGE, addressV: pc.ADDRESS_CLAMP_TO_EDGE });
       selectionMaskRenderTarget = new pc.RenderTarget({ colorBuffer, depth: false, flipY: device.isWebGPU });
       selectionMaskCameraEntity = new pc.Entity("SelectionMaskCamera");
@@ -250,14 +312,45 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
       app.root.addChild(selectionMaskCameraEntity);
       selectionTintEffect = createSelectionTintEffect(device);
       if (cameraEntity.camera.postEffects) cameraEntity.camera.postEffects.addEffect(selectionTintEffect);
-      app.on("resize", () => {
-        if (!selectionMaskRenderTarget || !app.canvas) return;
-        const w = app.canvas.clientWidth || device.width;
-        const h = app.canvas.clientHeight || device.height;
-        if (selectionMaskRenderTarget.width !== w || selectionMaskRenderTarget.height !== h) selectionMaskRenderTarget.resize(w, h);
-      });
     } catch (err) {
       console.warn("[AppViewer] Selection tint setup failed", err);
+    }
+  }
+  function resizeSelectionMaskRT() {
+    if (!app.graphicsDevice) return;
+    const dev = app.graphicsDevice;
+    const w = Math.max(1, dev.width);
+    const h = Math.max(1, dev.height);
+    if (selectionMaskRenderTarget &&
+        selectionMaskRenderTarget.width === w &&
+        selectionMaskRenderTarget.height === h) return;
+
+    if (selectionMaskRenderTarget) {
+      const oldCb = selectionMaskRenderTarget.colorBuffer;
+      selectionMaskRenderTarget.destroy();
+      if (oldCb) oldCb.destroy();
+    }
+
+    const colorBuffer = new pc.Texture(dev, {
+      name: "SelectionMaskColor",
+      width: w, height: h,
+      format: pc.PIXELFORMAT_RGBA8,
+      mipmaps: false,
+      minFilter: pc.FILTER_NEAREST,
+      magFilter: pc.FILTER_NEAREST,
+      addressU: pc.ADDRESS_CLAMP_TO_EDGE,
+      addressV: pc.ADDRESS_CLAMP_TO_EDGE
+    });
+    selectionMaskRenderTarget = new pc.RenderTarget({
+      colorBuffer, depth: false, flipY: dev.isWebGPU
+    });
+
+    if (selectionMaskCameraEntity?.camera) {
+      selectionMaskCameraEntity.camera.renderTarget = selectionMaskRenderTarget;
+    }
+
+    if (selectionTintEffect && selectedObjectId != null) {
+      selectionTintEffect.maskTexture = colorBuffer;
     }
   }
   function syncSelectionMaskCamera() {
@@ -269,6 +362,8 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
       selectionMaskCameraEntity.camera.fov = cameraEntity.camera.fov;
       selectionMaskCameraEntity.camera.nearClip = cameraEntity.camera.nearClip;
       selectionMaskCameraEntity.camera.farClip = cameraEntity.camera.farClip;
+      selectionMaskCameraEntity.camera.aspectRatio = cameraEntity.camera.aspectRatio;
+      selectionMaskCameraEntity.camera.aspectRatioMode = cameraEntity.camera.aspectRatioMode;
     }
   }
   function setSelectionTint(objId) {
@@ -299,8 +394,6 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
   if (initialCamera && (kfs.length === 0 || kfs[0].frame !== 0)) {
     kfs = [{ frame: 0, state: initialCamera, id: '__initial__' }, ...kfs];
   }
-  const mov = movingObjects || [];
-
   function setVisibility(frame) {
     const f = Math.max(0, Math.min(totalFrames - 1, frame | 0));
     splats.forEach(({ entity, startFrame, endFrame }) => { entity.enabled = f >= startFrame && f < endFrame; });
@@ -345,9 +438,8 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
     if (span <= 0) span = totalFrames;
     let ratio = (norm - prev.frame + totalFrames) % totalFrames;
     ratio = remapAlpha(ratio / span);
-    const mo = mov.find(m => m.fromKeyframeId === prev.id && m.toKeyframeId === next.id);
-    const curvature = mo?.curvature ?? 1;
-    const angle = (mo?.angle ?? 0) * Math.PI / 180;
+    const curvature = 1;
+    const angle = 0;
     const p0 = new pc.Vec3(prev.state.position.x, prev.state.position.y, prev.state.position.z);
     const p2 = new pc.Vec3(next.state.position.x, next.state.position.y, next.state.position.z);
     const mid = new pc.Vec3().lerp(p0, p2, 0.5);
@@ -672,6 +764,15 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
     tickFps();
     if (selectionMaskCameraEntity) syncSelectionMaskCamera();
     if (commentMarkers.length > 0) updateCommentMarkerPositions();
+    for (const pa of pathAnimatedSplats) {
+      pa.pathTime += pa.speed * dt;
+      const pos = getPositionAtPath(pa.pathState, pa.pathTime);
+      if (pa.useLocalPosition && typeof pa.entity.setLocalPosition === 'function') {
+        pa.entity.setLocalPosition(pos.x, pos.y, pos.z);
+      } else {
+        pa.entity.setPosition(pos.x, pos.y, pos.z);
+      }
+    }
     if (isPlaying) {
       frameAcc = (frameAcc + dt * playbackFpsCurrent) % totalFrames;
       if (frameAcc < 0) frameAcc += totalFrames;
@@ -718,6 +819,7 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
     commentMarkers.forEach(({ comment, el }) => {
       el.addEventListener("click", (e) => {
         e.stopPropagation();
+        setSelectionTint(comment.objectId ?? null);
         const targetState = comment.cameraState;
         if (targetState?.position) {
           const pos = cameraEntity.getPosition();
@@ -747,6 +849,7 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
     });
     if (commentPanelClose) commentPanelClose.addEventListener("click", () => {
       openCommentMarkerEl = null;
+      setSelectionTint(null);
       if (commentPanel) { commentPanel.classList.remove("is-visible"); commentPanel.setAttribute("aria-hidden", "true"); }
     });
   }

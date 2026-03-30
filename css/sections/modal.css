@@ -16,6 +16,12 @@
   transition: opacity 120ms ease, transform 120ms ease, visibility 120ms;
 }
 
+/* Timeline block context menus: above timeline and overlays */
+#objectBlockContextMenu,
+#multiFileContextMenu {
+  z-index: 10000;
+}
+
 .context-menu.is-visible {
   opacity: 1;
   visibility: visible;

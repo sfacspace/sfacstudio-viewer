@@ -51,7 +51,7 @@ Features are implemented by modules under `js/`.
 
 | Area | Modules | Description |
 |------|---------|-------------|
-| **Viewer & loading** | `core/viewer.js`, `splatLoader`, `fileLoader`, `loadSessionManager`, `plySequenceController`, `sequencePlayback` | Orbit camera (LMB rotate, wheel zoom, RMB pan), infinite grid, axis gizmo; load PLY via URL, file picker, or drag-and-drop; session and sequence playback |
+| **Viewer & loading** | `core/viewer.js`, `splatLoader`, `cadMeshLoader` (occt-import-js), `fileLoader`, `loadSessionManager`, `plySequenceController`, `sequencePlayback` | Orbit camera (LMB rotate, wheel zoom, RMB pan), infinite grid, axis gizmo; load **PLY** and **CAD (STEP/STP, IGES/IGS)** via file picker or drag-and-drop (same flow as PLY); session and sequence playback. CAD uses Open Cascade via [occt-import-js](https://github.com/kovacsv/occt-import-js) (LGPL-2.1). |
 | **Timeline** | `timeline/` (keyframes, playback, cameraMoving, cameraTemplates, pin, ticks, tooltip) | Keyframes, playback, camera movement and templates, timeline UI |
 | **Selection** | `tools/selectionTool`, `SelectorOverlay`, `SelectionHistory`, selectors (Rectangle, Brush, Box, Sphere) | Rectangle, brush, and volume (box/sphere) selection |
 | **UI** | `ui/inspector`, `objectDetailsPanel`, `objectDescription`, `gizmo`, `draggablePanel`, `gridDraw`, `cameraSettings`, `performanceSettings` | Inspector, object details, **description comments** (speech-bubble markers, camera restore), transform gizmo, draggable panels, grid, settings |

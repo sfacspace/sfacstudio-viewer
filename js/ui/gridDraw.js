@@ -1,4 +1,7 @@
 /** PlayCanvas infinite grid: small/large lines, X/Z axes, distance fade. */
+/** 통합 gsplat 메시는 기본 drawBucket 127. 그리드를 128로 두어 투명 패스에서 먼저 그린 뒤 깊이를 쓰면, 스플랫이 depth test로 앞에서 그리드를 가린다. */
+const GRID_DRAW_BUCKET = 128;
+
 export class InfiniteGrid {
   constructor(app, options = {}) {
     const pc = window.pc;
@@ -99,10 +102,18 @@ export class InfiniteGrid {
     this._material.emissiveVertexColor = true;
     this._material.blendType = pc.BLEND_NORMAL;
     this._material.cull = pc.CULLFACE_NONE;
-    this._material.depthWrite = false;
-    this._material.depthBias = -1;
-    this._material.slopeDepthBias = -1;
+    // 통합 gsplat은 depthWrite=false. 그리드가 먼저 그려지며 depth를 쓰면 스플랫 프래그먼트가 앞/뒤를 올바르게 분기한다 (drawBucket은 _applyGridMeshInstance 참고).
+    this._material.depthTest = true;
+    this._material.depthWrite = true;
     this._material.update();
+  }
+
+  /**
+   * @param {import('playcanvas').MeshInstance | null | undefined} meshInstance
+   */
+  _applyGridMeshInstance(meshInstance) {
+    if (!meshInstance) return;
+    meshInstance.drawBucket = GRID_DRAW_BUCKET;
   }
 
   _createCenterWhiteAxes() {
@@ -130,8 +141,10 @@ export class InfiniteGrid {
     mesh.update(pc.PRIMITIVE_TRIANGLES);
 
     this._centerWhiteAxes = new pc.Entity("CenterWhiteAxes");
+    const centerMi = new pc.MeshInstance(mesh, this._material);
+    this._applyGridMeshInstance(centerMi);
     this._centerWhiteAxes.addComponent("render", {
-      meshInstances: [new pc.MeshInstance(mesh, this._material)],
+      meshInstances: [centerMi],
       castShadows: false,
       receiveShadows: false,
     });
@@ -180,8 +193,10 @@ export class InfiniteGrid {
     mesh.update(pc.PRIMITIVE_TRIANGLES);
 
     const entity = new pc.Entity(name);
+    const axisMi = new pc.MeshInstance(mesh, this._material);
+    this._applyGridMeshInstance(axisMi);
     entity.addComponent("render", {
-      meshInstances: [new pc.MeshInstance(mesh, this._material)],
+      meshInstances: [axisMi],
       castShadows: false,
       receiveShadows: false,
     });
@@ -321,8 +336,10 @@ export class InfiniteGrid {
     mesh.update(pc.PRIMITIVE_LINES);
 
     const entity = new pc.Entity("GridTile");
+    const tileMi = new pc.MeshInstance(mesh, this._material);
+    this._applyGridMeshInstance(tileMi);
     entity.addComponent("render", {
-      meshInstances: [new pc.MeshInstance(mesh, this._material)],
+      meshInstances: [tileMi],
       castShadows: false,
       receiveShadows: false,
     });

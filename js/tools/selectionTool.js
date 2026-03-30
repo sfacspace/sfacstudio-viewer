@@ -3,6 +3,7 @@ import { SelectionRenderer } from './selectors/SelectionRenderer.js';
 import { RectangleSelector } from './selectors/RectangleSelector.js';
 import { BrushSelector } from './selectors/BrushSelector.js';
 import { HistoryManager, SelectionChangeTask, EraseTask, MultiEraseTask, ComplementTask, SequenceEraseTask } from './SelectionHistory.js';
+import { getSelectedPointsCenter } from '../export/exportPly.js';
 
 export class SelectionTool {
   constructor(viewer, canvas) {
@@ -32,8 +33,13 @@ export class SelectionTool {
     this.renderer = new SelectionRenderer(canvas);
     this.rectangleSelector = new RectangleSelector(viewer, canvas);
     this.brushSelector = new BrushSelector(viewer, canvas);
+    this.rectangleSelector.getResource = (e) => this._getGsplatResource(e);
+    this.brushSelector.getResource = (e) => this._getGsplatResource(e);
     this.histories = new Map();
     this.detailsPanel = null;
+    /** 렌더 요청 로그용: 선택/지움/Undo/Redo 후 요청한 프레임이 그려질 때만 로그 */
+    this._renderRequestedBySelection = false;
+    this._renderLogListenersAttached = false;
   }
 
   resetAll() {
@@ -66,6 +72,14 @@ export class SelectionTool {
     if (!ctx?.key) return;
     this._clearAccumulatedVolumes(ctx.key, 'sphere');
     this._clearAccumulatedVolumes(ctx.key, 'box');
+  }
+
+  /** 모든 오브젝트 컨텍스트에 대해 누적된 파란 볼륨(스피어/박스) 제거 */
+  clearAllAccumulatedVolumes() {
+    for (const ctxKey of this.accumulatedVolumesByContextKey.keys()) {
+      this._clearAccumulatedVolumes(ctxKey, 'sphere');
+      this._clearAccumulatedVolumes(ctxKey, 'box');
+    }
   }
 
   _getAccumulatedVolumeBucket(ctxKey) {
@@ -212,8 +226,7 @@ export class SelectionTool {
     if (!gsplatEntity?.gsplat) return [];
     if (!Array.isArray(volumeEntities) || volumeEntities.length === 0) return [];
 
-    const instance = gsplatEntity.gsplat?.instance;
-    const resource = instance?.resource;
+    const resource = this._getGsplatResource(gsplatEntity);
     if (!resource) return [];
 
     const centers = resource.centers;
@@ -314,8 +327,7 @@ export class SelectionTool {
     const { spheres = [], boxes = [] } = snapshots;
     if (spheres.length === 0 && boxes.length === 0) return [];
 
-    const instance = gsplatEntity.gsplat?.instance;
-    const resource = instance?.resource;
+    const resource = this._getGsplatResource(gsplatEntity);
     if (!resource) return [];
     const centers = resource.centers;
     const count = resource?.gsplatData?.numSplats ?? (centers ? Math.floor(centers.length / 3) : 0);
@@ -523,8 +535,7 @@ export class SelectionTool {
 
   _setSelectionHighlightForEntity(gsplatEntity, prevSet, nextSet) {
     if (!gsplatEntity?.gsplat) return;
-    const instance = gsplatEntity.gsplat?.instance;
-    const resource = instance?.resource;
+    const resource = this._getGsplatResource(gsplatEntity);
     if (!resource) return;
 
     const gsplatData = resource.gsplatData;
@@ -590,10 +601,11 @@ export class SelectionTool {
       }
 
       colorTexture.unlock();
+      if (resource) resource._colorTextureDirty = true;
 
-      if (instance.mesh) {
-        instance.mesh.dirtyBound = true;
-      }
+      const instance = gsplatEntity.gsplat?.instance;
+      if (instance?.mesh) instance.mesh.dirtyBound = true;
+      this._requestRenderAfterColorChange();
     } catch (e) {}
   }
 
@@ -617,6 +629,7 @@ export class SelectionTool {
     const activeEntity = this.getGsplatEntityFromSelection();
     if (activeEntity && this._getGsplatKey(activeEntity) === this._getGsplatKey(gsplatEntity)) {
       this.lastSelectedIndices = [...nextSet];
+      this._logSelectedPointsCenter();
     }
   }
 
@@ -632,6 +645,15 @@ export class SelectionTool {
       m.set(eKey, new Set());
     }
     this.lastSelectedIndices = [];
+  }
+
+  /** 선택된 점들의 중심 좌표를 콘솔에 로그 (셀렉터로 점 선택 시) */
+  _logSelectedPointsCenter() {
+    if (!this.lastSelectedIndices?.length) return;
+    const center = getSelectedPointsCenter(this.viewer, this);
+    if (center) {
+      console.log('[선택 점 중심]', center);
+    }
   }
 
   _getOriginalPixelsForEntity(gsplatEntity, pixels) {
@@ -655,8 +677,7 @@ export class SelectionTool {
     if (!key) return;
     if (this.originalPixelsByKey.has(key)) return;
     
-    const instance = gsplatEntity.gsplat.instance;
-    const resource = instance?.resource;
+    const resource = this._getGsplatResource(gsplatEntity);
     if (!resource) return;
     
     const colorTexture = resource.colorTexture;
@@ -705,8 +726,7 @@ export class SelectionTool {
   _applySelectionHighlightForEntity(gsplatEntity, nextSet) {
     if (!gsplatEntity?.gsplat) return;
 
-    const instance = gsplatEntity.gsplat?.instance;
-    const resource = instance?.resource;
+    const resource = this._getGsplatResource(gsplatEntity);
     if (!resource) return;
 
     const gsplatData = resource.gsplatData;
@@ -753,10 +773,11 @@ export class SelectionTool {
       for (let idx = 0; idx < gsplatData.numSplats; idx++) {}
 
       colorTexture.unlock();
+      if (resource) resource._colorTextureDirty = true;
 
-      if (instance.mesh) {
-        instance.mesh.dirtyBound = true;
-      }
+      const instance = gsplatEntity.gsplat?.instance;
+      if (instance?.mesh) instance.mesh.dirtyBound = true;
+      this._requestRenderAfterColorChange();
     } catch (e) {}
   }
 
@@ -801,6 +822,45 @@ export class SelectionTool {
     return gsplatEntity.getGuid?.() || gsplatEntity._guid || gsplatEntity.name || String(gsplatEntity);
   }
 
+  /**
+   * Unified / non-unified 공통: entity에서 GSplat 리소스 획득.
+   * Non-unified: entity.gsplat.instance.resource
+   * Unified: entity.gsplat.asset?.resource ?? entity.gsplat._placement?.resource
+   */
+  _getGsplatResource(gsplatEntity) {
+    if (!gsplatEntity?.gsplat) return null;
+    const c = gsplatEntity.gsplat;
+    return c.instance?.resource ?? c.asset?.resource ?? c._placement?.resource ?? null;
+  }
+
+  /** 선택/지움 색상 반영 후 화면 갱신 요청 (viewer에서 Unified 레이어 dirty + app.renderNextFrame 처리). */
+  _requestRenderAfterColorChange() {
+    const app = this.viewer?.app;
+    if (!this.viewer) return;
+    this._renderRequestedBySelection = true;
+    if (typeof this.viewer.requestRenderAfterSelectionChange === 'function') {
+      this.viewer.requestRenderAfterSelectionChange();
+    } else if (app && typeof app.renderNextFrame !== 'undefined') {
+      app.renderNextFrame = true;
+    }
+    if (app) this._attachRenderLogListenersOnce(app);
+  }
+
+  _attachRenderLogListenersOnce(app) {
+    if (this._renderLogListenersAttached || !app) return;
+    this._renderLogListenersAttached = true;
+    const self = this;
+    app.on('framerender', function onFramerender() {
+      if (self._renderRequestedBySelection) {
+      }
+    });
+    app.on('frameend', function onFrameend() {
+      if (self._renderRequestedBySelection) {
+        self._renderRequestedBySelection = false;
+      }
+    });
+  }
+
   _getErasedIndicesForEntity(gsplatEntity) {
     const selectedObject = this.viewer?.getSelectedObject?.();
     if (selectedObject?.isSequence && selectedObject?.entity === gsplatEntity && selectedObject?.id) {
@@ -828,8 +888,7 @@ export class SelectionTool {
 
   restoreRgbaForIndices(gsplatEntity, indices) {
     if (!gsplatEntity?.gsplat || !indices?.length) return;
-    const instance = gsplatEntity.gsplat.instance;
-    const resource = instance?.resource;
+    const resource = this._getGsplatResource(gsplatEntity);
     if (!resource) return;
     const colorTexture = resource.colorTexture;
     if (!colorTexture) return;
@@ -856,14 +915,16 @@ export class SelectionTool {
         }
       }
       colorTexture.unlock();
-      if (instance.mesh) instance.mesh.dirtyBound = true;
+      if (resource) resource._colorTextureDirty = true;
+      const inst = gsplatEntity.gsplat?.instance;
+      if (inst?.mesh) inst.mesh.dirtyBound = true;
+      this._requestRenderAfterColorChange();
     } catch (e) {}
   }
 
   _restoreRgbForIndices(gsplatEntity, indices) {
     if (!gsplatEntity) return;
-    const instance = gsplatEntity.gsplat?.instance;
-    const resource = instance?.resource;
+    const resource = this._getGsplatResource(gsplatEntity);
     if (!resource) return;
     const colorTexture = resource.colorTexture;
     if (!colorTexture || !this.originalPixels) return;
@@ -894,10 +955,11 @@ export class SelectionTool {
       }
 
       colorTexture.unlock();
+      if (resource) resource._colorTextureDirty = true;
 
-      if (instance.mesh) {
-        instance.mesh.dirtyBound = true;
-      }
+      const instance = gsplatEntity.gsplat?.instance;
+      if (instance?.mesh) instance.mesh.dirtyBound = true;
+      this._requestRenderAfterColorChange();
     } catch (error) {}
   }
 
@@ -941,8 +1003,7 @@ export class SelectionTool {
     const volumeEntity = window.spawnedWireObject;
     if (!volumeEntity || !gsplatEntity?.gsplat) return [];
 
-    const instance = gsplatEntity.gsplat?.instance;
-    const resource = instance?.resource;
+    const resource = this._getGsplatResource(gsplatEntity);
     if (!resource) return [];
 
     const centers = resource.centers;
@@ -1008,8 +1069,7 @@ export class SelectionTool {
       this._ensureBaseColorCache(gsplatEntity);
     }
 
-    const instance = gsplatEntity.gsplat?.instance;
-    const resource = instance?.resource;
+    const resource = this._getGsplatResource(gsplatEntity);
     if (!resource) return;
 
     const gsplatData = resource.gsplatData;
@@ -1031,6 +1091,7 @@ export class SelectionTool {
     this._setSelectedSet(ctx.key, gsplatEntity, nextSet);
     this._setSelectionHighlightForEntity(gsplatEntity, prevSet, nextSet);
     this.lastSelectedIndices = [...nextSet];
+    this._logSelectedPointsCenter();
   }
 
   applyBoxVolumeSelection(op = 'set') {
@@ -1116,7 +1177,10 @@ export class SelectionTool {
           const nextSet = new Set(indices);
           this._setSelectedSet(ctx.key, e, nextSet);
           this._setSelectionHighlightForEntity(e, prevSet, nextSet);
-          if (e === gsplatEntity) this.lastSelectedIndices = [...nextSet];
+          if (e === gsplatEntity) {
+            this.lastSelectedIndices = [...nextSet];
+            this._logSelectedPointsCenter();
+          }
         }
       }
       return;
@@ -1162,6 +1226,7 @@ export class SelectionTool {
         const activeEntity = this.getGsplatEntityFromSelection();
         if (activeEntity && this._getGsplatKey(activeEntity) === this._getGsplatKey(e)) {
           this.lastSelectedIndices = [...nextSet];
+          this._logSelectedPointsCenter();
         }
       }
       this.pendingComplementErase = complement;
@@ -1172,8 +1237,7 @@ export class SelectionTool {
     if (ctx.isMultiFile) {
       for (const e of ctx.entities) {
         if (!e?.gsplat) continue;
-        const instance = e.gsplat.instance;
-        const resource = instance?.resource;
+        const resource = this._getGsplatResource(e);
         const count = resource?.gsplatData?.numSplats || 0;
         if (!count) continue;
 
@@ -1189,6 +1253,7 @@ export class SelectionTool {
         const activeEntity = this.getGsplatEntityFromSelection();
         if (activeEntity && this._getGsplatKey(activeEntity) === this._getGsplatKey(e)) {
           this.lastSelectedIndices = [...nextSet];
+          this._logSelectedPointsCenter();
         }
       }
 
@@ -1217,8 +1282,7 @@ export class SelectionTool {
 
     const wasComplementOn = this.pendingComplementErase === true && this.pendingComplementEraseKey === ctx.key;
 
-    const instance = gsplatEntity.gsplat.instance;
-    const resource = instance?.resource;
+    const resource = this._getGsplatResource(gsplatEntity);
     if (!resource) return;
 
     const centers = resource.centers;
@@ -1281,8 +1345,7 @@ export class SelectionTool {
         const erasedSet = this._getErasedIndicesForEntity(gsplatEntity);
         const previousErasedIndices = new Set(erasedSet);
 
-        const instance = gsplatEntity.gsplat.instance;
-        const resource = instance?.resource;
+        const resource = this._getGsplatResource(gsplatEntity);
         const colorTexture = resource?.colorTexture;
         if (!colorTexture) continue;
 
@@ -1315,15 +1378,16 @@ export class SelectionTool {
           }
 
           colorTexture.unlock();
+          if (resource) resource._colorTextureDirty = true;
 
           for (const idx of indices) {
             erasedSet.add(idx);
           }
           this._setErasedIndicesForEntity(gsplatEntity, erasedSet);
 
-          if (instance.mesh) {
-            instance.mesh.dirtyBound = true;
-          }
+          const instance = gsplatEntity.gsplat?.instance;
+          if (instance?.mesh) instance.mesh.dirtyBound = true;
+          this._requestRenderAfterColorChange();
 
           items.push({ gsplatEntity, previousErasedIndices, erasedIndices: indices });
         } catch (err) {}
@@ -1368,8 +1432,7 @@ export class SelectionTool {
     }
     if (!indicesToErase || indicesToErase.length === 0) return;
 
-    const instance = gsplatEntity.gsplat.instance;
-    const resource = instance?.resource;
+    const resource = this._getGsplatResource(gsplatEntity);
     if (!resource) return;
 
     const colorTexture = resource.colorTexture;
@@ -1415,6 +1478,7 @@ export class SelectionTool {
       }
 
       colorTexture.unlock();
+      if (resource) resource._colorTextureDirty = true;
 
       if (!isSequence) {
         for (const idx of erasedIndices) {
@@ -1460,9 +1524,9 @@ export class SelectionTool {
         this.detailsPanel.updateUndoRedoButtons();
       }
 
-      if (instance.mesh) {
-        instance.mesh.dirtyBound = true;
-      }
+      const instance = gsplatEntity.gsplat?.instance;
+      if (instance?.mesh) instance.mesh.dirtyBound = true;
+      this._requestRenderAfterColorChange();
     } catch (err) {}
   }
 
@@ -1477,8 +1541,7 @@ export class SelectionTool {
     if (indices.length === 0) return;
 
     this._ensureBaseColorCache(gsplatEntity);
-    const instance = gsplatEntity.gsplat?.instance;
-    const resource = instance?.resource;
+    const resource = this._getGsplatResource(gsplatEntity);
     const colorTexture = resource?.colorTexture;
     if (!colorTexture) return;
 
@@ -1503,7 +1566,10 @@ export class SelectionTool {
         }
       }
       colorTexture.unlock();
-      if (instance.mesh) instance.mesh.dirtyBound = true;
+      if (resource) resource._colorTextureDirty = true;
+      const instance = gsplatEntity.gsplat?.instance;
+      if (instance?.mesh) instance.mesh.dirtyBound = true;
+      this._requestRenderAfterColorChange();
     } catch (err) {}
   }
 
@@ -1836,8 +1902,7 @@ export class SelectionTool {
     const camera = this.viewer.app.root.findByName('MainCamera');
     if (!camera) return;
     
-    const instance = gsplatEntity.gsplat?.instance;
-    const resource = instance?.resource;
+    const resource = this._getGsplatResource(gsplatEntity);
     if (!resource) return;
     
     const centers = resource.centers;
@@ -1893,7 +1958,11 @@ export class SelectionTool {
     if (!elementBelow) return false;
     
     const isUIWindow = 
-      elementBelow.closest('.inspector-panel') ||
+      elementBelow.closest('.menu-dropdown') ||
+      elementBelow.closest('.objects-panel__bottom-tools') ||
+      elementBelow.closest('.timeline-container') ||
+      elementBelow.closest('.right-tools-panel') ||
+      elementBelow.closest('.gizmo-controls__tooltip--fixed-layer') ||
       elementBelow.closest('.gizmo-window') ||
       elementBelow.closest('.seg-window') ||
       elementBelow.closest('.object-details-panel') ||
@@ -1921,8 +1990,7 @@ export class SelectionTool {
       this._ensureBaseColorCache(gsplatEntity);
     }
 
-    const instance = gsplatEntity.gsplat?.instance;
-    const resource = instance?.resource;
+    const resource = this._getGsplatResource(gsplatEntity);
     if (!resource) return;
 
     const gsplatData = resource.gsplatData;
@@ -1942,6 +2010,7 @@ export class SelectionTool {
     this._setSelectedSet(ctx.key, gsplatEntity, nextSet);
     this._setSelectionHighlightForEntity(gsplatEntity, prevSet, nextSet);
     this.lastSelectedIndices = [...nextSet];
+    this._logSelectedPointsCenter();
     this.detailsPanel?.updateEraserComplementDisabledState?.();
   }
 
@@ -1969,8 +2038,7 @@ export class SelectionTool {
     const gsplatEntity = this.getGsplatEntityFromSelection();
     if (!gsplatEntity) return;
     
-    const instance = gsplatEntity.gsplat?.instance;
-    const resource = instance?.resource;
+    const resource = this._getGsplatResource(gsplatEntity);
     if (!resource) return;
     
     const colorTexture = resource.colorTexture;
@@ -1986,8 +2054,12 @@ export class SelectionTool {
       this.lastSelectedIndices = [];
     } catch (error) {}
     finally {
-      try { colorTexture.unlock(); } catch (_) {}
+      try {
+        colorTexture.unlock();
+        if (resource) resource._colorTextureDirty = true;
+      } catch (_) {}
     }
+    this._requestRenderAfterColorChange();
   }
 
   destroy() {

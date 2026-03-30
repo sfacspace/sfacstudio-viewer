@@ -74,14 +74,21 @@ export class ObjectDescription {
         <button type="button" class="comment-description-panel__close" aria-label="닫기">&times;</button>
       </div>
       <div class="comment-description-panel__body"></div>
+      <div class="comment-description-panel__footer">
+        <button type="button" class="comment-description-panel__delete" aria-label="코멘트 삭제">삭제</button>
+      </div>
     `;
     document.body.appendChild(panel);
     this._panel = panel;
     this._panelTitle = panel.querySelector('.comment-description-panel__title');
     this._panelText = panel.querySelector('.comment-description-panel__body');
     this._panelClose = panel.querySelector('.comment-description-panel__close');
+    this._panelDelete = panel.querySelector('.comment-description-panel__delete');
     if (this._panelClose) {
       this._panelClose.addEventListener('click', () => this._closeDescriptionPanel());
+    }
+    if (this._panelDelete) {
+      this._panelDelete.addEventListener('click', () => this._deleteCurrentComment());
     }
   }
 
@@ -265,6 +272,15 @@ export class ObjectDescription {
     this._panel.style.top = `${top}px`;
   }
 
+  _getEntitiesForObjectId(objectId) {
+    if (!this.timeline?.objects) return [];
+    const obj = this.timeline.objects.find((o) => o.id === objectId);
+    if (!obj) return [];
+    if (obj.entity) return [obj.entity];
+    if (Array.isArray(obj.files)) return obj.files.map((f) => f?.entity).filter(Boolean);
+    return [];
+  }
+
   _openDescriptionPanel(comment, markerEl) {
     if (!this._panel || !this._panelText) return;
     if (this._panelTitle) {
@@ -275,6 +291,8 @@ export class ObjectDescription {
     this._positionPanelNextToMarker(markerEl ?? this._markers.get(comment.id)?.el);
     this._panel.classList.add('is-visible');
     this._panel.setAttribute('aria-hidden', 'false');
+    const entities = this._getEntitiesForObjectId(comment.objectId);
+    this.viewer?.beginCommentHighlightRead?.(entities ?? []);
   }
 
   _closeDescriptionPanel() {
@@ -282,8 +300,37 @@ export class ObjectDescription {
     this._panel.classList.remove('is-visible');
     this._panel.setAttribute('aria-hidden', 'true');
     this._openCommentId = null;
+    this.viewer?.endCommentHighlightRead?.();
     if (this.timeline?.clearSelection) {
       this.timeline.clearSelection();
+    }
+  }
+
+  _deleteCurrentComment() {
+    if (!this._openCommentId) return;
+    const idx = this.comments.findIndex((c) => c.id === this._openCommentId);
+    if (idx === -1) return;
+    this.comments.splice(idx, 1);
+    this._closeDescriptionPanel();
+    this._rebuildMarkers();
+  }
+
+  /**
+   * 타임라인에서 오브젝트가 제거될 때 해당 오브젝트에 연결된 코멘트를 모두 제거합니다.
+   * @param {string} objectId - 제거된 오브젝트 ID
+   */
+  removeCommentsForObjectId(objectId) {
+    if (!objectId) return;
+    const before = this.comments.length;
+    this.comments = this.comments.filter((c) => c.objectId !== objectId);
+    if (this.comments.length !== before) {
+      if (this._openCommentId) {
+        const stillExists = this.comments.some((c) => c.id === this._openCommentId);
+        if (!stillExists) {
+          this._closeDescriptionPanel();
+        }
+      }
+      this._rebuildMarkers();
     }
   }
 

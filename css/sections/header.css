@@ -345,3 +345,38 @@ header h1 {
   letter-spacing: 0.4px;
   color: var(--color-text-primary);
 }
+
+/* 뷰 도구(Orbit/그리드 등): 계층 패널 하단 `.objects-panel__view-tools-inner` 안 */
+.objects-panel__view-tools-inner .camera-mode-switch {
+  margin-left: 0;
+}
+
+.objects-panel__view-tools-inner .camera-mode-switch__label {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  border-radius: 5px;
+}
+
+.objects-panel__view-tools-inner .camera-mode-switch__icon-wrap {
+  width: 13px;
+  height: 13px;
+}
+
+.objects-panel__view-tools-inner .grid-toggle,
+.objects-panel__view-tools-inner .panels-toggle,
+.objects-panel__view-tools-inner .orbit-toggle,
+.objects-panel__view-tools-inner .fullscreen-toggle {
+  height: 22px;
+  min-width: 22px;
+  padding: 0 2px;
+  border-radius: 5px;
+}
+
+.objects-panel__view-tools-inner .grid-toggle__icon,
+.objects-panel__view-tools-inner .panels-toggle__icon,
+.objects-panel__view-tools-inner .orbit-toggle__icon,
+.objects-panel__view-tools-inner .fullscreen-toggle__icon {
+  width: 12px;
+  height: 12px;
+}

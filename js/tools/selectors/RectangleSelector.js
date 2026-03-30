@@ -13,8 +13,7 @@ export class RectangleSelector {
     const camera = this.viewer.app.root.findByName('MainCamera');
     if (!camera) return [];
     
-    const instance = gsplatEntity.gsplat?.instance;
-    const resource = instance?.resource;
+    const resource = typeof this.getResource === 'function' ? this.getResource(gsplatEntity) : (gsplatEntity.gsplat?.instance?.resource);
     if (!resource) return [];
     
     const centers = resource.centers;

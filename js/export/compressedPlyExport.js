@@ -2,7 +2,7 @@
  * Compressed PLY export (SuperSplat .compressed.ply). Same SH rotation as exportPly (v7).
  */
 
-import { getExportBaseName, getExportOptionsFromWorldMat4, saveBlobWithDialog } from './exportPly.js';
+import { getExportBaseName, getExportOptionsFromWorldMat4, getGsplatResourceFromEntity, saveBlobWithDialog } from './exportPly.js';
 import { t } from '../i18n.js';
 
 function getDataFromMat4(mat4) {
@@ -690,8 +690,7 @@ const DEFAULT_OPTIONS = {
 };
 
 function buildCompressedPlyForEntity(selectionTool, entity, _fileName, options = {}) {
-  const instance = entity?.gsplat?.instance;
-  const resource = instance?.resource;
+  const resource = getGsplatResourceFromEntity(entity, selectionTool);
   const gsplatData = resource?.gsplatData;
   if (!gsplatData?.elements?.length) return null;
 

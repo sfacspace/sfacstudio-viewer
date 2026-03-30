@@ -1,5 +1,5 @@
 /**
- * Export video – prepareFrame (sequence/camera) → render → postRender → captureFrame. Default 60fps.
+ * Export video – prepareFrame (camera) → render → postRender → captureFrame. Default 60fps.
  */
 import {
   BufferTarget,
@@ -14,10 +14,9 @@ const DEFAULT_WIDTH = 3840;
 const DEFAULT_HEIGHT = 2160;
 /** Default output video frame rate (60fps) */
 const DEFAULT_OUTPUT_FRAME_RATE = 60;
-/** Renders to wait after sequence load before capture (reduces overlap/tearing) */
-const WAIT_RENDER_AFTER_SEQUENCE_LOAD = 10;
-
 /**
+ * Export video (prepareFrame → render → captureFrame). Viewer: app, canvas, resize() 사용.
+ *
  * @param {Object} options
  * @param {import('../core/viewer.js').PlayCanvasViewer} options.viewer
  * @param {import('../timeline/index.js').TimelineController} options.timeline
@@ -72,9 +71,6 @@ export async function exportVideo(options = {}) {
   const bitrate = Number(bitrateOption) > 0
     ? Number(bitrateOption)
     : Math.max(72_000_000, (width * height * frameRate * 0.08) | 0);
-
-  const objects = timeline._objects;
-  const hasSequence = objects?.objects?.some((o) => o?.isSequence && o?.files?.length) ?? false;
 
   const prevFrustumsVisible = timeline._keyframes?.frustumsVisible ?? true;
   timeline._keyframes?.setFrustumsVisible?.(false);
@@ -142,31 +138,14 @@ export async function exportVideo(options = {}) {
     });
   }
 
-  /** Yield one frame for browser/GPU to flush */
-  function yieldFrame() {
-    return new Promise((resolve) => {
-      requestAnimationFrame(() => { resolve(); });
-    });
-  }
-
   /**
-   * Prepare frame: set time, wait for sequence load, sync camera (same as render.ts prepareFrame).
+   * Prepare frame: set time, sync camera (same as render.ts prepareFrame).
    * @param {number} animationTimeSec - animation time in seconds
    */
   async function prepareFrame(animationTimeSec) {
     if (typeof timeline.setFrameAsyncByTime === 'function') {
       await timeline.setFrameAsyncByTime(animationTimeSec);
       return;
-    }
-    if (hasSequence && objects) {
-      objects._collectSequencePromises = true;
-    }
-    timeline._playback?.setTime?.(animationTimeSec);
-    if (hasSequence && objects && Array.isArray(objects._sequencePromises) && objects._sequencePromises.length > 0) {
-      await Promise.all(objects._sequencePromises);
-    }
-    if (objects) {
-      objects._collectSequencePromises = false;
     }
     timeline._playback?.setTime?.(animationTimeSec);
   }
@@ -219,25 +198,12 @@ export async function exportVideo(options = {}) {
 
       await prepareFrame(startTimeSec + frameTime);
 
-      // Sequence: yield after frame switch so GPU/engine can update
-      if (hasSequence) {
-        await yieldFrame();
+      if (typeof app.render === 'function') {
+        app.render();
+      } else {
+        requestAnimationFrame(() => {});
       }
-
-      const renderCount = hasSequence ? WAIT_RENDER_AFTER_SEQUENCE_LOAD : 1;
-      for (let r = 0; r < renderCount; r++) {
-        if (typeof app.render === 'function') {
-          app.render();
-        } else {
-          requestAnimationFrame(() => {});
-        }
-        await postRender();
-      }
-
-      // Sequence: capture after last render is fully reflected (reduces tearing)
-      if (hasSequence) {
-        await yieldFrame();
-      }
+      await postRender();
 
       await captureFrame(frameTime);
 

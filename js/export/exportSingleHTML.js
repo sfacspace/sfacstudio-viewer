@@ -1,16 +1,18 @@
 /**
  * Serialize viewer to single HTML (frame-based: totalFrames, keyframes[].frame, startFrame/endFrame).
  * When PLY has baked world transform → JSON transform = null; otherwise keep baseTransform.
+ * Viewer: getCameraState(), _orbitTarget, _orbitDistance 사용.
  *
+ * @param {Object} options
  * @param {Object} options.fileLoader - FileLoader
  * @param {Object} options.timeline - TimelineController
- * @param {Object} options.viewer - PlayCanvasViewer
+ * @param {import('../core/viewer.js').PlayCanvasViewer} options.viewer
  * @param {Object} [options.selectionTool] - SelectionTool (for PLY with erased points removed)
  * @param {AbortSignal} [options.signal] - AbortSignal
+ * @param {() => void} [options.onCancel] - Cancel callback
  */
 import { getEmbeddedViewerScript } from './embeddedViewerScript.js';
-import { writePlyBinary, getExportOptionsFromWorldMat4 } from './exportPly.js';
-import { loadGSplatDataWithMorton } from '../core/splatLoader.js';
+import { writePlyBinary, getExportOptionsFromWorldMat4, getGsplatResourceFromEntity } from './exportPly.js';
 import { t } from '../i18n.js';
 
 export async function serializeViewer(options = {}) {
@@ -201,8 +203,7 @@ export async function serializeViewer(options = {}) {
   const extractPlyBytes = (entity) => {
     try {
       if (!entity?.gsplat) return { bytes: null, transformBaked: false };
-      const instance = entity.gsplat?.instance;
-      const resource = instance?.resource;
+      const resource = getGsplatResourceFromEntity(entity, selTool);
       const gsplatData = resource?.gsplatData;
       if (!gsplatData?.elements?.length) return { bytes: null, transformBaked: false };
 
@@ -263,13 +264,6 @@ export async function serializeViewer(options = {}) {
           : Math.max(0, Math.min(streamTotalFrames - 1, Math.round((Number(kf.t) || 0) * (parseInt(fps) || 30)))),
         state: kf.state,
       })),
-      movingObjects: (timeline._keyframes?._movingObjectManager?.getAll?.() || []).map(mo => ({
-        id: mo.id,
-        fromKeyframeId: mo.fromKeyframe?.id,
-        toKeyframeId: mo.toKeyframe?.id,
-        curvature: mo.curvature ?? 1,
-        angle: mo.angle ?? 0,
-      })),
       initialCamera: initialCam,
       orbitTarget,
       orbitDistance,
@@ -286,116 +280,17 @@ export async function serializeViewer(options = {}) {
     await writable.write('[');
 
     const objects = timeline.objects || [];
-
+    let needCommaBeforeNext = false;
     for (let oi = 0; oi < objects.length; oi++) {
       throwIfAborted();
       const obj = objects[oi];
-      if (oi > 0) await writable.write(',');
+      if (needCommaBeforeNext) await writable.write(',');
+      needCommaBeforeNext = true;
 
       const baseTransform = getExportTransform(obj) ?? extractLocalTransform(obj.entity);
 
-      // (A) Sequence object
-      if (obj.isSequence && Array.isArray(obj.files)) {
-        const objFps = Math.max(1, Math.min(60, parseInt(fps) || 30));
-        const startFrame = Math.max(0, Math.round((Number(obj.startSeconds) || 0) * objFps));
-        const endFrame = Math.max(0, Math.round((Number(obj.endSeconds) || 0) * objFps));
-
-        // Sequence frames are baked → transform null
-        const objHeader = {
-          id: obj.id, name: obj.name, startFrame, endFrame,
-          isMultiFile: true, isSequence: true, files: '__FILES__',
-          transform: null,
-        };
-        const objJson = JSON.stringify(objHeader);
-        const filesMarker = JSON.stringify('__FILES__');
-        const fIdx = objJson.indexOf(filesMarker);
-        if (fIdx < 0) {
-          await writable.write(JSON.stringify({ ...objHeader, files: [] }));
-          continue;
-        }
-        await writable.write(objJson.slice(0, fIdx));
-        await writable.write('[');
-
-        const frameTotalCount = obj.files.length;
-        const sequenceHasErase = selTool?.erasedVolumesBySequenceId?.get(obj.id)?.batches?.length > 0;
-
-        for (let i = 0; i < frameTotalCount; i++) {
-          throwIfAborted();
-          if (i > 0) await writable.write(',');
-          const frameRef = obj.files[i];
-          let blob = await getSequenceFrameBlob(frameRef, i);
-          const frameName = blob?.name || frameRef?.fileName || `frame_${i}.ply`;
-
-          // Erase + bake transform for sequence frame
-          let frameBaked = false;
-          if (blob && sequenceHasErase && selTool && typeof selTool.getErasedIndicesForSequenceExport === 'function') {
-            try {
-              const pc = window.pc;
-              if (pc) {
-                const arrayBuffer = await blob.arrayBuffer();
-                const gsplatData = await loadGSplatDataWithMorton(pc, frameName, arrayBuffer, { skipReorder: true, skipValidation: true });
-                const pos = baseTransform?.position;
-                const rot = baseTransform?.rotation;
-                const scale = baseTransform?.scale ?? 1;
-                const mat = new pc.Mat4();
-                const posV = new pc.Vec3(pos?.x ?? 0, pos?.y ?? 0, pos?.z ?? 0);
-                const quat = new pc.Quat();
-                if (rot && typeof rot.w === 'number') {
-                  quat.set(rot.x, rot.y, rot.z, rot.w);
-                } else {
-                  quat.setFromEulerAngles(rot?.x ?? 0, rot?.y ?? 0, rot?.z ?? 0);
-                }
-                const scaleV = new pc.Vec3(scale, scale, scale);
-                mat.setTRS(posV, quat, scaleV);
-                const erasedSet = selTool.getErasedIndicesForSequenceExport(gsplatData, mat, obj.id);
-                const keepMask = (idx) => !erasedSet.has(idx);
-                const opts = getExportOptionsFromWorldMat4(mat);
-                const bytes = writePlyBinary(gsplatData, keepMask, opts);
-                if (bytes?.length) {
-                  blob = new Blob([bytes]);
-                  frameBaked = true;
-                }
-              }
-            } catch (err) {
-              console.warn('[export] sequence frame erase apply failed', frameName, err);
-            }
-          }
-
-          // transform = null when frame PLY is baked
-          const fileHeader = {
-            fileName: frameName,
-            splatId: frameRef?.splatId || '',
-            base64: '__B64__',
-            transform: frameBaked ? null : baseTransform,
-          };
-          const fileJson = JSON.stringify(fileHeader);
-          const b64Marker = JSON.stringify('__B64__');
-          const bIdx = fileJson.indexOf(b64Marker);
-          if (bIdx < 0) {
-            await writable.write(JSON.stringify({ ...fileHeader, base64: '' }));
-            continue;
-          }
-          await writable.write(fileJson.slice(0, bIdx));
-          await writable.write('"');
-          if (blob) {
-            await streamBlobToBase64(blob, async (chunk) => {
-              throwIfAborted();
-              await writable.write(chunk);
-            });
-          }
-          await writable.write('"');
-          await writable.write(fileJson.slice(bIdx + b64Marker.length));
-
-          if (typeof payloadTotalCount === 'number') payloadDoneCount += 1;
-        }
-
-        await writable.write(']');
-        await writable.write(objJson.slice(fIdx + filesMarker.length));
-        continue;
-      }
-
-      // (B) Multi-file object (non-sequence)
-      if (obj.isMultiFile && obj.files && !obj.isSequence) {
+      // Multi-file object
+      if (obj.isMultiFile && obj.files) {
         const objFps = Math.max(1, Math.min(60, parseInt(fps) || 30));
         const startFrame = Math.max(0, Math.round((Number(obj.startSeconds) || 0) * objFps));
         const endFrame = Math.max(0, Math.round((Number(obj.endSeconds) || 0) * objFps));
@@ -494,27 +389,6 @@ export async function serializeViewer(options = {}) {
     await writable.close();
   };
 
-  const getSequenceFrameBlob = async (frameRef, index) => {
-    if (!frameRef) return null;
-    if (frameRef.file instanceof Blob) return frameRef.file;
-    // Path-based sequence: fetch from local file server
-    if (frameRef.path && typeof window.__getLocalFileServerBaseUrl === 'function') {
-      try {
-        const baseUrl = (await window.__getLocalFileServerBaseUrl()).replace(/\/$/, '');
-        const url = `${baseUrl}/local-file?path=${encodeURIComponent(frameRef.path)}`;
-        const res = await fetch(url);
-        if (res.ok) {
-          const blob = await res.blob();
-          const fileName = (frameRef.path.split(/[/\\]/).pop()) || frameRef.fileName || `frame_${index}.ply`;
-          return new File([blob], fileName, { type: 'application/octet-stream' });
-        }
-      } catch (e) {
-        console.warn('[export] Sequence frame path load failed', frameRef.path, e);
-      }
-    }
-    return null;
-  };
-
   const objects = timeline.objects || [];
   const loadedFiles = fileLoader.getLoadedFiles() || [];
   if (!objects.length) {
@@ -530,7 +404,8 @@ export async function serializeViewer(options = {}) {
   const defaultName = (timeline.objects || [])[0]?.name?.replace(/\.[^/.]+$/, "") || "scene";
   const fileName = `with_${defaultName}.html`;
 
-  // Build common export params (frame-based: totalFrames + fps)
+  // Build common export params (frame-based: totalFrames + fps).
+  // Viewer API 사용: getCameraState(), _orbitTarget, _orbitDistance (requestRenderAfterSelectionChange/forceWorkBufferColorUpdate는 export에서 미사용)
   const buildStreamExportOpts = () => {
     const maxSeconds = (typeof timeline?.getMaxSeconds === 'function' ? timeline.getMaxSeconds() : (timeline.maxSeconds || 30));
     const exportFps = Math.max(1, Math.min(60, parseInt(timeline?.fps) || 30));

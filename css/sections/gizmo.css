@@ -35,9 +35,10 @@
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4), 0 2px 8px var(--color-accent-glow);
 }
 /* Gizmo and camera info, controls */
+/* 뷰포트 우하단 기준 */
 .axis-gizmo {
   position: fixed;
-  right: 18px;
+  right: 50px;
   bottom: 18px;
   width: 150px;
   height: 150px;
@@ -90,6 +91,115 @@
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.15);
   backdrop-filter: blur(8px);
   z-index: 110;
+}
+
+/* 오른쪽 도구 패널 안: 아이콘 열만 (44px 버튼 + 좌우 패딩 8px = 열 너비에 맞춤) */
+.gizmo-controls.gizmo-controls--in-right-panel {
+  position: relative;
+  top: auto;
+  right: auto;
+  transform: none;
+  flex: 0 0 auto;
+  align-self: center;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 60px;
+  padding: 10px 8px;
+  margin: 0;
+  z-index: 1;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  overflow: visible;
+}
+
+/* 셀렉션 도구: 색 버튼 아래, 항상 표시 */
+.gizmo-controls__selection-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 0;
+  overflow: visible;
+}
+
+/* 기즈모 버튼과 동일 톤: 배경·테두리·비활성 아이콘( muted ) / 활성 시 골드+흰 아이콘 */
+.gizmo-controls__selection-tools .object-details-panel__button,
+.gizmo-controls__selection-tools .object-details-panel__button.object-details-panel__button--neutral {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 140ms ease, transform 120ms ease, box-shadow 140ms ease, opacity 140ms ease, color 140ms ease;
+}
+
+.gizmo-controls__selection-tools .object-details-panel__button.is-off,
+.gizmo-controls__selection-tools .object-details-panel__button--neutral.is-off:not(.object-details-panel__button--complement-on) {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-muted);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  opacity: 0.9;
+}
+
+/* 셀렉터 전용(상자·브러시·입체): is-off 해제 시만 액센트 — neutral 버튼은 제외 */
+.gizmo-controls__selection-tools .object-details-panel__button:not(.object-details-panel__button--neutral):not(.is-off) {
+  background: rgb(var(--color-accent-rgb));
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(var(--color-accent-rgb), 0.4);
+}
+
+.gizmo-controls__selection-tools .object-details-panel__button:not(.object-details-panel__button--neutral):not(.is-off):hover {
+  background: var(--color-accent-hover);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(var(--color-accent-rgb), 0.45);
+}
+
+.gizmo-controls__selection-tools .object-details-panel__button.is-off:hover:not(.object-details-panel__button--selector-disabled),
+.gizmo-controls__selection-tools .object-details-panel__button--neutral.is-off:hover:not(.object-details-panel__button--selector-disabled):not(.object-details-panel__button--complement-on) {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.38);
+}
+
+.gizmo-controls__selection-tools .object-details-panel__button--complement-on {
+  background: rgb(var(--color-accent-rgb));
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(var(--color-accent-rgb), 0.4);
+}
+
+.gizmo-controls__selection-tools .object-details-panel__button svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.gizmo-controls__selection-tools .object-details-panel__button--volume .object-details-panel__volume-btn-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.gizmo-controls__selection-tools .object-details-panel__button--selector-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.gizmo-controls__selection-tools {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  position: relative;
+  overflow: visible;
 }
 
 .gizmo-controls__divider {
@@ -171,15 +281,86 @@
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M21 3h-6v2h3.59L14 9.59 15.41 11 20 6.41V10h2V3h-1zM3 21h6v-2H5.41L10 14.41 8.59 13 4 17.59V14H2v7h1z'/%3E%3C/svg%3E");
 }
 
+.gizmo-controls__icon--inspector {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z'/%3E%3C/svg%3E");
+}
+
 .gizmo-controls__icon--camera {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M4 7h3l2-2h6l2 2h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zm8 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0 2.5A1.5 1.5 0 1 1 12 15a1.5 1.5 0 0 1 0-3.5z'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M4 7h3l2-2h6l2 2h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zm8 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0 2.5A1.5 1.5 0 1 1 12 15a1.5 1.5 0 0 1 0-3.5z'/%3E%3C/svg%3E");
 }
 
-.gizmo-controls__description-row {
+.gizmo-controls__description-row,
+.gizmo-controls__tint-row,
+.gizmo-controls__inspector-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.gizmo-controls__tint-popover {
+  min-width: auto;
+  max-width: none;
+  padding: 12px 14px;
+  bottom: 0;
+}
+
+.gizmo-tint-swatches {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.gizmo-tint-swatch {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+  background-clip: padding-box;
+}
+
+.gizmo-tint-swatch:hover {
+  transform: scale(1.08);
+  border-color: rgba(255, 255, 255, 0.65);
+}
+
+.gizmo-tint-swatch.is-selected {
+  box-shadow: 0 0 0 2px rgb(var(--color-accent-rgb));
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+.gizmo-tint-swatch--none {
+  background: transparent;
+  border: 2px dashed rgba(255, 255, 255, 0.45);
+}
+
+.gizmo-tint-swatch--red {
+  background: #e53935;
+}
+
+.gizmo-tint-swatch--yellow {
+  background: #fbc02d;
+}
+
+.gizmo-tint-swatch--blue {
+  background: #1e88e5;
+}
+
+.gizmo-tint-swatch--green {
+  background: #43a047;
+}
+
+.gizmo-controls__icon--color-tint {
+  /* Filled circle (palette-style) */
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='12' cy='12' r='8'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='12' cy='12' r='8'/%3E%3C/svg%3E");
 }
 
 .gizmo-controls__icon--description {
@@ -187,7 +368,7 @@
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z'/%3E%3C/svg%3E");
 }
 
-#gizmoDescriptionTooltip {
+#gizmoDescriptionTooltip:not(.gizmo-controls__tooltip--dock) {
   background: rgba(13, 19, 32, 0.82);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -250,7 +431,7 @@
   cursor: not-allowed;
 }
 
-.gizmo-controls__tooltip {
+.gizmo-controls__tooltip:not(.gizmo-controls__tooltip--dock):not(.header-camera-settings__dropdown) {
   display: none;
   min-width: 220px;
   max-width: 320px;
@@ -270,18 +451,69 @@
   margin-right: 16px;
 }
 
-.gizmo-controls__tooltip::after {
+.gizmo-controls__tooltip:not(.gizmo-controls__tooltip--dock):not(.header-camera-settings__dropdown)::after {
   /* Hide tail */
   display: none;
 }
 
-.gizmo-controls__tooltip::before {
+.gizmo-controls__tooltip:not(.gizmo-controls__tooltip--dock):not(.header-camera-settings__dropdown)::before {
   /* Hide tail */
   display: none;
 }
 
-.gizmo-controls__tooltip.is-visible {
+.gizmo-controls__tooltip:not(.gizmo-controls__tooltip--dock):not(.header-camera-settings__dropdown).is-visible {
   display: block;
+}
+
+/* body 고정 레이어: app-shell overflow 클립 방지, 축 기즈모·캔버스 위에 표시 */
+.gizmo-controls__tooltip.gizmo-controls__tooltip--fixed-layer:not(.header-camera-settings__dropdown) {
+  position: fixed;
+  right: calc(var(--right-tools-strip-width) + 16px);
+  left: auto;
+  bottom: auto;
+  margin-right: 0;
+  z-index: 100200;
+  top: 0;
+}
+
+.gizmo-controls__tooltip--fixed-layer.gizmo-controls__tooltip--inspector-popover {
+  min-width: 280px;
+  max-width: 360px;
+  max-height: min(78vh, 580px);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.gizmo-tooltip__header-row--with-close {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.gizmo-tooltip__close {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gizmo-tooltip__close:hover {
+  color: var(--color-text-primary);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .gizmo-tooltip__section {

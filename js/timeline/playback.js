@@ -15,6 +15,7 @@ export class PlaybackController {
    * @param {Function} [options.getMovingObjects] - moving objects getter
    * @param {Function} [options.setFrustumsVisible] - frustum visibility setter
    * @param {Function} [options.setMovingObjectsVisible] - moving objects UI visibility setter
+   * @param {Function} [options.getMovingObjectsManager] - moving object manager getter
    * @param {Function} [options.onFrameChange] - on frame change (frameIndex)
    */
   constructor(options) {
@@ -106,13 +107,11 @@ export class PlaybackController {
       }
     }
     
-    // Hide frustums and path while playing
+    // Hide frustums while playing
     this._setFrustumsVisible(false);
     this._setMovingObjectsVisible(true);
-    
-    // 카메라 이동 오브젝트 모두 선택 해제
     this._clearMovingObjectSelection();
-    
+
     // time = frame (init)
     this._time = this.frame;
     
@@ -338,13 +337,13 @@ export class PlaybackController {
   _clearMovingObjectSelection() {
     const movingObjects = this._getMovingObjects();
     if (!movingObjects || !Array.isArray(movingObjects)) return;
-    
-    movingObjects.forEach(obj => {
+
+    movingObjects.forEach((obj) => {
       if (obj && obj.manager && typeof obj.manager.clearSelection === 'function') {
         obj.manager.clearSelection();
       }
     });
-    
+
     const manager = this._getMovingObjectsManager?.();
     if (manager && typeof manager.clearSelection === 'function') {
       manager.clearSelection();
@@ -373,9 +372,13 @@ export class PlaybackController {
     const firstKf = keyframes[0];
     const lastKf = keyframes[keyframes.length - 1];
     const movingObjects = this._getMovingObjects();
-    
-    let fromKf, toKf, alpha, movingObj;
-    
+
+    let fromKf;
+    let toKf;
+    let alpha;
+    /** @type {unknown} */
+    let movingObj;
+
     // 구간 판정 (무한 루프 고려)
     if (t < firstKf.t) {
       fromKf = lastKf;
@@ -383,8 +386,8 @@ export class PlaybackController {
       const wrapDuration = (maxSeconds - lastKf.t) + firstKf.t;
       const elapsed = (maxSeconds - lastKf.t) + t;
       alpha = wrapDuration > 0 ? elapsed / wrapDuration : 0;
-      movingObj = movingObjects.find(o => 
-        o.fromKeyframe.id === lastKf.id && o.toKeyframe.id === firstKf.id
+      movingObj = movingObjects.find(
+        (o) => o.fromKeyframe.id === lastKf.id && o.toKeyframe.id === firstKf.id
       );
     } else if (t > lastKf.t) {
       fromKf = lastKf;
@@ -392,13 +395,13 @@ export class PlaybackController {
       const wrapDuration = (maxSeconds - lastKf.t) + firstKf.t;
       const elapsed = t - lastKf.t;
       alpha = wrapDuration > 0 ? elapsed / wrapDuration : 0;
-      movingObj = movingObjects.find(o => 
-        o.fromKeyframe.id === lastKf.id && o.toKeyframe.id === firstKf.id
+      movingObj = movingObjects.find(
+        (o) => o.fromKeyframe.id === lastKf.id && o.toKeyframe.id === firstKf.id
       );
     } else {
       fromKf = firstKf;
       toKf = keyframes[1];
-      
+
       for (let i = 0; i < keyframes.length - 1; i++) {
         if (t >= keyframes[i].t && t <= keyframes[i + 1].t) {
           fromKf = keyframes[i];
@@ -406,20 +409,20 @@ export class PlaybackController {
           break;
         }
       }
-      
+
       const duration = toKf.t - fromKf.t;
       alpha = duration > 0 ? (t - fromKf.t) / duration : 0;
-      movingObj = movingObjects.find(o => 
-        o.fromKeyframe.id === fromKf.id && o.toKeyframe.id === toKf.id
+      movingObj = movingObjects.find(
+        (o) => o.fromKeyframe.id === fromKf.id && o.toKeyframe.id === toKf.id
       );
     }
-    
+
     alpha = Math.max(0, Math.min(1, alpha));
     alpha = this._remapAlpha(alpha);
-    
+
     const curvature = movingObj?.curvature ?? 1;
     const angle = movingObj?.angle ?? 0;
-    
+
     this._applyCurveInterpolation(fromKf.state, toKf.state, alpha, curvature, angle, pc);
   }
 

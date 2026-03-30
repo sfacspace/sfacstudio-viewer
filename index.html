@@ -48,6 +48,9 @@
           <button class="menu-dropdown__trigger" data-i18n="menu.file">File</button>
           <ul class="menu-dropdown__list">
             <li><a href="#" data-action="load-ply" data-i18n="menu.loadPly">Load PLY</a></li>
+            <li><a href="#" data-action="save-project" data-i18n="menu.saveProject">저장</a></li>
+            <li><a href="#" data-action="save-project-as" data-i18n="menu.saveProjectAs">다른 이름으로 저장</a></li>
+            <li><a href="#" data-action="load-project" data-i18n="menu.loadProject">프로젝트 불러오기</a></li>
             <li><a href="#" data-action="export-viewer" data-i18n="menu.exportViewer">Export App Viewer</a></li>
             <li><a href="#" data-action="export-mp4" data-i18n="menu.exportVideo">Export video</a></li>
           </ul>
@@ -63,27 +66,6 @@
         </span>
       </div>
       <div class="header-right">
-        <div class="camera-mode-switch" data-tooltip="단축키: F (Orbit/Fly 모드 전환)" data-i18n-tooltip="tooltip.cameraModeSwitch">
-          <label class="camera-mode-switch__label">
-            <input type="checkbox" id="cameraMode" class="camera-mode-switch__input" aria-label="Orbit/Fly 모드 전환" />
-            <span class="camera-mode-switch__icon-wrap">
-              <span class="camera-mode-switch__icon camera-mode-switch__icon--orbit" aria-hidden="true"></span>
-              <span class="camera-mode-switch__icon camera-mode-switch__icon--fly" aria-hidden="true"></span>
-            </span>
-          </label>
-        </div>
-        <button id="orbitCenterToggle" class="orbit-toggle is-off" type="button" aria-pressed="false" data-tooltip="궤도 중심 표시 (O)" data-i18n-tooltip="tooltip.orbitCenter">
-          <span class="orbit-toggle__icon" aria-hidden="true"></span>
-        </button>
-        <button id="gridToggle" class="grid-toggle" type="button" aria-pressed="true" data-tooltip="그리드 표시 (G)" data-i18n-tooltip="tooltip.grid">
-          <span class="grid-toggle__icon" aria-hidden="true"></span>
-        </button>
-        <button id="panelsToggle" class="panels-toggle" type="button" aria-pressed="true" data-tooltip="툴 윈도우 표시 (P)" data-i18n-tooltip="tooltip.panels">
-          <span class="panels-toggle__icon" aria-hidden="true"></span>
-        </button>
-        <button id="fullscreenToggle" class="fullscreen-toggle is-off" type="button" aria-pressed="false" data-tooltip="전체 화면 (Ctrl+F)" data-i18n-tooltip="tooltip.fullscreen">
-          <span class="fullscreen-toggle__icon" aria-hidden="true"></span>
-        </button>
         <button id="settingsButton" class="settings-button" type="button" aria-pressed="false" data-tooltip="설정" data-i18n-tooltip="tooltip.settings">
           <svg class="settings-button__icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="3"></circle>
@@ -93,7 +75,202 @@
       </div>
     </header>
 
-    <div id="timeline-bottom" class="timeline-container">
+    <aside id="objectsPanel" class="objects-panel" aria-label="Scene">
+      <div class="objects-panel__inner">
+        <section class="objects-panel__hierarchy" aria-labelledby="objectsPanelHierarchyHeading">
+          <div class="objects-panel__section-head">
+            <h2 id="objectsPanelHierarchyHeading" class="objects-panel__section-heading" data-i18n="panel.hierarchy">Hierarchy</h2>
+            <div class="objects-panel__section-head-actions">
+              <button type="button" id="hierarchyAddMenuBtn" class="objects-panel__hierarchy-add-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="hierarchyAddMenu" data-i18n-title="panel.hierarchyAddMenuTitle" title="Add">+</button>
+              <div id="hierarchyAddMenu" class="objects-panel__add-menu" role="menu" hidden>
+                <button type="button" class="objects-panel__add-menu-item" role="menuitem" data-action="empty-object" data-i18n="panel.emptyObject">Empty Object</button>
+              </div>
+            </div>
+          </div>
+          <div class="objects-panel__section-rule objects-panel__section-rule--gray" aria-hidden="true"></div>
+          <div class="objects-panel__list-wrap">
+            <div class="objects-panel__list" id="timelineSpacerObjectsList"></div>
+          </div>
+        </section>
+        <div class="objects-panel__bottom-tools" data-i18n-attr-label="panel.viewToolsBar" aria-label="View tools">
+          <div class="objects-panel__bottom-tools-row">
+            <div class="header-tools-strip__inner objects-panel__view-tools-inner" role="toolbar">
+              <div class="camera-mode-switch" data-tooltip="단축키: F (Orbit/Fly 모드 전환)" data-i18n-tooltip="tooltip.cameraModeSwitch">
+                <label class="camera-mode-switch__label">
+                  <input type="checkbox" id="cameraMode" class="camera-mode-switch__input" aria-label="Orbit/Fly 모드 전환" />
+                  <span class="camera-mode-switch__icon-wrap">
+                    <span class="camera-mode-switch__icon camera-mode-switch__icon--orbit" aria-hidden="true"></span>
+                    <span class="camera-mode-switch__icon camera-mode-switch__icon--fly" aria-hidden="true"></span>
+                  </span>
+                </label>
+              </div>
+              <button id="orbitCenterToggle" class="orbit-toggle is-off" type="button" aria-pressed="false" data-tooltip="궤도 중심 표시 (O)" data-i18n-tooltip="tooltip.orbitCenter">
+                <span class="orbit-toggle__icon" aria-hidden="true"></span>
+              </button>
+              <button id="gridToggle" class="grid-toggle" type="button" aria-pressed="true" data-tooltip="그리드 표시 (G)" data-i18n-tooltip="tooltip.grid">
+                <span class="grid-toggle__icon" aria-hidden="true"></span>
+              </button>
+              <button id="panelsToggle" class="panels-toggle" type="button" aria-pressed="true" data-tooltip="툴 윈도우 표시 (P)" data-i18n-tooltip="tooltip.panels">
+                <span class="panels-toggle__icon" aria-hidden="true"></span>
+              </button>
+              <button id="fullscreenToggle" class="fullscreen-toggle is-off" type="button" aria-pressed="false" data-tooltip="전체 화면 (Ctrl+F)" data-i18n-tooltip="tooltip.fullscreen">
+                <span class="fullscreen-toggle__icon" aria-hidden="true"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <button type="button" id="objectsPanelResizeHandle" class="objects-panel__resize-handle" data-i18n-attr-label="panel.resizeHandle" data-i18n-title="panel.resizeHandle" aria-label="Resize panel" title="Resize panel"></button>
+    </aside>
+
+    <div id="pc-container" class="pc-render-container">
+      <canvas id="pcCanvas"></canvas>
+    </div>
+
+    <aside id="rightToolsPanel" class="right-tools-panel" aria-label="Tools">
+      <div class="right-tools-panel__inner">
+        <div id="gizmoControls" class="gizmo-controls gizmo-controls--in-right-panel" aria-label="Tool shortcuts">
+          <button id="gizmoTransform" class="gizmo-controls__button is-off" type="button" aria-pressed="false" title="Transform">
+            <span class="gizmo-controls__icon gizmo-controls__icon--transform" aria-hidden="true"></span>
+          </button>
+          <button id="gizmoRotate" class="gizmo-controls__button is-off" type="button" aria-pressed="false" title="Rotate">
+            <span class="gizmo-controls__icon gizmo-controls__icon--rotate" aria-hidden="true"></span>
+          </button>
+          <button id="gizmoScale" class="gizmo-controls__button is-off" type="button" aria-pressed="false" title="Scale">
+            <span class="gizmo-controls__icon gizmo-controls__icon--scale" aria-hidden="true"></span>
+          </button>
+          <div class="gizmo-controls__divider" aria-hidden="true"></div>
+          <div class="gizmo-controls__inspector-row">
+            <button id="gizmoInspectorBtn" class="gizmo-controls__button is-off" type="button" aria-pressed="false" data-i18n-title="panel.inspector" title="Inspector">
+              <span class="gizmo-controls__icon gizmo-controls__icon--inspector" aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="gizmo-controls__description-row">
+            <button id="gizmoDescriptionBtn" class="gizmo-controls__button is-off" type="button" aria-pressed="false" data-i18n-title="panel.commentAdd" title="설명 추가">
+              <span class="gizmo-controls__icon gizmo-controls__icon--description" aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="gizmo-controls__tint-row">
+            <button id="gizmoColorTintBtn" class="gizmo-controls__button is-off" type="button" aria-pressed="false" data-i18n-title="panel.colorTintTitle" title="색지정">
+              <span class="gizmo-controls__icon gizmo-controls__icon--color-tint" aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="gizmo-controls__divider" aria-hidden="true"></div>
+          <div id="gizmoSelectionToolsWrap" class="gizmo-controls__selection-wrap" aria-hidden="false">
+            <div id="gizmoSelectionTools" class="gizmo-controls__selection-tools">
+              <button id="objectDetailsPanelBtn1" class="object-details-panel__button" type="button" title="사각형 선택">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18"></rect>
+                </svg>
+              </button>
+              <button id="objectDetailsPanelBtn2" class="object-details-panel__button" type="button" title="브러쉬 선택">
+                <svg viewBox="0 0 64 64" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <g>
+                    <path fill="currentColor" d="M23.998,15.999C10.745,15.999,0,26.744,0,39.996v0.008v19.998c0,2.203,1.789,4,4,4h19.999
+                      c0.008,0,0.016-0.008,0.027-0.008c13.237-0.016,23.971-10.753,23.971-23.998C47.996,26.744,37.251,15.999,23.998,15.999z"/>
+                    <path fill="currentColor" d="M60.479,3.515c-4.683-4.687-12.284-4.687-16.967,0l-7.019,7.019c7.62,3.238,13.729,9.347,16.967,16.971
+                      l7.019-7.022C65.166,15.799,65.166,8.202,60.479,3.515z"/>
+                  </g>
+                </svg>
+                <div id="brushTooltip" class="object-details-panel__tooltip object-details-panel__tooltip--in-gizmo" style="display: none;">
+                  <div class="object-details-panel__tooltip-content">
+                    <label class="tooltip-label">R:</label>
+                    <input type="number" id="brushRadiusInput" class="tooltip-input" min="5" max="200" step="1" value="30">
+                    <input type="range" id="brushRadiusSlider" class="tooltip-slider" min="5" max="200" step="1" value="30">
+                  </div>
+                </div>
+              </button>
+              <button id="objectDetailsPanelBtn4" class="object-details-panel__button object-details-panel__button--volume" type="button" title="입체 도형">
+                <svg class="object-details-panel__volume-btn-icon object-details-panel__volume-btn-icon--box is-active" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                  <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+                <svg class="object-details-panel__volume-btn-icon object-details-panel__volume-btn-icon--sphere" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                </svg>
+              </button>
+              <div id="volumeTooltip" class="object-details-panel__tooltip object-details-panel__tooltip--volume object-details-panel__tooltip--in-gizmo" style="display: none;">
+                <div class="object-details-panel__tooltip-volume-row">
+                  <button id="volumeShapeToggleBtn" type="button" class="object-details-panel__volume-toggle" title="구/박스 전환" aria-label="구/박스 전환">
+                    <span class="object-details-panel__volume-toggle-icon-wrap">
+                      <svg class="volume-toggle-icon volume-toggle-icon--box is-active" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                      <svg class="volume-toggle-icon volume-toggle-icon--sphere" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                    </span>
+                  </button>
+                  <button id="volumeClearBtn" type="button" class="object-details-panel__volume-toggle object-details-panel__volume-clear-btn" title="설치된 도형 전체 삭제" aria-label="설치된 도형 전체 삭제">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                  </button>
+                  <div class="object-details-panel__volume-tooltip-content-wrap">
+                  <div id="volumeTooltipContentBox" class="volume-tooltip-content">
+                    <button id="boxSetBtn" type="button" class="object-details-panel__volume-action-btn" title="Set" aria-label="Set">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle></svg>
+                    </button>
+                    <button id="boxAddBtn" type="button" class="object-details-panel__volume-action-btn" title="Add" aria-label="Add">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </button>
+                    <label style="display:flex; align-items:center; gap:4px;">W <input id="boxWidthInput" type="number" min="0.1" max="10" step="0.01" value="1" style="width:36px;"><input id="boxWidthSlider" type="range" min="0.1" max="10" step="0.01" value="1" style="width:80px;"></label>
+                    <label style="display:flex; align-items:center; gap:4px;">H <input id="boxHeightInput" type="number" min="0.1" max="10" step="0.01" value="1" style="width:36px;"><input id="boxHeightSlider" type="range" min="0.1" max="10" step="0.01" value="1" style="width:80px;"></label>
+                    <label style="display:flex; align-items:center; gap:4px;">D <input id="boxDepthInput" type="number" min="0.1" max="10" step="0.01" value="1" style="width:36px;"><input id="boxDepthSlider" type="range" min="0.1" max="10" step="0.01" value="1" style="width:80px;"></label>
+                    <button id="boxSizeResetBtn" type="button" style="margin-right:8px;">초기화</button>
+                  </div>
+                  <div id="volumeTooltipContentSphere" class="volume-tooltip-content" style="display: none;">
+                    <button id="sphereSetBtn" type="button" class="object-details-panel__volume-action-btn" title="Set" aria-label="Set">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle></svg>
+                    </button>
+                    <button id="sphereAddBtn" type="button" class="object-details-panel__volume-action-btn" title="Add" aria-label="Add">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </button>
+                    <label class="tooltip-label">R:</label>
+                    <input id="sphereRadiusInput" type="number" class="tooltip-input" min="0.1" max="10" step="0.01" value="1">
+                    <input id="sphereRadiusSlider" type="range" class="tooltip-slider" min="0.1" max="10" step="0.01" value="1">
+                  </div>
+                  </div>
+                </div>
+              </div>
+              <button id="objectDetailsPanelBtnEraser" class="object-details-panel__button object-details-panel__button--neutral" type="button" title="지우개">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M7 16.5l-3-3a2 2 0 0 1 0-2.8l7.3-7.2a2 2 0 0 1 2.8 0l5.7 5.7a2 2 0 0 1 0 2.8l-4 4"></path>
+                  <path d="M3.5 17.5H14"></path>
+                  <path d="M11 6l7 7"></path>
+                </svg>
+              </button>
+              <button id="objectDetailsPanelBtnComplement" class="object-details-panel__button object-details-panel__button--neutral" type="button" title="여집합 (A^c)">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" stroke="none">
+                  <text x="6.5" y="16" font-size="12" font-weight="700">A</text>
+                  <text x="14" y="9" font-size="8" font-weight="700">c</text>
+                </svg>
+              </button>
+              <div id="objectDetailsPanelExportWrap" class="object-details-panel__export-wrap object-details-panel__export-wrap--in-gizmo">
+                <button id="objectDetailsPanelBtnExport" class="object-details-panel__button object-details-panel__button--neutral object-details-panel__button--export" type="button" title="보내기">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 3v10"></path>
+                    <path d="M8 7l4-4 4 4"></path>
+                    <path d="M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"></path>
+                  </svg>
+                </button>
+                <div id="objectDetailsPanelExportMenu" class="object-details-panel__export-menu" aria-hidden="true">
+                  <button type="button" class="context-menu__item" data-export-action="ply">
+                    <span class="context-menu__label">ply보내기</span>
+                  </button>
+                  <button type="button" class="context-menu__item" data-export-action="compressed-ply">
+                    <span class="context-menu__label">압축 ply보내기</span>
+                  </button>
+                  <button type="button" class="context-menu__item" data-export-action="create-object">
+                    <span class="context-menu__label">객체보내기</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </aside>
+
+    <!-- 카메라 마커 레일 + 재생 컨트롤(타임블록/스페이서 없음). 상단 헤더 아래, 너비: 왼쪽 계층 ~ 오른쪽 도구 열 사이 -->
+    <div id="timeline-bottom" class="timeline-container timeline-container--dock-top" aria-label="Camera timeline">
       <div class="timeline-bottom__content">
         <div class="timeline" aria-label="Timeline">
           <div class="timeline-top-left">
@@ -128,16 +305,6 @@
             <div class="timeline__ticks" id="timelineTicks"></div>
           </div>
         </div>
-        <div class="timeline-spacer" id="timelineSpacer" style="height: 125px;">
-          <div class="timeline-spacer__container" id="timelineSpacerContainer">
-            <div class="timeline-spacer__left">
-              <div class="timeline-spacer__list" id="timelineSpacerObjectsList"></div>
-            </div>
-            <div class="timeline-spacer__right">
-              <div class="timeline-spacer__list" id="timelineSpacerRightList"></div>
-            </div>
-          </div>
-        </div>
         <div class="timeline-camera-line">
           <div class="timeline-camera-line__container">
             <div class="timeline-camera-line__left">
@@ -154,58 +321,97 @@
             <div class="timeline-camera-line__right"></div>
           </div>
         </div>
-        <div class="timeline-spacer__resize-handle" id="timelineSpacerResizeHandle" title="높이 조절" aria-label="스페이서 높이 조절" data-i18n="timeline.resizeHandle" data-i18n-attr="title" data-i18n-attr-label="timeline.resizeHandleLabel"></div>
       </div>
-      <button id="timelineToggleBtn" class="timeline-toggle-btn" type="button" aria-pressed="true" aria-label="타임라인 접기/펼치기" data-i18n="timeline.toggle" data-i18n-attr="aria-label">
-        <span class="timeline-toggle-btn__icon" aria-hidden="true"></span>
-      </button>
-    </div>
-
-    <div id="pc-container" class="pc-render-container">
-      <canvas id="pcCanvas"></canvas>
     </div>
   </div>
 
-  <div id="objectInspector" class="object-inspector" aria-label="Object inspector">
-    <div id="inspectorName" class="object-inspector__title">No selection</div>
-    <div class="object-inspector__rows">
-      <div class="object-inspector__row">
-        <div class="object-inspector__label">Position</div>
-        <div class="object-inspector__inputs">
-          <input id="inspectorPosX" class="object-inspector__input" type="text" value="0" inputmode="decimal" autocomplete="off" />
-          <input id="inspectorPosY" class="object-inspector__input" type="text" value="0" inputmode="decimal" autocomplete="off" />
-          <input id="inspectorPosZ" class="object-inspector__input" type="text" value="0" inputmode="decimal" autocomplete="off" />
+  <!-- 인스펙터·코멘트·컬러: app-shell 밖 고정 레이어(overflow 클립 방지) -->
+  <div id="gizmoInspectorPopover" class="gizmo-controls__tooltip gizmo-controls__tooltip--fixed-layer gizmo-controls__tooltip--inspector-popover" role="dialog" aria-label="Inspector">
+    <div class="gizmo-tooltip__header-row gizmo-tooltip__header-row--with-close">
+      <span class="gizmo-tooltip__title" data-i18n="panel.inspector">Inspector</span>
+      <button type="button" id="gizmoInspectorPopoverClose" class="gizmo-tooltip__close" aria-label="닫기" data-i18n="button.close" data-i18n-attr="aria-label">&times;</button>
+    </div>
+    <div id="objectInspector" class="object-inspector object-inspector--docked is-inspector-idle" aria-label="Inspector">
+      <div id="inspectorName" class="object-inspector__title"></div>
+      <div class="object-inspector__rows">
+        <div class="object-inspector__row">
+          <div class="object-inspector__label">Position</div>
+          <div class="object-inspector__inputs">
+            <input id="inspectorPosX" class="object-inspector__input" type="text" value="0" inputmode="decimal" autocomplete="off" />
+            <input id="inspectorPosY" class="object-inspector__input" type="text" value="0" inputmode="decimal" autocomplete="off" />
+            <input id="inspectorPosZ" class="object-inspector__input" type="text" value="0" inputmode="decimal" autocomplete="off" />
+          </div>
+        </div>
+        <div class="object-inspector__row">
+          <div class="object-inspector__label">Rotation</div>
+          <div class="object-inspector__inputs">
+            <input id="inspectorRotX" class="object-inspector__input" type="text" value="0" inputmode="decimal" autocomplete="off" />
+            <input id="inspectorRotY" class="object-inspector__input" type="text" value="0" inputmode="decimal" autocomplete="off" />
+            <input id="inspectorRotZ" class="object-inspector__input" type="text" value="0" inputmode="decimal" autocomplete="off" />
+          </div>
+        </div>
+        <div class="object-inspector__row">
+          <div class="object-inspector__label">
+            Scale
+            <button id="inspectorScaleUniformToggle" class="object-inspector__scale-link" type="button" aria-pressed="false" title="Uniform Scale">
+                <span class="scale-link-icon scale-link-icon--on" style="display:flex">
+                  <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 7H16C18.7614 7 21 9.23858 21 12C21 14.7614 18.7614 17 16 17H14M10 7H8C5.23858 7 3 9.23858 3 12C3 14.7614 5.23858 17 8 17H10M8 12H16" stroke-width="2"/>
+                  </svg>
+                </span>
+                <span class="scale-link-icon scale-link-icon--off" style="display:none">
+                  <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M14 6C13.4477 6 13 6.44772 13 7C13 7.55228 13.4477 8 14 8V6ZM10 18C10.5523 18 11 17.5523 11 17C11 16.4477 10.5523 16 10 16V18ZM14 16C13.4477 16 13 16.4477 13 17C13 17.5523 13.4477 18 14 18V16ZM8 11C7.44772 11 7 11.4477 7 12C7 12.5523 7.44772 13 8 13V11ZM3.70711 2.29289C3.31658 1.90237 2.68342 1.90237 2.29289 2.29289C1.90237 2.68342 1.90237 3.31658 2.29289 3.70711L3.70711 2.29289ZM20.2929 21.7071C20.6834 22.0976 21.3166 22.0976 21.7071 21.7071C22.0976 21.3166 22.0976 20.6834 21.7071 20.2929L20.2929 21.7071ZM19.4115 14.0898C19.1224 14.5604 19.2696 15.1763 19.7402 15.4653C20.2108 15.7544 20.8266 15.6072 21.1157 15.1366L19.4115 14.0898ZM12 13C12.5523 13 13 12.5523 13 12C13 11.4477 12.5523 11 12 11V13ZM7.08376 7.08376L7.79087 6.37666L7.08376 7.08376ZM8 16C5.79086 16 4 14.2091 4 12H2C2 15.3137 4.68629 18 8 18V16ZM16 8C18.2091 8 20 9.79086 20 12H22C22 8.68629 19.3137 6 16 6V8ZM14 8H16V6H14V8ZM10 16H8V18H10V16ZM16 16H14V18H16V16ZM20 12C20 12.7678 19.7846 13.4823 19.4115 14.0898L21.1157 15.1366C21.6767 14.2232 22 13.1478 22 12H20ZM8 13H12V11H8V13ZM2.29289 3.70711L6.37666 7.79087L7.79087 6.37666L3.70711 2.29289L2.29289 3.70711ZM6.90166 6.10048C4.11245 6.61703 2 9.06076 2 12H4C4 10.0423 5.40739 8.41122 7.26586 8.06704L6.90166 6.10048ZM6.37666 7.79087L16.2091 17.6233L17.6233 16.2091L7.79087 6.37666L6.37666 7.79087ZM16.2091 17.6233L20.2929 21.7071L21.7071 20.2929L17.6233 16.2091L16.2091 17.6233ZM16.7341 15.933C16.4969 15.9769 16.2516 16 16 16V18C16.3743 18 16.7415 17.9656 17.0983 17.8995L16.7341 15.933Z" fill="#888888"/>
+                  </svg>
+            </button>
+          </div>
+          <div class="object-inspector__inputs">
+            <input id="inspectorScaleX" class="object-inspector__input" type="text" value="1" inputmode="decimal" autocomplete="off" />
+            <input id="inspectorScaleY" class="object-inspector__input" type="text" value="1" inputmode="decimal" autocomplete="off" />
+            <input id="inspectorScaleZ" class="object-inspector__input" type="text" value="1" inputmode="decimal" autocomplete="off" />
+          </div>
         </div>
       </div>
-      <div class="object-inspector__row">
-        <div class="object-inspector__label">Rotation</div>
-        <div class="object-inspector__inputs">
-          <input id="inspectorRotX" class="object-inspector__input" type="text" value="0" inputmode="decimal" autocomplete="off" />
-          <input id="inspectorRotY" class="object-inspector__input" type="text" value="0" inputmode="decimal" autocomplete="off" />
-          <input id="inspectorRotZ" class="object-inspector__input" type="text" value="0" inputmode="decimal" autocomplete="off" />
-        </div>
-      </div>
-      <div class="object-inspector__row">
-        <div class="object-inspector__label">
-          Scale
-          <button id="inspectorScaleUniformToggle" class="object-inspector__scale-link" type="button" aria-pressed="false" title="Uniform Scale">
-              <span class="scale-link-icon scale-link-icon--on" style="display:flex">
-                <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M14 7H16C18.7614 7 21 9.23858 21 12C21 14.7614 18.7614 17 16 17H14M10 7H8C5.23858 7 3 9.23858 3 12C3 14.7614 5.23858 17 8 17H10M8 12H16" stroke-width="2"/>
-                </svg>
-              </span>
-              <span class="scale-link-icon scale-link-icon--off" style="display:none">
-                <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M14 6C13.4477 6 13 6.44772 13 7C13 7.55228 13.4477 8 14 8V6ZM10 18C10.5523 18 11 17.5523 11 17C11 16.4477 10.5523 16 10 16V18ZM14 16C13.4477 16 13 16.4477 13 17C13 17.5523 13.4477 18 14 18V16ZM8 11C7.44772 11 7 11.4477 7 12C7 12.5523 7.44772 13 8 13V11ZM3.70711 2.29289C3.31658 1.90237 2.68342 1.90237 2.29289 2.29289C1.90237 2.68342 1.90237 3.31658 2.29289 3.70711L3.70711 2.29289ZM20.2929 21.7071C20.6834 22.0976 21.3166 22.0976 21.7071 21.7071C22.0976 21.3166 22.0976 20.6834 21.7071 20.2929L20.2929 21.7071ZM19.4115 14.0898C19.1224 14.5604 19.2696 15.1763 19.7402 15.4653C20.2108 15.7544 20.8266 15.6072 21.1157 15.1366L19.4115 14.0898ZM12 13C12.5523 13 13 12.5523 13 12C13 11.4477 12.5523 11 12 11V13ZM7.08376 7.08376L7.79087 6.37666L7.08376 7.08376ZM8 16C5.79086 16 4 14.2091 4 12H2C2 15.3137 4.68629 18 8 18V16ZM16 8C18.2091 8 20 9.79086 20 12H22C22 8.68629 19.3137 6 16 6V8ZM14 8H16V6H14V8ZM10 16H8V18H10V16ZM16 16H14V18H16V16ZM20 12C20 12.7678 19.7846 13.4823 19.4115 14.0898L21.1157 15.1366C21.6767 14.2232 22 13.1478 22 12H20ZM8 13H12V11H8V13ZM2.29289 3.70711L6.37666 7.79087L7.79087 6.37666L3.70711 2.29289L2.29289 3.70711ZM6.90166 6.10048C4.11245 6.61703 2 9.06076 2 12H4C4 10.0423 5.40739 8.41122 7.26586 8.06704L6.90166 6.10048ZM6.37666 7.79087L16.2091 17.6233L17.6233 16.2091L7.79087 6.37666L6.37666 7.79087ZM16.2091 17.6233L20.2929 21.7071L21.7071 20.2929L17.6233 16.2091L16.2091 17.6233ZM16.7341 15.933C16.4969 15.9769 16.2516 16 16 16V18C16.3743 18 16.7415 17.9656 17.0983 17.8995L16.7341 15.933Z" fill="#888888"/>
-                </svg>
-          </button>
-        </div>
-        <div class="object-inspector__inputs">
-          <input id="inspectorScaleX" class="object-inspector__input" type="text" value="1" inputmode="decimal" autocomplete="off" />
-          <input id="inspectorScaleY" class="object-inspector__input" type="text" value="1" inputmode="decimal" autocomplete="off" />
-          <input id="inspectorScaleZ" class="object-inspector__input" type="text" value="1" inputmode="decimal" autocomplete="off" />
-        </div>
-      </div>
+    </div>
+  </div>
+
+  <div id="gizmoDescriptionTooltip" class="gizmo-controls__tooltip gizmo-controls__tooltip--fixed-layer" role="region" aria-label="Comments form">
+    <div class="gizmo-tooltip__header-row gizmo-tooltip__header-row--with-close">
+      <span class="gizmo-tooltip__title" data-i18n="panel.commentAdd">설명 추가</span>
+      <button type="button" id="gizmoDescriptionTooltipClose" class="gizmo-tooltip__close" aria-label="닫기" data-i18n="button.close" data-i18n-attr="aria-label">&times;</button>
+    </div>
+    <div class="gizmo-tooltip__section">
+      <span class="gizmo-tooltip__label" data-i18n="panel.selectedObject">선택된 오브젝트</span>
+      <span id="gizmoDescriptionObjectName" class="gizmo-tooltip__object-name">—</span>
+    </div>
+    <div class="gizmo-tooltip__section">
+      <label class="gizmo-tooltip__label" for="gizmoDescriptionTitleInput" data-i18n="panel.commentTitle">제목</label>
+      <input type="text" id="gizmoDescriptionTitleInput" class="gizmo-tooltip__input" data-i18n-placeholder="panel.commentTitlePh" placeholder="제목을 입력하세요" />
+    </div>
+    <div class="gizmo-tooltip__section">
+      <label class="gizmo-tooltip__label" for="gizmoDescriptionInput" data-i18n="panel.commentBody">설명</label>
+      <textarea id="gizmoDescriptionInput" class="gizmo-tooltip__textarea" rows="3" data-i18n-placeholder="panel.commentBodyPh" placeholder="설명을 입력하세요"></textarea>
+    </div>
+    <div class="gizmo-tooltip__section">
+      <button type="button" id="gizmoDescriptionAddBtn" class="gizmo-tooltip__add-btn" disabled data-i18n="panel.commentAddBtn">추가</button>
+    </div>
+  </div>
+
+  <div id="gizmoColorTintPopover" class="gizmo-controls__tooltip gizmo-controls__tooltip--fixed-layer gizmo-controls__tint-popover" role="region" aria-label="Object tint">
+    <div class="gizmo-tooltip__header-row gizmo-tooltip__header-row--with-close">
+      <span class="gizmo-tooltip__title" data-i18n="panel.colorTintTitle">색지정</span>
+      <button type="button" id="gizmoColorTintPopoverClose" class="gizmo-tooltip__close" aria-label="닫기" data-i18n="button.close" data-i18n-attr="aria-label">&times;</button>
+    </div>
+    <div class="gizmo-tooltip__section">
+      <span class="gizmo-tooltip__label" data-i18n="panel.selectedObject">선택된 오브젝트</span>
+      <span id="gizmoColorTintObjectName" class="gizmo-tooltip__object-name">—</span>
+    </div>
+    <div class="gizmo-tint-swatches" role="group" aria-label="색 선택">
+      <button type="button" class="gizmo-tint-swatch gizmo-tint-swatch--none is-selected" data-tint="none" title="색 없음" aria-label="색 없음"></button>
+      <button type="button" class="gizmo-tint-swatch gizmo-tint-swatch--red" data-tint="red" title="빨강" aria-label="빨강"></button>
+      <button type="button" class="gizmo-tint-swatch gizmo-tint-swatch--yellow" data-tint="yellow" title="노랑" aria-label="노랑"></button>
+      <button type="button" class="gizmo-tint-swatch gizmo-tint-swatch--blue" data-tint="blue" title="파랑" aria-label="파랑"></button>
+      <button type="button" class="gizmo-tint-swatch gizmo-tint-swatch--green" data-tint="green" title="초록" aria-label="초록"></button>
     </div>
   </div>
 
@@ -232,132 +438,8 @@
 
   <canvas id="axisGizmo" class="axis-gizmo" width="150" height="150" aria-label="Axis Gizmo"></canvas>
 
-  <div id="objectDetailsPanel" class="object-details-panel" aria-label="Object Details Panel" style="display: none;">
-    <div class="object-details-panel__drag-handle" aria-hidden="true"></div>
-    <button id="objectDetailsPanelBtnUndo" class="object-details-panel__button object-details-panel__button--neutral is-off" type="button" title="실행 취소">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 7v6h6"></path>
-        <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"></path>
-      </svg>
-    </button>
-    <button id="objectDetailsPanelBtnRedo" class="object-details-panel__button object-details-panel__button--neutral is-off" type="button" title="다시 실행">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 7v6h-6"></path>
-        <path d="M3 17a9 9 0 019-9 9 9 0 0 1 6 2.3l3 2.7"></path>
-      </svg>
-    </button>
-    <div class="object-details-panel__divider"></div>
 
-    <button id="objectDetailsPanelBtnComplement" class="object-details-panel__button object-details-panel__button--neutral" type="button" title="여집합 (A^c)">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" stroke="none">
-        <text x="6.5" y="16" font-size="12" font-weight="700">A</text>
-        <text x="14" y="9" font-size="8" font-weight="700">c</text>
-      </svg>
-    </button>
-    <button id="objectDetailsPanelBtnEraser" class="object-details-panel__button object-details-panel__button--neutral" type="button" title="지우개">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M7 16.5l-3-3a2 2 0 0 1 0-2.8l7.3-7.2a2 2 0 0 1 2.8 0l5.7 5.7a2 2 0 0 1 0 2.8l-4 4"></path>
-        <path d="M3.5 17.5H14"></path>
-        <path d="M11 6l7 7"></path>
-      </svg>
-    </button>
-    <div class="object-details-panel__divider"></div>
-
-    <button id="objectDetailsPanelBtn1" class="object-details-panel__button" type="button" title="사각형 선택">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="3" width="18" height="18"></rect>
-      </svg>
-    </button>
-    <button id="objectDetailsPanelBtn2" class="object-details-panel__button" type="button" title="브러쉬 선택">
-      <svg viewBox="0 0 64 64" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <g>
-          <path fill="#fff" d="M23.998,15.999C10.745,15.999,0,26.744,0,39.996v0.008v19.998c0,2.203,1.789,4,4,4h19.999
-            c0.008,0,0.016-0.008,0.027-0.008c13.237-0.016,23.971-10.753,23.971-23.998C47.996,26.744,37.251,15.999,23.998,15.999z"/>
-          <path fill="#fff" d="M60.479,3.515c-4.683-4.687-12.284-4.687-16.967,0l-7.019,7.019c7.62,3.238,13.729,9.347,16.967,16.971
-            l7.019-7.022C65.166,15.799,65.166,8.202,60.479,3.515z"/>
-        </g>
-      </svg>
-      <div id="brushTooltip" class="object-details-panel__tooltip" style="display: none;">
-        <div class="object-details-panel__tooltip-content">
-          <label class="tooltip-label">R:</label>
-          <input type="number" id="brushRadiusInput" class="tooltip-input" min="5" max="200" step="1" value="30">
-          <input type="range" id="brushRadiusSlider" class="tooltip-slider" min="5" max="200" step="1" value="30">
-        </div>
-      </div>
-    </button>
-
-    <div class="object-details-panel__divider"></div>
-    
-    <button id="objectDetailsPanelBtn4" class="object-details-panel__button object-details-panel__button--volume" type="button" title="입체 도형">
-      <svg class="object-details-panel__volume-btn-icon object-details-panel__volume-btn-icon--box is-active" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-        <line x1="12" y1="22.08" x2="12" y2="12"></line>
-      </svg>
-      <svg class="object-details-panel__volume-btn-icon object-details-panel__volume-btn-icon--sphere" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"></circle>
-        <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-      </svg>
-    </button>
-    <div id="volumeTooltip" class="object-details-panel__tooltip object-details-panel__tooltip--volume" style="display: none;">
-      <div class="object-details-panel__tooltip-volume-row">
-        <button id="volumeShapeToggleBtn" type="button" class="object-details-panel__volume-toggle" title="구/박스 전환" aria-label="구/박스 전환">
-          <span class="object-details-panel__volume-toggle-icon-wrap">
-            <svg class="volume-toggle-icon volume-toggle-icon--box is-active" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-            <svg class="volume-toggle-icon volume-toggle-icon--sphere" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-          </span>
-        </button>
-        <button id="volumeClearBtn" type="button" class="object-details-panel__volume-toggle object-details-panel__volume-clear-btn" title="설치된 도형 전체 삭제" aria-label="설치된 도형 전체 삭제">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-        </button>
-        <div class="object-details-panel__volume-tooltip-content-wrap">
-        <div id="volumeTooltipContentBox" class="volume-tooltip-content">
-          <button id="boxSetBtn" type="button" class="object-details-panel__volume-action-btn" title="Set" aria-label="Set">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle></svg>
-          </button>
-          <button id="boxAddBtn" type="button" class="object-details-panel__volume-action-btn" title="Add" aria-label="Add">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          </button>
-          <label style="display:flex; align-items:center; gap:4px;">W <input id="boxWidthInput" type="number" min="0.1" max="10" step="0.01" value="1" style="width:36px;"><input id="boxWidthSlider" type="range" min="0.1" max="10" step="0.01" value="1" style="width:80px;"></label>
-          <label style="display:flex; align-items:center; gap:4px;">H <input id="boxHeightInput" type="number" min="0.1" max="10" step="0.01" value="1" style="width:36px;"><input id="boxHeightSlider" type="range" min="0.1" max="10" step="0.01" value="1" style="width:80px;"></label>
-          <label style="display:flex; align-items:center; gap:4px;">D <input id="boxDepthInput" type="number" min="0.1" max="10" step="0.01" value="1" style="width:36px;"><input id="boxDepthSlider" type="range" min="0.1" max="10" step="0.01" value="1" style="width:80px;"></label>
-          <button id="boxSizeResetBtn" type="button" style="margin-right:8px;">초기화</button>
-        </div>
-        <div id="volumeTooltipContentSphere" class="volume-tooltip-content" style="display: none;">
-          <button id="sphereSetBtn" type="button" class="object-details-panel__volume-action-btn" title="Set" aria-label="Set">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle></svg>
-          </button>
-          <button id="sphereAddBtn" type="button" class="object-details-panel__volume-action-btn" title="Add" aria-label="Add">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          </button>
-          <label class="tooltip-label">R:</label>
-          <input id="sphereRadiusInput" type="number" class="tooltip-input" min="0.1" max="10" step="0.01" value="1">
-          <input id="sphereRadiusSlider" type="range" class="tooltip-slider" min="0.1" max="10" step="0.01" value="1">
-        </div>
-        </div>
-      </div>
-    </div>
-    <div id="objectDetailsPanelExportWrap" class="object-details-panel__export-wrap">
-      <button id="objectDetailsPanelBtnExport" class="object-details-panel__button object-details-panel__button--neutral object-details-panel__button--export" type="button" title="내보내기">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 3v10"></path>
-          <path d="M8 7l4-4 4 4"></path>
-          <path d="M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"></path>
-        </svg>
-      </button>
-      <div id="objectDetailsPanelExportMenu" class="object-details-panel__export-menu" aria-hidden="true">
-        <button type="button" class="context-menu__item" data-export-action="ply">
-          <span class="context-menu__label">ply 내보내기</span>
-        </button>
-        <button type="button" class="context-menu__item" data-export-action="compressed-ply">
-          <span class="context-menu__label">압축 ply 내보내기</span>
-        </button>
-      </div>
-    </div>
-  </div>
-  </div>
-
-  <input id="loadPlyInput" type="file" accept=".ply,.glb" multiple style="display:none" aria-hidden="true" />
+  <input id="loadPlyInput" type="file" accept=".ply,.step,.stp,.iges,.igs" multiple style="display:none" aria-hidden="true" />
 
   <div id="loadByPathModalOverlay" class="delete-modal-overlay" aria-hidden="true">
     <div class="delete-modal" role="dialog" aria-labelledby="loadByPathModalTitle">
@@ -385,87 +467,6 @@
 
   <div id="cameraInfo" class="camera-info">
     <span id="cameraInfoText">Pos: (0, 0, 0) | Rot: (0, 0, 0)</span>
-  </div>
-
-  <div id="gizmoControls" class="gizmo-controls" aria-label="Gizmo Controls">
-    <button id="gizmoTransform" class="gizmo-controls__button is-off" type="button" aria-pressed="false" title="Transform">
-      <span class="gizmo-controls__icon gizmo-controls__icon--transform" aria-hidden="true"></span>
-    </button>
-    <button id="gizmoRotate" class="gizmo-controls__button is-off" type="button" aria-pressed="false" title="Rotate">
-      <span class="gizmo-controls__icon gizmo-controls__icon--rotate" aria-hidden="true"></span>
-    </button>
-    <button id="gizmoScale" class="gizmo-controls__button is-off" type="button" aria-pressed="false" title="Scale">
-      <span class="gizmo-controls__icon gizmo-controls__icon--scale" aria-hidden="true"></span>
-    </button>
-    <div class="gizmo-controls__divider" aria-hidden="true"></div>
-    <div class="gizmo-controls__camera-row">
-      <button id="gizmoCamera" class="gizmo-controls__button is-off" type="button" aria-pressed="false" title="Camera">
-        <span class="gizmo-controls__icon gizmo-controls__icon--camera" aria-hidden="true"></span>
-      </button>
-      <div id="gizmoCameraTooltip" class="gizmo-controls__tooltip" role="status" aria-live="polite">
-        <div class="gizmo-tooltip__header-row" style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 8px;">
-          <span class="gizmo-tooltip__title" data-i18n="camera.title">카메라 설정</span>
-          <button id="cameraSettingsResetBtn" class="gizmo-tooltip__reset-btn" title="초기화" data-i18n="camera.reset" data-i18n-title="camera.reset">초기화</button>
-        </div>
-
-        <div class="gizmo-tooltip__section">
-          <div style="display:flex; align-items:center; justify-content:space-between; gap: 10px;">
-            <span class="gizmo-tooltip__label" data-i18n="camera.info">카메라 정보</span>
-            <label class="settings-modal__switch" style="transform: scale(0.9); transform-origin: right center;">
-              <input type="checkbox" id="gizmoCameraInfoSwitch" />
-              <span class="settings-modal__slider"></span>
-            </label>
-          </div>
-        </div>
-
-        <div class="gizmo-tooltip__section">
-          <label class="gizmo-tooltip__label" for="gizmoFovSlider" data-i18n="camera.fov">시야각</label>
-          <div class="gizmo-tooltip__control-row">
-            <input type="range" id="gizmoFovSlider" class="gizmo-tooltip__slider" min="10" max="120" step="0.1" value="60" />
-            <input type="number" id="gizmoFovInput" class="gizmo-tooltip__input-small" min="10" max="120" step="0.1" value="60" autocomplete="off" />
-          </div>
-        </div>
-        <div class="gizmo-tooltip__section">
-          <label class="gizmo-tooltip__label" for="gizmoMoveSpeedSlider" data-i18n="camera.moveSpeed">카메라 이동 속도</label>
-          <div class="gizmo-tooltip__control-row">
-            <input type="range" id="gizmoMoveSpeedSlider" class="gizmo-tooltip__slider" min="0.1" max="5" step="0.1" value="1" />
-            <input type="number" id="gizmoMoveSpeedInput" class="gizmo-tooltip__input-small" min="0.1" max="5" step="0.1" value="1" autocomplete="off" />
-          </div>
-        </div>
-        <div class="gizmo-tooltip__section">
-          <label class="gizmo-tooltip__label" for="gizmoFrustumSizeSlider" data-i18n="camera.frustumSize">프러스텀 크기</label>
-          <div class="gizmo-tooltip__control-row">
-            <input type="range" id="gizmoFrustumSizeSlider" class="gizmo-tooltip__slider" min="0.1" max="2" step="0.1" value="1" />
-            <input type="number" id="gizmoFrustumSizeInput" class="gizmo-tooltip__input-small" min="0.1" max="2" step="0.1" value="1" autocomplete="off" />
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="gizmo-controls__description-row">
-      <button id="gizmoDescriptionBtn" class="gizmo-controls__button is-off" type="button" aria-pressed="false" title="설명 추가">
-        <span class="gizmo-controls__icon gizmo-controls__icon--description" aria-hidden="true"></span>
-      </button>
-      <div id="gizmoDescriptionTooltip" class="gizmo-controls__tooltip" role="status" aria-live="polite">
-        <div class="gizmo-tooltip__header-row" style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 8px;">
-          <span class="gizmo-tooltip__title">설명 추가</span>
-        </div>
-        <div class="gizmo-tooltip__section">
-          <span class="gizmo-tooltip__label">선택된 오브젝트</span>
-          <span id="gizmoDescriptionObjectName" class="gizmo-tooltip__object-name">—</span>
-        </div>
-        <div class="gizmo-tooltip__section">
-          <label class="gizmo-tooltip__label" for="gizmoDescriptionTitleInput">제목</label>
-          <input type="text" id="gizmoDescriptionTitleInput" class="gizmo-tooltip__input" placeholder="제목을 입력하세요" />
-        </div>
-        <div class="gizmo-tooltip__section">
-          <label class="gizmo-tooltip__label" for="gizmoDescriptionInput">설명</label>
-          <textarea id="gizmoDescriptionInput" class="gizmo-tooltip__textarea" rows="3" placeholder="설명을 입력하세요"></textarea>
-        </div>
-        <div class="gizmo-tooltip__section">
-          <button type="button" id="gizmoDescriptionAddBtn" class="gizmo-tooltip__add-btn" disabled>추가</button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <div id="dropOverlay" class="drop-overlay" aria-hidden="true">
@@ -502,24 +503,34 @@
     </div>
   </div>
 
+  <div id="objectBlockContextMenu" class="context-menu" aria-hidden="true">
+    <button type="button" class="context-menu__item" data-action="duplicate">
+      <span class="context-menu__label">복제</span>
+    </button>
+    <div class="context-menu__separator context-menu__sep--hierarchy"></div>
+    <button type="button" class="context-menu__item" data-action="parentFromSelection">
+      <span class="context-menu__label" data-i18n="panel.hierarchyMakeChild">선택 항목의 자식으로</span>
+    </button>
+    <button type="button" class="context-menu__item" data-action="clearParent">
+      <span class="context-menu__label" data-i18n="panel.hierarchyClearParent">부모 연결 해제</span>
+    </button>
+    <div class="context-menu__separator"></div>
+    <button type="button" class="context-menu__item" data-action="delete">
+      <span class="context-menu__label" data-i18n="timeline.delete">삭제</span>
+    </button>
+  </div>
+
   <div id="multiFileContextMenu" class="context-menu" aria-hidden="true">
-    <div id="sequencePlaybackMenuGroup" class="context-menu__group context-menu__group--sequence" hidden>
-      <button type="button" class="context-menu__item" data-action="sequence-playback" data-mode="repeat">
-        <span class="context-menu__check" aria-hidden="true"></span>
-        <span class="context-menu__label" data-i18n="timeline.repeat">반복</span>
-      </button>
-      <button type="button" class="context-menu__item" data-action="sequence-playback" data-mode="reverseRepeat">
-        <span class="context-menu__check" aria-hidden="true"></span>
-        <span class="context-menu__label" data-i18n="timeline.reverseRepeat">역반복</span>
-      </button>
-      <button type="button" class="context-menu__item" data-action="sequence-playback" data-mode="uniform">
-        <span class="context-menu__check" aria-hidden="true"></span>
-        <span class="context-menu__label" data-i18n="timeline.uniform">균일하게</span>
-      </button>
-    </div>
-    <div class="context-menu__separator" id="multiFileMenuSeparator" hidden></div>
+    <button type="button" class="context-menu__item" data-action="duplicate">
+      <span class="context-menu__label">복제</span>
+    </button>
+    <div class="context-menu__separator"></div>
     <button type="button" class="context-menu__item" data-action="reverse">
       <span class="context-menu__label" data-i18n="timeline.reversePlayback">역재생</span>
+    </button>
+    <div class="context-menu__separator"></div>
+    <button type="button" class="context-menu__item" data-action="delete">
+      <span class="context-menu__label" data-i18n="timeline.delete">삭제</span>
     </button>
   </div>
 
@@ -643,6 +654,44 @@
             </div>
 
             <div class="settings-modal__divider"></div>
+            <div class="settings-modal__section-title" data-i18n="camera.title">카메라</div>
+            <div class="settings-modal__camera-block" role="region" data-i18n-attr-label="camera.title" aria-label="Camera">
+              <div class="settings-modal__camera-header">
+                <button type="button" id="cameraSettingsResetBtn" class="gizmo-tooltip__reset-btn" title="초기화" data-i18n="camera.reset" data-i18n-title="camera.reset">초기화</button>
+              </div>
+              <div class="gizmo-tooltip__section">
+                <div class="settings-modal__camera-info-row">
+                  <span class="gizmo-tooltip__label" data-i18n="camera.info">카메라 정보</span>
+                  <label class="settings-modal__switch">
+                    <input type="checkbox" id="gizmoCameraInfoSwitch" />
+                    <span class="settings-modal__slider"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="gizmo-tooltip__section">
+                <label class="gizmo-tooltip__label" for="gizmoFovSlider" data-i18n="camera.fov">시야각</label>
+                <div class="gizmo-tooltip__control-row">
+                  <input type="range" id="gizmoFovSlider" class="gizmo-tooltip__slider" min="10" max="120" step="0.1" value="60" />
+                  <input type="number" id="gizmoFovInput" class="gizmo-tooltip__input-small" min="10" max="120" step="0.1" value="60" autocomplete="off" />
+                </div>
+              </div>
+              <div class="gizmo-tooltip__section">
+                <label class="gizmo-tooltip__label" for="gizmoMoveSpeedSlider" data-i18n="camera.moveSpeed">카메라 이동 속도</label>
+                <div class="gizmo-tooltip__control-row">
+                  <input type="range" id="gizmoMoveSpeedSlider" class="gizmo-tooltip__slider" min="0.1" max="5" step="0.1" value="1" />
+                  <input type="number" id="gizmoMoveSpeedInput" class="gizmo-tooltip__input-small" min="0.1" max="5" step="0.1" value="1" autocomplete="off" />
+                </div>
+              </div>
+              <div class="gizmo-tooltip__section">
+                <label class="gizmo-tooltip__label" for="gizmoFrustumSizeSlider" data-i18n="camera.frustumSize">프러스텀 크기</label>
+                <div class="gizmo-tooltip__control-row">
+                  <input type="range" id="gizmoFrustumSizeSlider" class="gizmo-tooltip__slider" min="0.1" max="2" step="0.1" value="1" />
+                  <input type="number" id="gizmoFrustumSizeInput" class="gizmo-tooltip__input-small" min="0.1" max="2" step="0.1" value="1" autocomplete="off" />
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-modal__divider"></div>
             <div class="settings-modal__section-title" data-i18n="settings.performance">Performance</div>
 
             <div class="settings-modal__item">
@@ -697,83 +746,6 @@
                 <option value="50000">50k</option>
                 <option value="100000" selected>100k</option>
                 <option value="200000">200k</option>
-              </select>
-            </div>
-
-            <div class="settings-modal__divider"></div>
-            <div class="settings-modal__section-title" data-i18n="settings.sequencePrefetch">Sequence Prefetch</div>
-
-            <div class="settings-modal__item">
-              <span class="settings-modal__label" data-tooltip="Cache Limit" data-i18n="settings.cacheLimit" data-i18n-tooltip="settings.cacheLimitTooltip">Cache Limit</span>
-              <select id="settingsSeqCacheLimit" class="settings-modal__select">
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3" selected>3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-              </select>
-            </div>
-
-            <div class="settings-modal__item">
-              <span class="settings-modal__label" data-tooltip="Prefetch Depth" data-i18n="settings.prefetchDepth" data-i18n-tooltip="settings.prefetchDepthTooltip">Prefetch Depth</span>
-              <select id="settingsSeqPrefetchDepth" class="settings-modal__select">
-                <option value="0">0</option>
-                <option value="1" selected>1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-              </select>
-            </div>
-
-            <div class="settings-modal__item">
-              <span class="settings-modal__label" data-tooltip="Direction" data-i18n="settings.direction" data-i18n-tooltip="settings.directionTooltip">Direction</span>
-              <select id="settingsSeqPrefetchDirMode" class="settings-modal__select">
-                <option value="auto" selected data-i18n="settings.directionAuto">Auto</option>
-                <option value="both" data-i18n="settings.directionBoth">Both</option>
-                <option value="forward-only" data-i18n="settings.directionForwardOnly">Forward Only</option>
-              </select>
-            </div>
-
-            <div class="settings-modal__item">
-              <span class="settings-modal__label" data-tooltip="Scrubbing" data-i18n="settings.scrubbing" data-i18n-tooltip="settings.scrubbingTooltip">Scrubbing</span>
-              <label class="settings-modal__switch">
-                <input type="checkbox" id="settingsSeqScrubbing" checked />
-                <span class="settings-modal__slider"></span>
-              </label>
-            </div>
-
-            <div class="settings-modal__item">
-              <span class="settings-modal__label" data-tooltip="Scrub Window" data-i18n="settings.scrubWindow" data-i18n-tooltip="settings.scrubWindowTooltip">Scrub Window</span>
-              <select id="settingsSeqScrubWindow" class="settings-modal__select">
-                <option value="150">150</option>
-                <option value="200" selected>200</option>
-                <option value="250">250</option>
-                <option value="300">300</option>
-              </select>
-            </div>
-
-            <div class="settings-modal__item">
-              <span class="settings-modal__label" data-tooltip="Scrub Delta" data-i18n="settings.scrubDelta" data-i18n-tooltip="settings.scrubDeltaTooltip">Scrub Delta</span>
-              <select id="settingsSeqScrubDelta" class="settings-modal__select">
-                <option value="2" selected>2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-              </select>
-            </div>
-
-            <div class="settings-modal__item">
-              <span class="settings-modal__label" data-tooltip="Concurrency" data-i18n="settings.concurrency" data-i18n-tooltip="settings.concurrencyTooltip">Concurrency</span>
-              <select id="settingsSeqPrefetchConcurrency" class="settings-modal__select">
-                <option value="1" selected>1</option>
-                <option value="2">2</option>
-              </select>
-            </div>
-
-            <div class="settings-modal__item">
-              <span class="settings-modal__label" data-tooltip="Memory Pressure" data-i18n="settings.memoryPressure" data-i18n-tooltip="settings.memoryPressureTooltip">Memory Pressure</span>
-              <select id="settingsSeqMemoryPressure" class="settings-modal__select">
-                <option value="auto" selected data-i18n="settings.memoryPressureAuto">Auto</option>
-                <option value="on" data-i18n="settings.memoryPressureOn">On</option>
-                <option value="off" data-i18n="settings.memoryPressureOff">Off</option>
               </select>
             </div>
 

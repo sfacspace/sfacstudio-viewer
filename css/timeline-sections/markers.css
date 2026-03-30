@@ -195,6 +195,7 @@
   );
 }
 
+/* 카메라 마커 사이 궤적 연결선 */
 .camera-moving-object {
   position: absolute;
   height: 4px;
@@ -231,7 +232,6 @@
   );
 }
 
-/* Marker line (moving object): green when selected */
 .camera-moving-object.is-selected {
   background-color: rgba(168, 224, 108, 0.9);
   background-image: none;
@@ -248,9 +248,4 @@
     transparent 14px
   );
   box-shadow: 0 0 8px rgba(168, 224, 108, 0.5), 0 0 16px rgba(168, 224, 108, 0.3);
-}
-
-.timeline-container.is-collapsed .camera-moving-object {
-  opacity: 0;
-  pointer-events: none;
 }

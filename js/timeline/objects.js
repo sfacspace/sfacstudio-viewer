@@ -1,12 +1,20 @@
 /**
- * Timeline object blocks. SuperSplat: updateVisibilityByTime on setFrame/setTime; sequence uses onSequenceFrameChange → PlySequenceController.
+ * Timeline object list (left panel). Visibility by time; multi-file cycles by frame within start/end.
  */
+
+import { t } from '../i18n.js';
+import {
+  supportsHierarchy,
+  validateParentAssignment,
+  getHierarchyDepth,
+} from "./objectHierarchy.js";
+
+const DND_MIME = 'application/x-sfacstudio-object-id';
 
 export class ObjectsManager {
   /**
    * @param {Object} options
-   * @param {HTMLElement} options.objectsListEl - left object list
-   * @param {HTMLElement} options.rightListEl - right block list
+   * @param {HTMLElement} options.objectsListEl - object list
    * @param {Function} options.getMaxSeconds - max time getter
    * @param {Function} options.getCurrentTime - current time getter
    * @param {Function} options.showTooltip - show tooltip
@@ -21,25 +29,31 @@ export class ObjectsManager {
     this._scrubDebounceMs = 150; // Wait 150ms after drag ends before loading final frame
     this._scrubThrottleMs = 100; // Load at most once per 100ms during scrubbing
     this._objectsListEl = options.objectsListEl;
-    this._rightListEl = options.rightListEl;
     this._getMaxSeconds = options.getMaxSeconds;
     this._getCurrentTime = options.getCurrentTime;
     this._getFps = options.getFps || (() => 30);
     this._getTotalFrames = options.getTotalFrames || null;
     this._showTooltip = options.showTooltip;
     this._hideTooltip = options.hideTooltip;
+    /** @type {(() => void) | null} */
+    this._syncEntityOrder = options.syncEntityOrder || null;
 
-    /** @type {Function|null} - sequence frame change (obj, frameIndex) */
-    this.onSequenceFrameChange = options.onSequenceFrameChange || null;
-    
     /** @type {import('./types').TimelineObject[]} */
     this.objects = [];
+
+    this._draggingObjectId = null;
+    this._onGlobalDragEnd = this._onGlobalDragEnd.bind(this);
+    document.addEventListener('dragend', this._onGlobalDragEnd);
+    this._attachObjectListDnDDelegation();
     
     /** @type {string|null} */
     this.selectedObjectId = null;
     
     /** @type {string|null} - object ID being name-edited */
     this._editingNameId = null;
+
+    /** 접힌 부모 id — 자식 행은 렌더에서 숨김 */
+    this._collapsedParentIds = new Set();
     
     // Callbacks
     /** @type {Function|null} */
@@ -48,6 +62,10 @@ export class ObjectsManager {
     this.onObjectSelect = null;
     /** @type {Function|null} - delete request callback */
     this.onDeleteRequest = null;
+    /** @type {Function|null} - duplicate request callback (objectId) */
+    this.onDuplicateRequest = null;
+    /** @type {((childId: string) => void) | null} */
+    this.onHierarchyChange = null;
   }
 
   /**
@@ -55,7 +73,7 @@ export class ObjectsManager {
    * @param {string} name
    * @param {Object} entity
    * @param {string|null} splatId
-   * @param {Object} [options]
+   * @param {Object} [options] - sourcePath: 경로로 로드 시 저장할 경로 (프로젝트 저장/불러오기용)
    * @returns {import('./types').TimelineObject}
    */
   add(name, entity, splatId = null, options = {}) {
@@ -68,50 +86,27 @@ export class ObjectsManager {
       entity,
       splatId,
       glbId: null,
-      objectType: 'ply',
+      objectType: options?.objectType ?? 'ply',
       loadedWithGlb: false,
       pairedGlbObjectId: null,
       isMultiFile: false,
       files: null,
+      /** @type {string|null} 부모 타임라인 오브젝트 id (단일 PLY만) */
+      parentId: null,
+      /** @type {string|null} 경로로 로드 시 사용한 경로 (프로젝트 저장용) */
+      sourcePath: options?.sourcePath ?? null,
+      /** @type {string|null} 복제된 오브젝트의 원본 PLY 경로 (프로젝트 저장/로드용) */
+      duplicatedFromSourcePath: options?.duplicatedFromSourcePath ?? null,
     };
 
     this.objects.push(obj);
     this.render();
     this.onObjectsChange?.(this.objects);
-
-    return obj;
-  }
-
-  /**
-   * Add frame sequence (lazy load).
-   * @param {Array<{file: File, fileName: string}>} frames
-   * @returns {import('./types').TimelineObject}
-   */
-  addSequence(frames) {
-    if (!frames || frames.length === 0) return null;
-
-    const firstName = frames[0].fileName.replace(/\.[^/.]+$/, "");
-    const name = `${firstName}_sequence`;
-
-    const obj = {
-      id: `obj_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-      name,
-      startSeconds: 0,
-      endSeconds: this._getMaxSeconds(),
-      visible: true,
-      entity: null,
-      splatId: null,
-      isMultiFile: true,
-      isSequence: true,
-      files: frames,
-      _activeFrameIndex: -1,
-      /** 'uniform' | 'repeat' | 'reverseRepeat' */
-      sequencePlaybackMode: "uniform",
-    };
-
-    this.objects.push(obj);
-    this.render();
-    this.onObjectsChange?.(this.objects);
+    try {
+      this._syncEntityOrder?.();
+    } catch (e) {
+      /* ignore */
+    }
 
     return obj;
   }
@@ -144,11 +139,17 @@ export class ObjectsManager {
       splatId: null,
       isMultiFile: true,
       files: files,
+      parentId: null,
     };
     
     this.objects.push(obj);
     this.render();
     this.onObjectsChange?.(this.objects);
+    try {
+      this._syncEntityOrder?.();
+    } catch (e) {
+      /* ignore */
+    }
     
     return obj;
   }
@@ -160,7 +161,11 @@ export class ObjectsManager {
   remove(id) {
     const idx = this.objects.findIndex(o => o.id === id);
     if (idx === -1) return;
-    
+
+    for (const o of this.objects) {
+      if (o.parentId === id) o.parentId = null;
+    }
+
     this.objects.splice(idx, 1);
     
     if (this.selectedObjectId === id) {
@@ -169,6 +174,77 @@ export class ObjectsManager {
     
     this.render();
     this.onObjectsChange?.(this.objects);
+    try {
+      this._syncEntityOrder?.();
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  /**
+   * 리스트에서 child를 parent 바로 아래로 옮김 (시각적 그룹).
+   * @private
+   * @param {string} childId
+   * @param {string} parentId
+   */
+  _moveObjectNextToParentInArray(childId, parentId) {
+    const objs = this.objects;
+    const cIdx = objs.findIndex((o) => o.id === childId);
+    const pIdx = objs.findIndex((o) => o.id === parentId);
+    if (cIdx === -1 || pIdx === -1) return;
+    const [item] = objs.splice(cIdx, 1);
+    const insertAfter = objs.findIndex((o) => o.id === parentId);
+    if (insertAfter === -1) {
+      objs.splice(Math.min(cIdx, objs.length), 0, item);
+      return;
+    }
+    objs.splice(insertAfter + 1, 0, item);
+  }
+
+  /**
+   * 부모 설정 (단일 PLY만). null 이면 루트.
+   * @param {string} childId
+   * @param {string|null} parentId
+   * @param {{ nestAfterParent?: boolean }} [opts]
+   * @returns {boolean}
+   */
+  setObjectParent(childId, parentId, opts = {}) {
+    const err = validateParentAssignment(this.objects, childId, parentId);
+    if (err) return false;
+    const child = this.objects.find((o) => o.id === childId);
+    if (!child) return false;
+    child.parentId = parentId || null;
+    if (parentId && opts.nestAfterParent) {
+      this._moveObjectNextToParentInArray(childId, parentId);
+    }
+    this.render();
+    this.onObjectsChange?.(this.objects);
+    try {
+      this._syncEntityOrder?.();
+    } catch (e) {
+      /* ignore */
+    }
+    this.onHierarchyChange?.(childId);
+    return true;
+  }
+
+  /**
+   * 우클릭 대상을 현재 선택 오브젝트의 자식으로 연결.
+   * @param {string} targetObjectId
+   * @returns {boolean}
+   */
+  attachSelectionAsParentOf(targetObjectId) {
+    const sel = this.selectedObjectId;
+    if (!sel || sel === targetObjectId) return false;
+    return this.setObjectParent(targetObjectId, sel);
+  }
+
+  /**
+   * @param {string} objectId
+   * @returns {boolean}
+   */
+  clearObjectParent(objectId) {
+    return this.setObjectParent(objectId, null);
   }
 
   /** Remove all objects. */
@@ -177,6 +253,11 @@ export class ObjectsManager {
     this.selectedObjectId = null;
     this.render();
     this.onObjectsChange?.(this.objects);
+    try {
+      this._syncEntityOrder?.();
+    } catch (e) {
+      /* ignore */
+    }
   }
 
   /**
@@ -192,21 +273,10 @@ export class ObjectsManager {
     
     if (obj.isMultiFile && obj.files) {
       if (!obj.visible) {
-        // Inactive: sequence hide current + release frame; multi-file hide all
-        if (obj.isSequence) {
-          if (obj.entity) obj.entity.enabled = false;
-          if (obj._activeFrameIndex !== -1 || obj.entity) {
-            this.onSequenceFrameChange?.(obj, -1);
-          }
-          obj._activeFrameIndex = -1;
-          obj._sequenceTickState = null;
-        } else {
-          obj.files.forEach(f => {
-            if (f.entity) f.entity.enabled = false;
-          });
-        }
+        obj.files.forEach(f => {
+          if (f.entity) f.entity.enabled = false;
+        });
       } else {
-        // Active: update by time/frame (sequence or multi-file)
         this._updateSingleObjectVisibility(obj);
       }
     } else if (obj.entity) {
@@ -250,15 +320,7 @@ export class ObjectsManager {
    * @param {number} t - 현재 시간
    * @param {{dt?: number, isPlaying?: boolean}|null} [opts]
    */
-  /**
-   * For Export Video: collect sequence load promises when updateVisibilityByTime runs.
-   */
-  _collectSequencePromises = false;
-  _sequencePromises = [];
-
   updateVisibilityByTime(t, opts = null) {
-    if (this._collectSequencePromises) this._sequencePromises = [];
-
     // Detect scrubbing: if not playing and time changed rapidly
     const isPlaying = opts?.isPlaying === true;
     const now = performance?.now ? performance.now() : Date.now();
@@ -273,7 +335,7 @@ export class ObjectsManager {
       this._isScrubbing = false;
     }
 
-    // Playback is frame-based; compute visibility/sequence by frame index
+    // Playback is frame-based; compute visibility by frame index
     const fps = Math.max(1, Math.min(60, parseInt(this._getFps?.() || 30) || 30));
     const frameIndex = opts?.frameIndex ?? Math.floor((Number(t) || 0) * fps);
     const effectiveOpts = { ...opts, frameIndex };
@@ -283,9 +345,7 @@ export class ObjectsManager {
       const endFrame = Math.floor((Number(obj.endSeconds) || 0) * fps);
       const inRange = frameIndex >= startFrame && frameIndex < endFrame;
 
-      if (obj.isSequence && obj.files) {
-        this._updateSequenceFrame(obj, inRange, effectiveOpts);
-      } else if (obj.isMultiFile && obj.files) {
+      if (obj.isMultiFile && obj.files) {
         this._updateMultiFileVisibility(obj, inRange, effectiveOpts);
       } else if (obj.entity) {
         obj.entity.enabled = inRange && obj.visible;
@@ -309,97 +369,6 @@ export class ObjectsManager {
     // Force immediate update for final frame
     const t = this._getCurrentTime?.() || 0;
     this.updateVisibilityByTime(t, { isPlaying: false });
-  }
-
-  _updateSequenceFrame(obj, inRange, opts = null) {
-    if (!obj.files || obj.files.length === 0) return;
-    const fileCount = obj.files.length;
-
-    if (!inRange || !obj.visible) {
-      if (obj.entity) {
-        obj.entity.enabled = false;
-      }
-      if (obj._activeFrameIndex !== -1 || obj.entity) {
-        const p = this.onSequenceFrameChange?.(obj, -1);
-        if (this._collectSequencePromises && p != null && typeof p.then === 'function') {
-          this._sequencePromises.push(p);
-        }
-      }
-      obj._activeFrameIndex = -1;
-      obj._sequenceTickState = null;
-      return;
-    }
-
-    const fps = Math.max(1, Math.min(60, parseInt(this._getFps?.() || 30) || 30));
-    const startFrame = Math.floor((Number(obj.startSeconds) || 0) * fps);
-    const endFrame = Math.floor((Number(obj.endSeconds) || 0) * fps);
-    const framesInBlock = Math.max(1, endFrame - startFrame);
-
-    const frameIndex = opts?.frameIndex ?? 0;
-    let localFrame = frameIndex - startFrame;
-    if (localFrame < 0) localFrame = 0;
-    if (localFrame >= framesInBlock) localFrame = framesInBlock - 1;
-
-    const mode = obj.sequencePlaybackMode || "uniform";
-    let activeIndex = 0;
-
-    if (mode === "repeat") {
-      // Repeat: wrap from first file
-      activeIndex = localFrame % fileCount;
-    } else if (mode === "reverseRepeat") {
-      // Reverse repeat: ping-pong
-      if (fileCount <= 1) {
-        activeIndex = 0;
-      } else {
-        const period = 2 * (fileCount - 1);
-        const idx = localFrame % period;
-        activeIndex = idx < fileCount ? idx : period - idx;
-      }
-    } else {
-      // Uniform: divide block evenly by file count
-      const base = Math.floor(framesInBlock / fileCount);
-      const rem = framesInBlock % fileCount;
-      let err = 0;
-      let acc = 0;
-      for (let i = 0; i < fileCount; i++) {
-        err += rem;
-        const extra = err >= fileCount ? 1 : 0;
-        if (extra) err -= fileCount;
-        const take = base + extra;
-        const nextAcc = acc + take;
-        if (localFrame < nextAcc) {
-          activeIndex = i;
-          break;
-        }
-        acc = nextAcc;
-        activeIndex = i;
-      }
-    }
-    if (activeIndex < 0) activeIndex = 0;
-    if (activeIndex >= fileCount) activeIndex = fileCount - 1;
-
-    if (obj.entity) {
-      obj.entity.enabled = true;
-    }
-
-    if (opts?.isPlaying) {
-      const st = obj._sequenceTickState || { last: -999, acc: 0 };
-      obj._sequenceTickState = st;
-
-      if (st.last === activeIndex && obj.entity) {
-        return;
-      }
-      st.last = activeIndex;
-    }
-
-    // Call setFrame when no entity or activeIndex changed
-    if (obj._activeFrameIndex !== activeIndex || !obj.entity) {
-      obj._activeFrameIndex = activeIndex;
-      const p = this.onSequenceFrameChange?.(obj, activeIndex);
-      if (this._collectSequencePromises && p != null && typeof p.then === 'function') {
-        this._sequencePromises.push(p);
-      }
-    }
   }
 
   /**
@@ -458,132 +427,396 @@ export class ObjectsManager {
     const effectiveOpts = { frameIndex };
 
     if (obj.isMultiFile && obj.files) {
-      if (obj.isSequence) {
-        this._updateSequenceFrame(obj, inRange, effectiveOpts);
-      } else {
-        this._updateMultiFileVisibility(obj, inRange, effectiveOpts);
-      }
+      this._updateMultiFileVisibility(obj, inRange, effectiveOpts);
     } else if (obj.entity) {
       obj.entity.enabled = inRange && obj.visible;
     }
   }
 
   /**
-   * Render object blocks.
+   * Render object list (left panel only).
    */
   render() {
-    if (!this._objectsListEl || !this._rightListEl) return;
-    
+    if (!this._objectsListEl) return;
+
     this._objectsListEl.innerHTML = "";
 
-    this._rightListEl.innerHTML = "";
-    
     if (this.objects.length === 0) return;
-    
-    const BLOCK_HEIGHT = 32;
-    const BLOCK_GAP = 4;
-    const maxSeconds = this._getMaxSeconds();
-    let visualIndex = 0;
 
+    let anyVisible = false;
     this.objects.forEach((obj) => {
-      // PLY loaded with GLB: no block/div on timeline
       if (obj.loadedWithGlb) return;
+      if (this._isHiddenUnderCollapsedParent(obj)) return;
 
+      anyVisible = true;
       const btn = this._createObjectButton(obj);
       this._objectsListEl.appendChild(btn);
-
-      const block = this._createTimeBlock(obj, visualIndex, BLOCK_HEIGHT, BLOCK_GAP, maxSeconds);
-      this._rightListEl.appendChild(block);
-      visualIndex += 1;
     });
 
-    const visibleRowCount = visualIndex;
-    if (visibleRowCount > 0) {
-      const totalHeight = 10 + visibleRowCount * (BLOCK_HEIGHT + BLOCK_GAP);
-      this._rightListEl.style.minHeight = `${totalHeight}px`;
+    if (anyVisible) {
+      const end = document.createElement("div");
+      end.className = "timeline__obj-list-end-drop";
+      end.setAttribute("aria-hidden", "true");
+      this._objectsListEl.appendChild(end);
     }
   }
 
   /**
-   * Create object button.
+   * @private
+   * @param {import('./types').TimelineObject} obj
+   */
+  _hasHierarchyChildren(obj) {
+    return this.objects.some((c) => !c.loadedWithGlb && c.parentId === obj.id);
+  }
+
+  /**
+   * @private
+   * @param {import('./types').TimelineObject} obj
+   */
+  _isHiddenUnderCollapsedParent(obj) {
+    let pid = obj.parentId;
+    while (pid) {
+      if (this._collapsedParentIds.has(pid)) return true;
+      const p = this.objects.find((o) => o.id === pid);
+      pid = p?.parentId ?? null;
+    }
+    return false;
+  }
+
+  /**
+   * 드롭 직전에도 `.is-dragging`이 남아 있을 수 있어 id로 제외한다.
+   * @private
+   * @param {string} excludeObjectId
+   */
+  _getFirstVisibleRowIdExcluding(excludeObjectId) {
+    const el = this._objectsListEl;
+    if (!el) return null;
+    const rows = el.querySelectorAll(".timeline__obj-row");
+    for (const r of rows) {
+      const id = r.dataset.objectId;
+      if (!id || id === excludeObjectId) continue;
+      return id;
+    }
+    return null;
+  }
+
+  /**
+   * @private
+   * @param {string} excludeObjectId
+   */
+  _getLastVisibleRowIdExcluding(excludeObjectId) {
+    const el = this._objectsListEl;
+    if (!el) return null;
+    const rows = [...el.querySelectorAll(".timeline__obj-row")].filter(
+      (r) => r.dataset.objectId && r.dataset.objectId !== excludeObjectId
+    );
+    if (!rows.length) return null;
+    return rows[rows.length - 1].dataset.objectId || null;
+  }
+
+  /**
+   * 리스트 맨 아래(빈 영역) 드롭: 루트로 빼고 배열 끝으로 이동.
+   * @private
+   * @param {string} dragId
+   */
+  _moveObjectToEndDetached(dragId) {
+    const objs = this.objects;
+    const from = objs.findIndex((o) => o.id === dragId);
+    if (from === -1) return;
+    const item = objs[from];
+    const hadParent = !!item.parentId;
+    item.parentId = null;
+    objs.splice(from, 1);
+    objs.push(item);
+    this.render();
+    this.onObjectsChange?.(this.objects);
+    try {
+      this._syncEntityOrder?.();
+    } catch (err) {
+      console.warn("[ObjectsManager] syncEntityOrder failed", err);
+    }
+    if (hadParent) this.onHierarchyChange?.(dragId);
+  }
+
+  /**
+   * @private
+   */
+  _onGlobalDragEnd() {
+    this._draggingObjectId = null;
+    this._clearDropIndicators();
+    this._objectsListEl?.querySelectorAll(".timeline__obj-row.is-dragging").forEach((r) => {
+      r.classList.remove("is-dragging");
+    });
+  }
+
+  /**
+   * @private
+   */
+  _clearDropIndicators() {
+    this._objectsListEl
+      ?.querySelectorAll(
+        ".timeline__obj-row.is-drop-before, .timeline__obj-row.is-drop-after, .timeline__obj-row.is-drop-child"
+      )
+      .forEach((r) => {
+        r.classList.remove("is-drop-before", "is-drop-after", "is-drop-child");
+      });
+    this._objectsListEl?.querySelector(".timeline__obj-list-end-drop.is-drop-end-active")?.classList.remove("is-drop-end-active");
+  }
+
+  /**
+   * @private
+   * @param {HTMLElement} row
+   * @param {'before'|'after'|'child'|null} zone
+   */
+  _updateDropIndicator(row, zone) {
+    if (!this._objectsListEl) return;
+    this._clearDropIndicators();
+    if (!row || !zone) return;
+    if (zone === "before") row.classList.add("is-drop-before");
+    else if (zone === "after") row.classList.add("is-drop-after");
+    else if (zone === "child") row.classList.add("is-drop-child");
+  }
+
+  /**
+   * @private
+   * @param {HTMLElement} row
+   * @param {number} clientY
+   * @returns {'before'|'after'|'child'}
+   */
+  _getDropZone(row, clientY) {
+    const rect = row.getBoundingClientRect();
+    const h = rect.height;
+    if (h <= 0) return "child";
+    const t = (clientY - rect.top) / h;
+    if (t < 0.22) return "before";
+    if (t > 0.78) return "after";
+    return "child";
+  }
+
+  /**
+   * @private
+   */
+  _attachObjectListDnDDelegation() {
+    const el = this._objectsListEl;
+    if (!el || el._objListDndDelegation) return;
+    el._objListDndDelegation = true;
+
+    el.addEventListener("dragover", (e) => {
+      if (!this._draggingObjectId) return;
+      if (e.target.closest(".timeline__obj-list-end-drop")) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        this._clearDropIndicators();
+        const end = el.querySelector(".timeline__obj-list-end-drop");
+        end?.classList.add("is-drop-end-active");
+        return;
+      }
+      const row = e.target.closest(".timeline__obj-row");
+      if (!row) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      el.querySelector(".timeline__obj-list-end-drop")?.classList.remove("is-drop-end-active");
+      const zone = this._getDropZone(row, e.clientY);
+      this._updateDropIndicator(row, zone);
+    });
+
+    el.addEventListener("drop", (e) => {
+      if (!this._draggingObjectId) return;
+      if (e.target.closest(".timeline__obj-list-end-drop")) {
+        e.preventDefault();
+        const dragId = this._draggingObjectId;
+        this._clearDropIndicators();
+        this._draggingObjectId = null;
+        if (dragId) this._moveObjectToEndDetached(dragId);
+        return;
+      }
+      const row = e.target.closest(".timeline__obj-row");
+      if (!row) return;
+      e.preventDefault();
+      const dragId = this._draggingObjectId;
+      const targetId = row.dataset.objectId;
+      const zone = this._getDropZone(row, e.clientY);
+      this._clearDropIndicators();
+      this._draggingObjectId = null;
+      if (!dragId || !targetId || dragId === targetId) return;
+
+      if (zone === "child") {
+        const ok = this.setObjectParent(dragId, targetId, { nestAfterParent: true });
+        if (!ok) {
+          this._reorderObject(dragId, targetId, true);
+        }
+        return;
+      }
+
+      const dragged = this.objects.find((o) => o.id === dragId);
+      const hadParent = !!(dragged && dragged.parentId);
+      const firstId = this._getFirstVisibleRowIdExcluding(dragId);
+      const lastId = this._getLastVisibleRowIdExcluding(dragId);
+      const dropToRoot =
+        hadParent &&
+        ((zone === "before" && targetId === firstId) || (zone === "after" && targetId === lastId));
+      if (dropToRoot && dragged) dragged.parentId = null;
+
+      this._reorderObject(dragId, targetId, zone === "before");
+
+      if (dropToRoot && hadParent) {
+        this.onHierarchyChange?.(dragId);
+      }
+    });
+  }
+
+  /**
+   * @private
+   * @param {string} draggedId
+   * @param {string} targetId
+   * @param {boolean} placeBefore
+   */
+  _reorderObject(draggedId, targetId, placeBefore) {
+    const objs = this.objects;
+    const from = objs.findIndex((o) => o.id === draggedId);
+    if (from === -1) return;
+    const [item] = objs.splice(from, 1);
+    let insertAt = objs.findIndex((o) => o.id === targetId);
+    if (insertAt === -1) {
+      objs.splice(from, 0, item);
+      return;
+    }
+    if (!placeBefore) insertAt += 1;
+    objs.splice(insertAt, 0, item);
+    this.render();
+    this.onObjectsChange?.(this.objects);
+    try {
+      this._syncEntityOrder?.();
+    } catch (err) {
+      console.warn("[ObjectsManager] syncEntityOrder failed", err);
+    }
+  }
+
+  /**
+   * Create hierarchy row (접기/펼치기 + 행 드래그).
    * @private
    */
   _createObjectButton(obj) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "timeline__obj-btn";
-    btn.dataset.objectId = obj.id;
-    
+    const row = document.createElement("div");
+    row.className = "timeline__obj-row";
+    row.dataset.objectId = obj.id;
+
+    const depth = getHierarchyDepth(this.objects, obj.id);
+    if (depth > 0) {
+      row.classList.add("timeline__obj-row--child");
+      row.style.paddingLeft = `${depth * 14}px`;
+    }
+
     if (this.selectedObjectId === obj.id) {
-      btn.classList.add("is-selected");
+      row.classList.add("is-selected");
     }
-    
-    // Multi-file: purple style
     if (obj.isMultiFile) {
-      btn.classList.add("is-multi-file");
+      row.classList.add("is-multi-file");
     }
-    // GLB or PLY with GLB: green style
-    // Name
+    if (obj.objectType === "empty") {
+      row.classList.add("timeline__obj-row--empty");
+    }
+
+    const expandSlot = document.createElement("span");
+    expandSlot.className = "timeline__obj-row__expand-slot";
+
+    if (this._hasHierarchyChildren(obj)) {
+      const expanded = !this._collapsedParentIds.has(obj.id);
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "timeline__obj-row__expand";
+      toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+      toggle.title = expanded ? t("panel.hierarchyCollapse") : t("panel.hierarchyExpand");
+      toggle.setAttribute("draggable", "false");
+      toggle.textContent = expanded ? "▼" : "▶";
+      toggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (this._collapsedParentIds.has(obj.id)) {
+          this._collapsedParentIds.delete(obj.id);
+        } else {
+          this._collapsedParentIds.add(obj.id);
+        }
+        this.render();
+      });
+      expandSlot.appendChild(toggle);
+    } else {
+      expandSlot.classList.add("timeline__obj-row__expand-slot--empty");
+    }
+
+    const main = document.createElement("div");
+    main.className = "timeline__obj-row__main";
+
     const nameEl = document.createElement("span");
     nameEl.className = "timeline__obj-btn-name";
     nameEl.textContent = obj.name;
-    
-    // Button group (eye + delete)
+
     const actionsEl = document.createElement("div");
     actionsEl.className = "timeline__obj-btn-actions";
-    
-    // 눈 버튼
+
     const visBtn = document.createElement("button");
     visBtn.type = "button";
     visBtn.className = "timeline__obj-btn-vis";
     visBtn.setAttribute("aria-pressed", obj.visible ? "true" : "false");
+    visBtn.setAttribute("draggable", "false");
     visBtn.title = "Show/Hide";
     if (!obj.visible) {
       visBtn.classList.add("is-off");
     }
-    
+
     const visIcon = document.createElement("span");
     visIcon.className = "timeline__obj-btn-vis-icon";
     visIcon.setAttribute("aria-hidden", "true");
     visBtn.appendChild(visIcon);
-    
-    // Delete button
-    const deleteBtn = document.createElement("button");
-    deleteBtn.type = "button";
-    deleteBtn.className = "timeline__obj-btn-delete";
-    deleteBtn.title = "삭제";
-    
-    const deleteIcon = document.createElement("span");
-    deleteIcon.className = "timeline__obj-btn-delete-icon";
-    deleteIcon.setAttribute("aria-hidden", "true");
-    deleteBtn.appendChild(deleteIcon);
-    
+
     actionsEl.appendChild(visBtn);
-    actionsEl.appendChild(deleteBtn);
-    
-    btn.appendChild(nameEl);
-    btn.appendChild(actionsEl);
-    
-    // Timer to distinguish click vs double-click
+    main.appendChild(nameEl);
+    row.appendChild(expandSlot);
+    row.appendChild(main);
+    row.appendChild(actionsEl);
+
+    row.title = t("panel.dragToReorder");
+
+    row.draggable = true;
+    row.addEventListener("dragstart", (e) => {
+      if (this._editingNameId === obj.id) {
+        e.preventDefault();
+        return;
+      }
+      if (
+        e.target.closest(".timeline__obj-btn-actions") ||
+        e.target.closest(".timeline__obj-btn-vis") ||
+        e.target.closest(".timeline__obj-btn-name-input") ||
+        e.target.closest(".timeline__obj-row__expand")
+      ) {
+        e.preventDefault();
+        return;
+      }
+      this._draggingObjectId = obj.id;
+      row.classList.add("is-dragging");
+      try {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData(DND_MIME, obj.id);
+        e.dataTransfer.setData("text/plain", obj.id);
+      } catch (err) {
+        /* ignore */
+      }
+    });
+
     let clickTimer = null;
     const DOUBLE_CLICK_DELAY = 250;
-    
-    // Button click = select (vs double-click)
-    btn.addEventListener("click", (e) => {
-      if (e.target === visBtn || visBtn.contains(e.target)) return;
-      if (e.target === deleteBtn || deleteBtn.contains(e.target)) return;
-      
-      // If waiting for double-click, cancel timer
+
+    row.addEventListener("click", (e) => {
+      if (e.target.closest(".timeline__obj-btn-actions")) return;
+      if (e.target.closest(".timeline__obj-row__expand")) return;
+      if (this._editingNameId) return;
       if (clickTimer) {
         clearTimeout(clickTimer);
         clickTimer = null;
         return;
       }
-      
-      // Wait for single click
       clickTimer = setTimeout(() => {
         clickTimer = null;
-        // Toggle select/deselect
         if (this.selectedObjectId === obj.id) {
           this.clearSelection();
         } else {
@@ -591,45 +824,30 @@ export class ObjectsManager {
         }
       }, DOUBLE_CLICK_DELAY);
     });
-    
-    // Double-click = name edit mode
-    btn.addEventListener("dblclick", (e) => {
-      if (e.target === visBtn || visBtn.contains(e.target)) return;
-      if (e.target === deleteBtn || deleteBtn.contains(e.target)) return;
-      
-      // Cancel single-click timer
+
+    row.addEventListener("dblclick", (e) => {
+      if (e.target.closest(".timeline__obj-btn-actions")) return;
+      if (e.target.closest(".timeline__obj-row__expand")) return;
       if (clickTimer) {
         clearTimeout(clickTimer);
         clickTimer = null;
       }
-      
       e.preventDefault();
       e.stopPropagation();
-      
-      // Select first then edit name
       if (this.selectedObjectId !== obj.id) {
         this.select(obj.id);
       }
       this._startNameEdit(obj.id, nameEl);
     });
-    
-    // Eye click = visibility toggle
+
     visBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       const newVisible = this.toggleVisibility(obj.id);
       visBtn.classList.toggle("is-off", !newVisible);
       visBtn.setAttribute("aria-pressed", newVisible ? "true" : "false");
     });
-    
-    // Delete button 클릭 = 삭제 확인 모달
-    deleteBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (this.onDeleteRequest) {
-        this.onDeleteRequest(obj.id, obj.name);
-      }
-    });
-    
-    return btn;
+
+    return row;
   }
   
   /**
@@ -665,7 +883,7 @@ export class ObjectsManager {
       if (save && newName && newName !== originalName) {
         obj.name = newName;
         nameEl.textContent = newName;
-        this.onObjectsChange?.();
+        this.onObjectsChange?.(this.objects);
       }
       
       input.remove();
@@ -692,7 +910,7 @@ export class ObjectsManager {
     if (!this.selectedObjectId) return;
     
     const btn = this._objectsListEl?.querySelector(
-      `.timeline__obj-btn[data-object-id="${this.selectedObjectId}"]`
+      `.timeline__obj-row[data-object-id="${this.selectedObjectId}"]`
     );
     if (!btn) return;
     
@@ -718,26 +936,9 @@ export class ObjectsManager {
     if (!menu) return;
     
     this._contextMenuTargetId = objectId;
-    const obj = this.objects.find(o => o.id === objectId);
 
-    const groupEl = document.getElementById("sequencePlaybackMenuGroup");
-    const separatorEl = document.getElementById("multiFileMenuSeparator");
-    if (groupEl && separatorEl) {
-      if (obj?.isSequence) {
-        groupEl.hidden = false;
-        separatorEl.hidden = false;
-        groupEl.querySelectorAll(".context-menu__item[data-action='sequence-playback']").forEach((item) => {
-          item.classList.toggle("is-checked", (obj.sequencePlaybackMode || "uniform") === item.dataset.mode);
-        });
-      } else {
-        groupEl.hidden = true;
-        separatorEl.hidden = true;
-      }
-    }
-    
-    // Clamp position to screen
     const menuWidth = 150;
-    const menuHeight = obj?.isSequence ? 180 : 50;
+    const menuHeight = 170;
     const maxX = window.innerWidth - menuWidth - 10;
     const maxY = window.innerHeight - menuHeight - 10;
     
@@ -754,24 +955,25 @@ export class ObjectsManager {
         if (!item) return;
         
         const action = item.dataset.action;
-        if (action === "sequence-playback" && this._contextMenuTargetId && item.dataset.mode) {
-          const target = this.objects.find(o => o.id === this._contextMenuTargetId);
-          if (target?.isSequence) {
-            target.sequencePlaybackMode = item.dataset.mode;
-            const block = this._rightListEl?.querySelector('[data-object-id="' + target.id + '"]');
-            if (block && target.files?.length > 1) {
-              const maxSeconds = this._getMaxSeconds?.() ?? 1;
-              this._updateBlockSequenceDivisions(block, target, maxSeconds);
-            }
-            const t = this._getCurrentTime?.() ?? 0;
-            const fps = Math.max(1, parseInt(this._getFps?.() || 30) || 30);
-            this.updateVisibilityByTime(t, { frameIndex: Math.floor(t * fps), isPlaying: false });
-            this.onObjectsChange?.(this.objects);
-          }
-        } else if (action === "reverse" && this._contextMenuTargetId) {
-          this.reverseMultiFileOrder(this._contextMenuTargetId);
+        if (action === "duplicate" && this._contextMenuTargetId) {
+          this.onDuplicateRequest?.(this._contextMenuTargetId);
+          this._hideMultiFileContextMenu();
+          return;
         }
-        
+        if (action === "reverse" && this._contextMenuTargetId) {
+          this.reverseMultiFileOrder(this._contextMenuTargetId);
+          this._hideMultiFileContextMenu();
+          return;
+        }
+        if (action === "delete" && this._contextMenuTargetId) {
+          const targetObj = this.objects.find((o) => o.id === this._contextMenuTargetId);
+          this._hideMultiFileContextMenu();
+          if (targetObj && this.onDeleteRequest) {
+            this.onDeleteRequest(targetObj.id, targetObj.name);
+          }
+          return;
+        }
+
         this._hideMultiFileContextMenu();
       });
     }
@@ -794,12 +996,101 @@ export class ObjectsManager {
   _hideMultiFileContextMenu() {
     const menu = document.getElementById("multiFileContextMenu");
     if (!menu) return;
-    
+
     menu.classList.remove("is-visible");
     menu.setAttribute("aria-hidden", "true");
     this._contextMenuTargetId = null;
   }
-  
+
+  /** @type {string|null} - single-file block context menu target object ID */
+  _objectBlockContextMenuTargetId = null;
+
+  _showObjectBlockContextMenu(x, y, objectId) {
+    const menu = document.getElementById("objectBlockContextMenu");
+    if (!menu) return;
+
+    this._objectBlockContextMenuTargetId = objectId;
+    const menuWidth = 200;
+    const menuHeight = 220;
+    const maxX = window.innerWidth - menuWidth - 10;
+    const maxY = window.innerHeight - menuHeight - 10;
+    menu.style.left = `${Math.min(x, maxX)}px`;
+    menu.style.top = `${Math.min(y, maxY)}px`;
+    menu.classList.add("is-visible");
+    menu.setAttribute("aria-hidden", "false");
+
+    const targetObj = this.objects.find((o) => o.id === objectId);
+    const makeChildBtn = menu.querySelector('[data-action="parentFromSelection"]');
+    const clearParentBtn = menu.querySelector('[data-action="clearParent"]');
+    const sepHi = menu.querySelector(".context-menu__sep--hierarchy");
+    const canMakeChild =
+      !!targetObj &&
+      supportsHierarchy(targetObj) &&
+      !!this.selectedObjectId &&
+      this.selectedObjectId !== objectId &&
+      validateParentAssignment(this.objects, objectId, this.selectedObjectId) === null;
+    const canClearParent = !!(targetObj && supportsHierarchy(targetObj) && targetObj.parentId);
+    if (makeChildBtn) makeChildBtn.style.display = canMakeChild ? "" : "none";
+    if (clearParentBtn) clearParentBtn.style.display = canClearParent ? "" : "none";
+    if (sepHi) sepHi.style.display = canMakeChild || canClearParent ? "" : "none";
+
+    if (!menu._hasObjectBlockMenuClickHandler) {
+      menu._hasObjectBlockMenuClickHandler = true;
+      menu.addEventListener("click", (e) => {
+        const item = e.target.closest(".context-menu__item");
+        if (!item) return;
+        const action = item.dataset.action;
+        const id = this._objectBlockContextMenuTargetId;
+        if (!id) return;
+        if (action === "duplicate") {
+          this._hideObjectBlockContextMenu();
+          this.onDuplicateRequest?.(id);
+          return;
+        }
+        if (action === "parentFromSelection") {
+          this._hideObjectBlockContextMenu();
+          const ok = this.attachSelectionAsParentOf(id);
+          if (!ok) {
+            alert(t("panel.hierarchyAttachFailed"));
+          }
+          return;
+        }
+        if (action === "clearParent") {
+          this._hideObjectBlockContextMenu();
+          this.clearObjectParent(id);
+          return;
+        }
+        if (action === "delete") {
+          const target = this.objects.find((o) => o.id === id);
+          this._hideObjectBlockContextMenu();
+          if (target && this.onDeleteRequest) {
+            this.onDeleteRequest(target.id, target.name);
+          }
+          return;
+        }
+      });
+    }
+    if (!this._objectBlockContextMenuCloseHandler) {
+      this._objectBlockContextMenuCloseHandler = (e) => {
+        if (!menu.contains(e.target)) this._hideObjectBlockContextMenu();
+      };
+      setTimeout(() => document.addEventListener("click", this._objectBlockContextMenuCloseHandler), 0);
+    }
+  }
+
+  _hideObjectBlockContextMenu() {
+    const menu = document.getElementById("objectBlockContextMenu");
+    if (menu) {
+      menu.classList.remove("is-visible");
+      menu.setAttribute("aria-hidden", "true");
+    }
+    this._objectBlockContextMenuTargetId = null;
+    if (this._objectBlockContextMenuCloseHandler) {
+      document.removeEventListener("click", this._objectBlockContextMenuCloseHandler);
+      this._objectBlockContextMenuCloseHandler = null;
+    }
+  }
+
   /**
    * Reverse multi-file order (reverse play).
    * @param {string} objectId
@@ -817,306 +1108,6 @@ export class ObjectsManager {
     // Update visibility by current time
     const currentTime = this._getCurrentTime();
     this.updateVisibilityByTime(currentTime);
-  }
-
-  /**
-   * Create time block.
-   * @private
-   */
-  _createTimeBlock(obj, index, blockHeight, blockGap, maxSeconds) {
-    const block = document.createElement("div");
-    block.className = "timeline__obj-block";
-    block.dataset.objectId = obj.id;
-    
-    if (this.selectedObjectId === obj.id) {
-      block.classList.add("is-selected");
-    }
-    if (!obj.visible) {
-      block.classList.add("is-hidden");
-    }
-    
-    // Multi-file: purple style
-    if (obj.isMultiFile) {
-      block.classList.add("is-multi-file");
-    }
-    // GLB or PLY with GLB: green style
-    // Position/size
-    const startPercent = (obj.startSeconds / maxSeconds) * 100;
-    const endPercent = (obj.endSeconds / maxSeconds) * 100;
-    const widthPercent = endPercent - startPercent;
-    // Align start with left list (padding 10px)
-    const topOffset = 4 + index * (blockHeight + blockGap);
-    
-    block.style.left = `${startPercent}%`;
-    block.style.width = `${widthPercent}%`;
-    block.style.top = `${topOffset}px`;
-
-    if (obj.isSequence && Array.isArray(obj.files) && obj.files.length > 1) {
-      this._updateBlockSequenceDivisions(block, obj, maxSeconds);
-    }
-    
-    // Resize handle
-    const leftHandle = document.createElement("div");
-    leftHandle.className = "timeline__obj-block__resize-handle timeline__obj-block__resize-handle--left";
-    
-    const rightHandle = document.createElement("div");
-    rightHandle.className = "timeline__obj-block__resize-handle timeline__obj-block__resize-handle--right";
-    
-    block.appendChild(leftHandle);
-    block.appendChild(rightHandle);
-    
-    // 드래그/리사이즈 설정
-    this._setupBlockInteractions(block, obj, leftHandle, rightHandle, maxSeconds);
-    
-    // Block click = toggle select
-    block.addEventListener("click", () => {
-      if (this.selectedObjectId === obj.id) {
-        this.clearSelection();
-      } else {
-        this.select(obj.id);
-      }
-    });
-    
-    // Multi-file: right-click shows context menu
-    if (obj.isMultiFile) {
-      block.addEventListener("contextmenu", (e) => {
-        e.preventDefault();
-        this._showMultiFileContextMenu(e.clientX, e.clientY, obj.id);
-      });
-    }
-    
-    return block;
-  }
-
-  /**
-   * Update block position/size.
-   * @private
-   */
-  _updateBlockStyle(block, startSeconds, endSeconds, maxSeconds) {
-    const startPercent = (startSeconds / maxSeconds) * 100;
-    const widthPercent = ((endSeconds - startSeconds) / maxSeconds) * 100;
-    
-    block.style.left = `${startPercent}%`;
-    block.style.width = `${widthPercent}%`;
-  }
-
-  /**
-   * Update sequence block divisions by startSeconds/endSeconds/sequencePlaybackMode (resize/drag/mode).
-   * @private
-   */
-  _updateBlockSequenceDivisions(block, obj, maxSeconds) {
-    if (!obj.isSequence || !Array.isArray(obj.files) || obj.files.length <= 1) {
-      const existing = block.querySelector('.timeline__obj-block__sequence-divisions');
-      if (existing) existing.remove();
-      return;
-    }
-
-    let overlay = block.querySelector('.timeline__obj-block__sequence-divisions');
-    if (!overlay) {
-      overlay = document.createElement('div');
-      overlay.className = 'timeline__obj-block__sequence-divisions';
-      overlay.setAttribute('aria-hidden', 'true');
-      block.insertBefore(overlay, block.firstChild);
-    }
-
-    overlay.innerHTML = '';
-
-    const fps = Math.max(1, Math.min(60, parseInt(this._getFps?.() || 30) || 30));
-    const n = obj.files.length;
-    const mode = obj.sequencePlaybackMode || 'uniform';
-    const startFrame = Math.floor((Number(obj.startSeconds) || 0) * fps);
-    const endFrame = Math.floor((Number(obj.endSeconds) || 0) * fps);
-    const framesInBlock = Math.max(1, endFrame - startFrame);
-
-    if (mode === 'repeat' || mode === 'reverseRepeat') {
-      for (let i = 1; i < framesInBlock; i++) {
-        const line = document.createElement('div');
-        line.className = 'timeline__obj-block__sequence-division-line';
-        line.style.left = `${(i / framesInBlock) * 100}%`;
-        overlay.appendChild(line);
-      }
-    } else {
-      const base = Math.floor(framesInBlock / n);
-      const rem = framesInBlock % n;
-      let err = 0;
-      let acc = 0;
-      for (let i = 0; i < n - 1; i++) {
-        err += rem;
-        const extra = err >= n ? 1 : 0;
-        if (extra) err -= n;
-        acc += base + extra;
-        const line = document.createElement('div');
-        line.className = 'timeline__obj-block__sequence-division-line';
-        line.style.left = `${(acc / framesInBlock) * 100}%`;
-        overlay.appendChild(line);
-      }
-    }
-  }
-
-  /**
-   * Setup block drag/resize.
-   * @private
-   */
-  _setupBlockInteractions(block, obj, leftHandle, rightHandle, maxSeconds) {
-    let isDragging = false;
-    let isResizing = false;
-    let resizeSide = null;
-    let startX = 0;
-    let startStartFrame = 0;
-    let startEndFrame = 0;
-    
-    /** 단일 파일 오브젝트 최소 길이 (프레임 수). fps와 무관하게 동일한 “길이” 유지 */
-    const MIN_DURATION_FRAMES = 1;
-
-    /** Min length: sequence = file count, single = MIN_DURATION_FRAMES */
-    const getMinDurationFramesForObject = () => {
-      if (obj?.isSequence && Array.isArray(obj.files) && obj.files.length > 0) {
-        return Math.max(1, obj.files.length);
-      }
-      return Math.max(1, MIN_DURATION_FRAMES);
-    };
-
-    const fps = Math.max(1, Math.min(60, parseInt(this._getFps?.() || 30) || 30));
-    const totalFrames = Math.max(1, Math.round(maxSeconds * fps));
-
-    /** Frame index → seconds (for obj + UI) */
-    const frameToSeconds = (frame) => Math.max(0, Math.min(maxSeconds, frame / fps));
-
-    /** Seconds → frame index (0-based) */
-    const secondsToFrame = (seconds) => {
-      let frame = Math.floor((Number(seconds) || 0) * fps);
-      if (frame < 0) frame = 0;
-      if (frame >= totalFrames) frame = totalFrames - 1;
-      return frame;
-    };
-
-    const getTrackWidth = () => this._rightListEl?.clientWidth || 100;
-    
-    // Left handle hover tooltip (frame)
-    leftHandle.addEventListener("mouseenter", () => {
-      const rect = leftHandle.getBoundingClientRect();
-      this._showTooltip(secondsToFrame(obj.startSeconds), rect.left + rect.width / 2, rect.top);
-    });
-    
-    leftHandle.addEventListener("mouseleave", () => {
-      if (!isResizing) {
-        this._hideTooltip();
-      }
-    });
-    
-    // Right handle hover tooltip (frame)
-    rightHandle.addEventListener("mouseenter", () => {
-      const rect = rightHandle.getBoundingClientRect();
-      this._showTooltip(secondsToFrame(obj.endSeconds), rect.left + rect.width / 2, rect.top);
-    });
-    
-    rightHandle.addEventListener("mouseleave", () => {
-      if (!isResizing) {
-        this._hideTooltip();
-      }
-    });
-    
-    // Drag start
-    const onBlockMouseDown = (e) => {
-      if (e.target === leftHandle || e.target === rightHandle) return;
-
-      isDragging = true;
-      startX = e.clientX;
-      startStartFrame = secondsToFrame(obj.startSeconds);
-      startEndFrame = Math.min(totalFrames, Math.max(startStartFrame + 1, Math.floor((Number(obj.endSeconds) || 0) * fps)));
-      e.preventDefault();
-    };
-
-    const onResizeMouseDown = (side) => {
-      return (e) => {
-        isResizing = true;
-        resizeSide = side;
-        startX = e.clientX;
-        startStartFrame = secondsToFrame(obj.startSeconds);
-        startEndFrame = Math.min(totalFrames, Math.max(startStartFrame + 1, Math.floor((Number(obj.endSeconds) || 0) * fps)));
-        e.stopPropagation();
-        e.preventDefault();
-      };
-    };
-
-    const onMouseMove = (e) => {
-      if (!isDragging && !isResizing) return;
-      const trackWidth = getTrackWidth();
-      const dx = e.clientX - startX;
-      const dtFrames = Math.round((dx / trackWidth) * totalFrames);
-      const minDurationFrames = getMinDurationFramesForObject();
-
-      if (isDragging) {
-        let durationFrames = startEndFrame - startStartFrame;
-        durationFrames = Math.max(minDurationFrames, durationFrames);
-
-        let newStartFrame = startStartFrame + dtFrames;
-        newStartFrame = Math.max(0, Math.min(totalFrames - durationFrames, newStartFrame));
-        let newEndFrame = newStartFrame + durationFrames;
-        if (newEndFrame > totalFrames) {
-          newEndFrame = totalFrames;
-          newStartFrame = Math.max(0, newEndFrame - durationFrames);
-        }
-
-        obj.startSeconds = frameToSeconds(newStartFrame);
-        obj.endSeconds = frameToSeconds(newEndFrame);
-
-        this._updateBlockStyle(block, obj.startSeconds, obj.endSeconds, maxSeconds);
-        if (obj.isSequence && obj.files?.length > 1) {
-          this._updateBlockSequenceDivisions(block, obj, maxSeconds);
-        }
-        this._updateSingleObjectVisibility(obj);
-        this.onObjectsChange?.(this.objects);
-        return;
-      }
-
-      if (isResizing) {
-        if (resizeSide === 'left') {
-          let newStartFrame = startStartFrame + dtFrames;
-          newStartFrame = Math.max(0, Math.min(startEndFrame - minDurationFrames, newStartFrame));
-          const newEndFrame = startEndFrame;
-
-          obj.startSeconds = frameToSeconds(newStartFrame);
-          obj.endSeconds = frameToSeconds(newEndFrame);
-          this._updateBlockStyle(block, obj.startSeconds, obj.endSeconds, maxSeconds);
-
-          const rect = leftHandle.getBoundingClientRect();
-          this._showTooltip(secondsToFrame(obj.startSeconds), rect.left + rect.width / 2, rect.top);
-        } else if (resizeSide === 'right') {
-          let newEndFrame = startEndFrame + dtFrames;
-          newEndFrame = Math.min(totalFrames, Math.max(startStartFrame + minDurationFrames, newEndFrame));
-          const newStartFrame = startStartFrame;
-
-          obj.startSeconds = frameToSeconds(newStartFrame);
-          obj.endSeconds = frameToSeconds(newEndFrame);
-          this._updateBlockStyle(block, obj.startSeconds, obj.endSeconds, maxSeconds);
-
-          const rect = rightHandle.getBoundingClientRect();
-          this._showTooltip(secondsToFrame(obj.endSeconds), rect.left + rect.width / 2, rect.top);
-        }
-
-        if (obj.isSequence && obj.files?.length > 1) {
-          this._updateBlockSequenceDivisions(block, obj, maxSeconds);
-        }
-        this._updateSingleObjectVisibility(obj);
-      }
-    };
-
-    // Mouse up
-    const onMouseUp = () => {
-      if (isDragging || isResizing) {
-        isDragging = false;
-        isResizing = false;
-        resizeSide = null;
-        this._hideTooltip();
-      }
-    };
-
-    block.addEventListener('mousedown', onBlockMouseDown);
-    leftHandle.addEventListener('mousedown', onResizeMouseDown('left'));
-    rightHandle.addEventListener('mousedown', onResizeMouseDown('right'));
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
   }
 }
 

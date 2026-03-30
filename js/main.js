@@ -16,13 +16,19 @@ import { ObjectDescription } from "./ui/objectDescription.js";
 import { SelectionTool } from "./tools/selectionTool.js";
 import { CameraSettings } from "./ui/cameraSettings.js";
 import { PerformanceSettings } from "./ui/performanceSettings.js";
-import { attachSequencePlayback } from "./core/sequencePlayback.js";
 import { createWireSphere, createWireSphereMeshAndMaterial } from "./tools/selectors/SphereSelector.js";
 import { SelectorOverlay } from "./ui/selectorOverlay.js";
 import { makePanelDraggable } from "./ui/draggablePanel.js";
+import {
+  restoreAllSidePanelWidthsFromStorage,
+  attachObjectsPanelResize,
+} from "./ui/objectsPanelResize.js";
 import MemoryMonitor from './services/memoryMonitor.js';
 import LoadSessionManager from './core/loadSessionManager.js';
 import { importCache } from './services/importCache.js';
+import { buildProjectData, saveProjectToFile, loadProjectFromFile } from './project/projectSaveLoad.js';
+import { detachChildrenBeforeParentDelete } from './timeline/objectHierarchy.js';
+import { runDuplicateObject } from './timeline/duplicateObject.js';
 // 2D selector overlay
 const selectorOverlay = new SelectorOverlay();
 selectorOverlay.hide();
@@ -51,6 +57,88 @@ let gizmo = null;
 
 /** @type {import("./ui/objectDescription.js").ObjectDescription|null} */
 let objectDescription = null;
+
+/** 인스펙터·코멘트·컬러 중 하나만 열림(또는 모두 닫힘). 닫기는 버튼/X만. */
+function closeAuxGizmoPopovers(except) {
+  const inspPop = document.getElementById("gizmoInspectorPopover");
+  const inspBtn = document.getElementById("gizmoInspectorBtn");
+  const tintPop = document.getElementById("gizmoColorTintPopover");
+  const tintBtn = document.getElementById("gizmoColorTintBtn");
+  if (except !== "inspector" && inspPop) {
+    inspPop.classList.remove("is-visible");
+    inspBtn?.classList.add("is-off");
+    inspBtn?.setAttribute("aria-pressed", "false");
+  }
+  if (except !== "tint" && tintPop) {
+    tintPop.classList.remove("is-visible");
+    tintBtn?.classList.add("is-off");
+    tintBtn?.setAttribute("aria-pressed", "false");
+  }
+  if (except !== "description") {
+    objectDescription?.hideTooltip?.();
+  }
+}
+
+function getRightToolsStripPx() {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue("--right-tools-strip-width").trim();
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) ? n : 62;
+}
+
+function positionAuxFloatingPopover(popoverEl, anchorBtn) {
+  if (!popoverEl || !anchorBtn) return;
+  const gap = 16;
+  const strip = getRightToolsStripPx();
+  popoverEl.style.position = "fixed";
+  popoverEl.style.right = `${strip + gap}px`;
+  popoverEl.style.left = "auto";
+  popoverEl.style.bottom = "auto";
+  const br = anchorBtn.getBoundingClientRect();
+  const useCenter = popoverEl.classList.contains("gizmo-controls__tooltip--inspector-popover");
+  const pad = 8;
+  const applyClamp = () => {
+    const pr = popoverEl.getBoundingClientRect();
+    if (useCenter) {
+      const half = pr.height / 2;
+      let center = br.top + br.height / 2;
+      center = Math.max(pad + half, Math.min(window.innerHeight - pad - half, center));
+      popoverEl.style.top = `${center}px`;
+      popoverEl.style.transform = "translateY(-50%)";
+      return;
+    }
+    let t = br.top;
+    if (pr.bottom > window.innerHeight - pad) t = window.innerHeight - pad - pr.height;
+    if (t < pad) t = pad;
+    popoverEl.style.top = `${t}px`;
+    popoverEl.style.transform = "none";
+  };
+  if (useCenter) {
+    popoverEl.style.top = `${br.top + br.height / 2}px`;
+    popoverEl.style.transform = "translateY(-50%)";
+  } else {
+    popoverEl.style.top = `${br.top}px`;
+    popoverEl.style.transform = "none";
+  }
+  requestAnimationFrame(applyClamp);
+}
+
+function repositionOpenAuxPopovers() {
+  const inspBtn = document.getElementById("gizmoInspectorBtn");
+  const inspPop = document.getElementById("gizmoInspectorPopover");
+  if (inspPop?.classList.contains("is-visible") && inspBtn) {
+    positionAuxFloatingPopover(inspPop, inspBtn);
+  }
+  const descBtn = document.getElementById("gizmoDescriptionBtn");
+  const descPop = document.getElementById("gizmoDescriptionTooltip");
+  if (descPop?.classList.contains("is-visible") && descBtn) {
+    positionAuxFloatingPopover(descPop, descBtn);
+  }
+  const tintBtn = document.getElementById("gizmoColorTintBtn");
+  const tintPop = document.getElementById("gizmoColorTintPopover");
+  if (tintPop?.classList.contains("is-visible") && tintBtn) {
+    positionAuxFloatingPopover(tintPop, tintBtn);
+  }
+}
 
 /** @type {PerformanceSettings|null} */
 let performanceSettings = null;
@@ -170,6 +258,9 @@ async function getLocalFileServerBaseUrl() {
 // File menu inputs/actions
 const loadPlyInputEl = document.getElementById("loadPlyInput");
 const menuLoadPlyEl = document.querySelector('a[data-action="load-ply"]');
+const menuSaveProjectEl = document.querySelector('a[data-action="save-project"]');
+const menuSaveProjectAsEl = document.querySelector('a[data-action="save-project-as"]');
+const menuLoadProjectEl = document.querySelector('a[data-action="load-project"]');
 const menuExportViewerEl = document.querySelector('a[data-action="export-viewer"]');
 const menuExportMp4El = document.querySelector('a[data-action="export-mp4"]');
 const cameraModeSwitch = document.getElementById("cameraMode");
@@ -178,13 +269,12 @@ const gridToggleEl = document.getElementById("gridToggle");
 const orbitCenterToggleEl = document.getElementById("orbitCenterToggle");
 const fullscreenToggleEl = document.getElementById("fullscreenToggle");
 const axisGizmoCanvas = document.getElementById("axisGizmo");
-const gizmoControlsEl = document.getElementById("gizmoControls");
+const rightToolsPanelEl = document.getElementById("rightToolsPanel");
+const objectsPanelEl = document.getElementById("objectsPanel");
 const gizmoTransformBtn = document.getElementById("gizmoTransform");
 const fpsCounterEl = document.getElementById("fpsCounter");
 const gizmoRotateBtn = document.getElementById("gizmoRotate");
 const gizmoScaleBtn = document.getElementById("gizmoScale");
-const gizmoCameraBtn = document.getElementById("gizmoCamera");
-const gizmoCameraTooltip = document.getElementById("gizmoCameraTooltip");
 const cameraSettingsResetBtn = document.getElementById("cameraSettingsResetBtn");
 const cameraInfoEl = document.getElementById("cameraInfo");
 const cameraInfoTextEl = document.getElementById("cameraInfoText");
@@ -204,10 +294,6 @@ const loadingTotalTextEl = document.getElementById("loadingTotalText");
 const loadingCancelBtnEl = document.getElementById("loadingCancelBtn");
 const dropOverlayEl = document.getElementById("dropOverlay");
 const memoryHudEl = document.getElementById('memoryHud');
-const timelineToggleBtn = document.getElementById("timelineToggleBtn");
-const timelineContainer = document.getElementById("timeline-bottom");
-let timelineAutoCollapsedBySelection = false;
-
 // Expose loading UI globally for SelectionTool eraser etc.
 window.__loadingOverlayEl = loadingOverlayEl;
 window.__loadingProgressEl = loadingProgressEl;
@@ -673,31 +759,6 @@ if (fullscreenToggleEl) {
   fullscreenToggleEl.addEventListener("click", toggleFullscreen);
 }
 
-// Gizmo camera tooltip toggle
-
-function toggleGizmoCameraTooltip() {
-  if (!gizmoCameraTooltip || !gizmoCameraBtn) return;
-  const isVisible = gizmoCameraTooltip.classList.contains("is-visible");
-  gizmoCameraTooltip.classList.toggle("is-visible", !isVisible);
-  
-  // Show balloon → activate button; hide → add is-off
-  if (!isVisible) {
-    gizmoCameraBtn.classList.remove("is-off");
-    gizmoCameraBtn.setAttribute("aria-pressed", "true");
-  } else {
-    gizmoCameraBtn.classList.add("is-off");
-    gizmoCameraBtn.setAttribute("aria-pressed", "false");
-  }
-}
-
-if (gizmoCameraBtn) {
-  gizmoCameraBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    toggleGizmoCameraTooltip();
-  });
-}
-// Balloon toggles only on camera button click (not on outside click)
-
 // i18n apply translations
 
 function applyTranslations() {
@@ -884,11 +945,13 @@ if (panelsToggleEl) {
 }
 
 function updateGizmoControlsVisibility() {
-  if (!gizmoControlsEl) return;
-  // Gizmo window always shown when panels visible
-    gizmoControlsEl.classList.toggle("is-hidden", !panelsVisible);
-    // Hide selectorOverlay when panels hidden
-    if (!panelsVisible) selectorOverlay.hide();
+  const hide = !panelsVisible;
+  objectsPanelEl?.classList.toggle("is-hidden", hide);
+  rightToolsPanelEl?.classList.toggle("is-hidden", hide);
+  if (!panelsVisible) {
+    closeAuxGizmoPopovers(null);
+    selectorOverlay.hide();
+  }
 }
 
 function updateGizmo3DVisibility() {
@@ -911,7 +974,6 @@ function updateGizmo3DVisibility() {
 function updateInspectorVisibility() {
   if (!inspector) return;
   if (panelsVisible) {
-    // Panels visible: show if object selected
     const selectedId = timeline?.selectedObjectId;
     if (selectedId && timeline?.objects) {
       const obj = timeline.objects.find(o => o.id === selectedId);
@@ -920,11 +982,9 @@ function updateInspectorVisibility() {
         return;
       }
     }
-    // Keep hidden if no selection
-    inspector.hide();
+    inspector.hide("idle");
   } else {
-    // Panels hidden: hide inspector too
-    inspector.hide();
+    inspector.hide("collapse");
   }
 }
 
@@ -1086,6 +1146,47 @@ let timelineTotalFrames = 90;
 let orbitTargetMarkerVisibleBeforePlay = null;
 
 /**
+ * Hierarchy 제목 옆 + 메뉴: 빈 오브젝트 추가 등
+ */
+function setupHierarchyAddMenu() {
+  const btn = document.getElementById("hierarchyAddMenuBtn");
+  const menu = document.getElementById("hierarchyAddMenu");
+  if (!btn || !menu || !viewer || !timeline) return;
+
+  const closeMenu = () => {
+    menu.hidden = true;
+    btn.setAttribute("aria-expanded", "false");
+  };
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = menu.hidden === false;
+    if (open) closeMenu();
+    else {
+      menu.hidden = false;
+      btn.setAttribute("aria-expanded", "true");
+    }
+  });
+
+  menu.addEventListener("click", (e) => {
+    const item = e.target.closest('[data-action="empty-object"]');
+    if (!item) return;
+    closeMenu();
+    if (!window.__viewerReady) return;
+    const ent = viewer.createEmptyObjectEntity?.();
+    if (!ent) return;
+    const name = t("panel.emptyObjectDefaultName");
+    const added = timeline.addObject(name, ent, null, { objectType: "empty" });
+    if (added && timeline.selectObject) timeline.selectObject(added.id);
+  });
+
+  document.addEventListener("click", (e) => {
+    if (menu.hidden) return;
+    if (!btn.contains(e.target) && !menu.contains(e.target)) closeMenu();
+  });
+}
+
+/**
  * Initialize timeline
  */
 function initTimeline() {
@@ -1126,13 +1227,6 @@ function initTimeline() {
     currentPinSeconds = t;
   };
 
-  attachSequencePlayback(timeline, {
-    viewer,
-    fileLoader,
-    importCache,
-    getLoadSessionManager: () => window.__loadSessionManager,
-  });
-  
   // Play state callback (lockCamera: true only when 2+ markers)
   timeline.onPlayStateChange = (playing, lockCamera) => {
     updatePlayButton(playing);
@@ -1170,7 +1264,7 @@ function initTimeline() {
       if (panelsVisible) {
         inspector?.show(obj);
       } else {
-        inspector?.hide();
+        inspector?.hide("collapse");
       }
       
       // On selection: set target, show gizmo if mode active
@@ -1192,6 +1286,11 @@ function initTimeline() {
       }
 
       objectDescription?.updateFromSelection();
+      viewer?.refreshEditorObjectTint?.();
+      // 팝오버가 열려 있으면 업데이트
+      if (typeof window.__updateGizmoTintPopover === 'function') {
+        window.__updateGizmoTintPopover();
+      }
     } else {
       // Deselect on viewer
       if (viewer) {
@@ -1202,8 +1301,8 @@ function initTimeline() {
       detailsPanel?.updateEraserComplementDisabledState?.();
       detailsPanel?.setMultiFileMode?.(false);
       
-      inspector?.hide();
-      
+      inspector?.hide(panelsVisible ? "idle" : "collapse");
+
       // On deselect: hide 3D gizmo only, keep mode
       gizmo?.setTarget(null);
       // Hide 3D gizmo but keep button state (activeGizmoMode)
@@ -1214,6 +1313,11 @@ function initTimeline() {
       }
 
       objectDescription?.updateFromSelection();
+      viewer?.refreshEditorObjectTint?.();
+      // 팝오버가 열려 있으면 업데이트
+      if (typeof window.__updateGizmoTintPopover === 'function') {
+        window.__updateGizmoTintPopover();
+      }
     }
   };
   
@@ -1221,7 +1325,16 @@ function initTimeline() {
   timeline.onDeleteRequest = (objectId, objectName) => {
     showDeleteModal(objectId, objectName);
   };
-  
+
+  timeline.onDuplicateRequest = (objectId) => {
+    const obj = timeline.objects.find((o) => o.id === objectId);
+    if (!obj) return;
+    const sel = window.__selectionTool ?? selectionTool;
+    runDuplicateObject(obj, { viewer, timeline, selectionTool: sel }).then((added) => {
+      if (added && timeline.selectObject) timeline.selectObject(added.id);
+    });
+  };
+
   // Init camera template manager (frame-based playback)
   const cameraTemplates = new CameraTemplatesManager({
     viewer,
@@ -1231,7 +1344,6 @@ function initTimeline() {
     getKeyframes: () => timeline.getKeyframes(),
     addKeyframe: (t, state) => timeline.addKeyframe(t, state),
     clearKeyframes: () => timeline.clearKeyframes(),
-    getMovingObjects: () => timeline._keyframes?._movingObjectManager?.getAll() || [],
     showConfirmModal,
     setCameraMoveSpeedProfile: (startValue, endValue) => timeline.setCameraMoveSpeedProfile(startValue, endValue),
   });
@@ -1241,6 +1353,8 @@ function initTimeline() {
   timeline.setCameraMoveSpeedProfile(cameraTemplates._speedStart, cameraTemplates._speedEnd);
   window.__cameraTemplates = cameraTemplates;
   
+  setupHierarchyAddMenu();
+
   window.__timeline = timeline;
   window.timeline = timeline;
 }
@@ -1254,32 +1368,6 @@ function updatePlayButton(playing) {
   const label = playing ? t("timeline.stop") : t("timeline.play");
   timelinePlayBtn.setAttribute("aria-label", label);
   timelinePlayBtn.setAttribute("title", label);
-}
-
-// timeline-spacer height drag (min 40px, max 300px)
-const timelineSpacerEl = document.getElementById("timelineSpacer");
-const timelineSpacerResizeHandle = document.getElementById("timelineSpacerResizeHandle");
-if (timelineSpacerEl && timelineSpacerResizeHandle) {
-  const MIN_SPACER_HEIGHT = 40;
-  const MAX_SPACER_HEIGHT = 300;
-  timelineSpacerResizeHandle.addEventListener("mousedown", (e) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    const startY = e.clientY;
-    const startHeight = timelineSpacerEl.offsetHeight;
-
-    const onMove = (eMove) => {
-      const dy = eMove.clientY - startY;
-      const next = Math.max(MIN_SPACER_HEIGHT, Math.min(MAX_SPACER_HEIGHT, startHeight + dy));
-      timelineSpacerEl.style.height = `${next}px`;
-    };
-    const onUp = () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-    };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  });
 }
 
 // Timeline UI event wiring
@@ -1387,45 +1475,17 @@ if (timelineDeleteAllBtn) {
   });
 }
 
-// Timeline toggle
-
-if (timelineToggleBtn && timelineContainer) {
-  timelineToggleBtn.addEventListener("click", () => {
-    timelineContainer.classList.toggle("is-collapsed");
-    const isExpanded = !timelineContainer.classList.contains("is-collapsed");
-    timelineToggleBtn.setAttribute("aria-pressed", isExpanded ? "true" : "false");
-    if (isExpanded) {
-      timelineAutoCollapsedBySelection = false;
-    }
-  });
-}
-
-function collapseTimelineForSelection() {
-    // Hide inspector/gizmo windows too
-    panelsVisible = false;
-    updateGizmoControlsVisibility();
-    updateGizmo3DVisibility();
-    updateInspectorVisibility();
-  if (!timelineContainer) return;
-  const alreadyCollapsed = timelineContainer.classList.contains("is-collapsed");
-  if (!alreadyCollapsed) {
-    timelineContainer.classList.add("is-collapsed");
-    timelineToggleBtn?.setAttribute("aria-pressed", "false");
-    timelineAutoCollapsedBySelection = true;
+function clearAllSpatialSelectors() {
+  selectionTool?.deactivate?.();
+  selectionTool?.clearAllAccumulatedVolumes?.();
+  if (spawnedWireObject) {
+    spawnedWireObject.enabled = false;
+    spawnedWireObject = null;
+    window.spawnedWireObject = null;
+    _detachShapeGizmo();
   }
-}
-
-function restoreTimelineAfterSelection() {
-    // Restore inspector/gizmo windows too
-    panelsVisible = true;
-    updateGizmoControlsVisibility();
-    updateGizmo3DVisibility();
-    updateInspectorVisibility();
-  if (!timelineContainer) return;
-  if (!timelineAutoCollapsedBySelection) return;
-  timelineContainer.classList.remove("is-collapsed");
-  timelineToggleBtn?.setAttribute("aria-pressed", "true");
-  timelineAutoCollapsedBySelection = false;
+  wireSphereObjectsByKey.forEach((s) => { if (s && s.enabled !== false) s.enabled = false; });
+  wireBoxObjectsByKey.forEach((b) => { if (b && b.enabled !== false) b.enabled = false; });
 }
 
 // File drag and drop
@@ -1500,6 +1560,98 @@ if (loadPlyInputEl) {
     await handleFiles(files);
     window.__memoryTaskEnd?.();
     e.target.value = "";
+  });
+}
+
+// 현재 프로젝트 파일 핸들 (저장 시 같은 파일에 덮어쓰기용)
+let currentProjectFileHandle = null;
+
+async function runSaveProject(opts = {}) {
+  if (!timeline || !objectDescription) return Promise.resolve();
+  const data = await buildProjectData({
+    timeline,
+    objectDescription,
+    selectionTool: typeof window.__selectionTool !== 'undefined' ? window.__selectionTool : null,
+  });
+  if (!data.objects?.length) {
+    alert("저장할 오브젝트가 없습니다. PLY를 먼저 로드해 주세요.");
+    return Promise.resolve();
+  }
+  const fileHandle = opts.saveAs ? null : currentProjectFileHandle;
+  return saveProjectToFile(data, {
+    fileHandle: fileHandle ?? undefined,
+    getSuggestedName: () => `project${Date.now()}.liam`,
+  });
+}
+
+// File menu: 저장 (기존 프로젝트 파일이 있으면 그대로, 없으면 파인더 열기)
+if (menuSaveProjectEl) {
+  menuSaveProjectEl.addEventListener("click", async (e) => {
+    e.preventDefault();
+    try {
+      const result = await runSaveProject({ saveAs: false });
+      if (result?.saved && result?.fileHandle) currentProjectFileHandle = result.fileHandle;
+    } catch (err) {
+      if (err?.name !== 'AbortError') console.error(err);
+    }
+  });
+}
+// File menu: 다른 이름으로 저장 (항상 새 파일로 저장)
+if (menuSaveProjectAsEl) {
+  menuSaveProjectAsEl.addEventListener("click", async (e) => {
+    e.preventDefault();
+    try {
+      const result = await runSaveProject({ saveAs: true });
+      if (result?.saved && result?.fileHandle) currentProjectFileHandle = result.fileHandle;
+    } catch (err) {
+      if (err?.name !== 'AbortError') console.error(err);
+    }
+  });
+}
+if (menuLoadProjectEl) {
+  menuLoadProjectEl.addEventListener("click", async (e) => {
+    e.preventDefault();
+    if (!fileLoader || !timeline || !viewer) return;
+    const confirmed = await showConfirmModal(
+      t('loadProject.confirmTitle'),
+      t('loadProject.confirmMessage'),
+      t('loadProject.confirmButton')
+    );
+    if (!confirmed) return;
+    const loadingOverlayEl = document.getElementById("loadingOverlay");
+    const loadingProgressEl = document.getElementById("loadingPercent");
+    const showProgress = (text) => {
+      if (loadingOverlayEl) loadingOverlayEl.classList.add("is-visible");
+      if (loadingProgressEl) loadingProgressEl.textContent = text ?? "";
+    };
+    const hideProgress = () => {
+      if (loadingOverlayEl) loadingOverlayEl.classList.remove("is-visible");
+    };
+    try {
+      showProgress("프로젝트 불러오는 중...");
+      const result = await loadProjectFromFile(
+        {
+          fileLoader,
+          timeline,
+          viewer,
+          objectDescription: objectDescription ?? null,
+          inspector: inspector ?? null,
+          getLocalFileServerBaseUrl,
+        },
+        { onProgress: showProgress }
+      );
+      if (!result.success) {
+        if (result.error) alert(result.error);
+      } else {
+        if (result.fileHandle) currentProjectFileHandle = result.fileHandle;
+        if (typeof window.updateExportButtonState === 'function') window.updateExportButtonState();
+      }
+    } catch (err) {
+      console.error(err);
+      alert("프로젝트 불러오기 실패: " + (err?.message || err));
+    } finally {
+      hideProgress();
+    }
   });
 }
 
@@ -1596,7 +1748,15 @@ if (loadByPathModalOk && loadByPathInput) {
       setLoadByPathError(true);
       return;
     }
-    const baseUrl = await getLocalFileServerBaseUrl();
+    window.__showGlobalLoadingOverlay?.(t("loading.loadByPath"), 100, { useSpinner: true });
+    let baseUrl;
+    try {
+      baseUrl = await getLocalFileServerBaseUrl();
+    } catch (_) {
+      window.__hideGlobalLoadingOverlay?.();
+      setLoadByPathError(true, t("loadByPath.errorConnectionFailed"));
+      return;
+    }
     const url = `${baseUrl}/local-file?path=${encodeURIComponent(path)}`;
     try {
       const res = await fetch(url);
@@ -1612,6 +1772,7 @@ if (loadByPathModalOk && loadByPathInput) {
         }
         if (typeof serverMessage === "object") serverMessage = JSON.stringify(serverMessage);
         setLoadByPathError(true, serverMessage || `HTTP ${res.status}`);
+        window.__hideGlobalLoadingOverlay?.();
         return;
       }
       const blob = await res.blob();
@@ -1619,10 +1780,12 @@ if (loadByPathModalOk && loadByPathInput) {
       const file = new File([blob], fileName, { type: "application/octet-stream" });
       hideLoadByPathModal();
       window.__memoryTaskBegin?.("File Load");
-      await handleFiles([file]);
+      await handleFiles([file], { sourcePath: path });
       window.__memoryTaskEnd?.();
     } catch (_err) {
       setLoadByPathError(true, t("loadByPath.errorConnectionFailed"));
+    } finally {
+      window.__hideGlobalLoadingOverlay?.();
     }
   });
 }
@@ -1630,10 +1793,47 @@ if (loadByPathModalOk && loadByPathInput) {
 // File handling: FileLoader + Timeline
 
 /**
+ * 드래그앤드롭/파일 선택 시 서버에 업로드해 경로를 받아오기 (로컬 서버 사용 중일 때)
+ * @param {File[]} files
+ * @param {string} baseUrl
+ * @returns {Promise<{ files: File[], paths: string[] }|null>} 실패 시 null
+ */
+async function uploadFilesToServerAndGetPaths(files, baseUrl) {
+  const paths = [];
+  const newFiles = [];
+  for (const file of files) {
+    const form = new FormData();
+    form.append("file", file);
+    let res;
+    try {
+      res = await fetch(`${baseUrl}/upload`, { method: "POST", body: form });
+    } catch {
+      return null;
+    }
+    if (!res.ok) return null;
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      return null;
+    }
+    const path = data?.path;
+    if (typeof path !== "string") return null;
+    paths.push(path);
+    const blob = await fetch(`${baseUrl}/local-file?path=${encodeURIComponent(path)}`).then((r) => r.ok ? r.blob() : null);
+    if (!blob) return null;
+    const name = (file.name || path.replace(/^.*[/\\]/, "") || "model.ply").trim();
+    newFiles.push(new File([blob], name, { type: "application/octet-stream" }));
+  }
+  return { files: newFiles, paths };
+}
+
+/**
  * Handle files (select or drop)
  * @param {File[]} files
+ * @param {{ sourcePath?: string }} [options] - 경로로 로드 시 sourcePath 전달
  */
-async function handleFiles(files) {
+async function handleFiles(files, options = {}) {
   if (!files || files.length === 0) return;
   
   // Ensure viewer ready
@@ -1650,48 +1850,47 @@ async function handleFiles(files) {
 
   const sortedFiles = [...files].sort((a, b) => a.name.localeCompare(b.name));
 
-  const isPlySequence = (fileList) => {
-    if (!fileList || fileList.length < 2) return false;
-    const names = fileList.map((f) => (f?.name || '').toLowerCase());
-    // eslint-disable-next-line regexp/no-super-linear-backtracking
-    const regex = /(.*?)(\d+)(?:\.compressed)?\.ply$/;
-    const baseMatch = names[0].match(regex);
-    if (!baseMatch) return false;
-    for (let i = 1; i < names.length; i++) {
-      const m = names[i].match(regex);
-      if (!m || m[1] !== baseMatch[1]) return false;
-    }
-    return true;
-  };
+  // 드래그앤드롭/파일 선택 시 기존 방식 사용 (파일에서 직접 로드). 서버 업로드 사용 시 아래 주석 해제.
+  let filesToLoad = sortedFiles;
+  let sourcePath = options?.sourcePath ?? null;
+  let sourcePaths = options?.sourcePaths ?? null;
+  // if (!sourcePath && !sourcePaths && sortedFiles.length > 0) {
+  //   try {
+  //     const baseUrl = await getLocalFileServerBaseUrl();
+  //     window.__showGlobalLoadingOverlay?.(t("loading.uploadingToServer"), 100, { useSpinner: true });
+  //     const uploaded = await uploadFilesToServerAndGetPaths(sortedFiles, baseUrl);
+  //     if (uploaded && uploaded.paths.length === sortedFiles.length) {
+  //       filesToLoad = uploaded.files;
+  //       sourcePaths = uploaded.paths;
+  //       if (uploaded.paths.length === 1) sourcePath = uploaded.paths[0];
+  //     }
+  //     if (!uploaded) window.__hideGlobalLoadingOverlay?.();
+  //   } catch (_) {
+  //     window.__hideGlobalLoadingOverlay?.();
+  //     // 서버 없거나 업로드 실패 시 기존처럼 경로 없이 로드
+  //   }
+  // }
 
-  if (isPlySequence(sortedFiles)) {
-    const frames = sortedFiles.map((f) => ({ file: f, fileName: f.name }));
-
-    const seqObj = timeline?.addSequenceObject?.(frames);
-    if (seqObj) {
-      timeline.selectObject(seqObj.id);
-      timeline.onSequenceFrameChange?.(seqObj, 0);
-    }
-    return;
-  }
-
-  const result = await fileLoader.loadFiles(sortedFiles);
+  const result = await fileLoader.loadFiles(filesToLoad, { ...options, sourcePath, sourcePaths, dedup: false });
   
   if (result.success && result.results && result.results.length > 0) {
     
     if (timeline) {
       let lastAddedObj = null;
+      const pathForSingle = sourcePath ?? options?.sourcePath ?? null;
+      const pathsForMulti = sourcePaths ?? null;
       
       if (result.results.length === 1) {
         // Single file: existing flow
         const loaded = result.results[0];
-        lastAddedObj = timeline.addObject(loaded.fileName, loaded.entity, loaded.splatId);
+        lastAddedObj = timeline.addObject(loaded.fileName, loaded.entity, loaded.splatId, pathForSingle ? { sourcePath: pathForSingle } : {});
       } else {
-        // Multiple files: one object; files sorted by name
-        const filesData = result.results.map(r => ({
+        // Multiple files: one object; files sorted by name (sourcePath per file)
+        const filesData = result.results.map((r, i) => ({
           entity: r.entity,
           splatId: r.splatId,
           fileName: r.fileName,
+          sourcePath: pathsForMulti?.[i] ?? null,
         }));
         
         lastAddedObj = timeline.addMultiFileObject(filesData);
@@ -1754,6 +1953,7 @@ function updateExportButtonState() {
   }
   window.__cameraTemplates?.updateTemplateButtonState?.();
 }
+window.updateExportButtonState = updateExportButtonState;
 
 // Initial state (disabled on load)
 updateExportButtonState();
@@ -1784,7 +1984,7 @@ if (menuExportViewerEl) {
 
     let exportTotalCount = 0;
     for (const obj of objectsForExport) {
-      if (obj?.isSequence && Array.isArray(obj.files)) {
+      if (obj?.isMultiFile && Array.isArray(obj.files)) {
         exportTotalCount += obj.files.length;
       } else {
         exportTotalCount += 1;
@@ -1889,12 +2089,16 @@ function showKeyframeDeleteAllModal() {
   setTimeout(() => deleteModalConfirm?.focus(), 100);
 }
 
+const DELETE_MODAL_CONFIRM_DEFAULT_TEXT = '삭제';
+
 /**
  * Hide delete confirm modal
  */
 function hideDeleteModal() {
   if (!deleteModalOverlay) return;
-  
+  if (pendingDeleteType === 'confirm' && deleteModalConfirm) {
+    deleteModalConfirm.textContent = DELETE_MODAL_CONFIRM_DEFAULT_TEXT;
+  }
   deleteModalOverlay.classList.remove("is-visible");
   deleteModalOverlay.setAttribute("aria-hidden", "true");
   pendingDeleteObjectId = null;
@@ -1909,29 +2113,29 @@ let pendingConfirmResolve = null;
  * Show generic confirm modal (Promise-based).
  * @param {string} title - modal title
  * @param {string} message - modal message
+ * @param {string} [confirmButtonText] - confirm button label (e.g. '불러오기')
  * @returns {Promise<boolean>} - true on confirm, false on cancel
  */
-function showConfirmModal(title, message) {
+function showConfirmModal(title, message, confirmButtonText) {
   return new Promise((resolve) => {
     if (!deleteModalOverlay) {
       resolve(false);
       return;
     }
-    
     pendingDeleteObjectId = null;
     pendingDeleteType = 'confirm';
     pendingConfirmResolve = resolve;
-    
-    if (deleteModalTitle) {
-      deleteModalTitle.textContent = title;
+    if (deleteModalTitle) deleteModalTitle.textContent = title;
+    if (deleteModalText) deleteModalText.innerHTML = message;
+    if (deleteModalConfirm) {
+      if (typeof confirmButtonText === 'string') {
+        deleteModalConfirm.textContent = confirmButtonText;
+      } else {
+        deleteModalConfirm.textContent = DELETE_MODAL_CONFIRM_DEFAULT_TEXT;
+      }
     }
-    if (deleteModalText) {
-      deleteModalText.innerHTML = message;
-    }
-    
     deleteModalOverlay.classList.add("is-visible");
     deleteModalOverlay.setAttribute("aria-hidden", "false");
-    
     setTimeout(() => deleteModalConfirm?.focus(), 100);
   });
 }
@@ -1944,6 +2148,8 @@ async function executeObjectDelete(objectId) {
   
   const obj = timeline.objects.find(o => o.id === objectId);
   if (!obj) return;
+
+  detachChildrenBeforeParentDelete(timeline.objects, objectId, viewer);
 
   // If delete target is selected, deselect first then remove
   if (timeline.selectedObjectId === objectId) {
@@ -2065,6 +2271,13 @@ async function executeObjectDelete(objectId) {
         fileLoader?.removeFileData?.(f.splatId);
       }
     }
+  } else if (obj.objectType === 'empty' && obj.entity) {
+    try {
+      obj.entity.destroy();
+    } catch (e) {
+      /* ignore */
+    }
+    obj.entity = null;
   } else if (obj.splatId) {
     // Single PLY object
     try {
@@ -2081,6 +2294,8 @@ async function executeObjectDelete(objectId) {
     fileLoader?.removeFileData?.(obj.splatId);
   }
 
+  objectDescription?.removeCommentsForObjectId?.(objectId);
+  viewer?.setEditorObjectTint?.(objectId, null);
   timeline.removeObject(objectId);
   updateExportButtonState();
 
@@ -2158,7 +2373,7 @@ document.addEventListener("click", (e) => {
   const target = e.target;
   
   // Ignore object button/block click
-  if (target.closest(".timeline__obj-btn") || target.closest(".timeline__obj-block")) return;
+  if (target.closest(".timeline__obj-row") || target.closest(".timeline__obj-block")) return;
   
   // Ignore inspector inner click
   if (target.closest(".object-inspector")) return;
@@ -2518,6 +2733,8 @@ async function bootstrap() {
     return;
   }
 
+  restoreAllSidePanelWidthsFromStorage();
+
   try {
     if (typeof window.Ammo === "function") {
       window.Ammo = await Promise.resolve(window.Ammo());
@@ -2529,7 +2746,7 @@ async function bootstrap() {
       // Set global refs
       window.__viewerReady = true;
       window.__viewer = viewer;
-      window.viewer = viewer; // for sequencePlayback.js
+      window.viewer = viewer;
       window.createWireBoxMeshAndMaterial = createWireBoxMeshAndMaterial;
       window.createWireSphereMeshAndMaterial = createWireSphereMeshAndMaterial;
 
@@ -2578,6 +2795,8 @@ async function bootstrap() {
       
       // Init Timeline
       initTimeline();
+
+      attachObjectsPanelResize(() => viewer);
       
       // Init Inspector
       inspector = new InspectorController();
@@ -2624,6 +2843,36 @@ async function bootstrap() {
       detailsPanel = new ObjectDetailsPanel();
       window.__detailsPanel = detailsPanel;
 
+      if (!window.__selectionUndoRedoKeysBound) {
+        window.__selectionUndoRedoKeysBound = true;
+        const isEditableShortcutTarget = (el) => {
+          if (!el || el.nodeType !== 1) return false;
+          const t = el.tagName;
+          if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT') return true;
+          if (el.isContentEditable) return true;
+          return !!el.closest?.('[contenteditable="true"]');
+        };
+        document.addEventListener('keydown', (e) => {
+          if (!(e.ctrlKey || e.metaKey)) return;
+          const key = typeof e.key === 'string' ? e.key.toLowerCase() : '';
+          if (key !== 'z') return;
+          if (isEditableShortcutTarget(e.target)) return;
+          const dp = window.__detailsPanel;
+          const st = window.__selectionTool;
+          if (!dp?.isVisible || !st) return;
+          if (e.shiftKey) {
+            if (!st.canRedo?.()) return;
+            e.preventDefault();
+            st.redo();
+          } else {
+            if (!st.canUndo?.()) return;
+            e.preventDefault();
+            st.undo();
+          }
+          dp.updateUndoRedoButtons?.();
+        });
+      }
+
       // Init Object Description (설명 추가 / 코멘트)
       objectDescription = new ObjectDescription({
         viewer,
@@ -2637,15 +2886,152 @@ async function bootstrap() {
       });
       window.__objectDescription = objectDescription;
 
+      const _odToggle = objectDescription.toggleTooltip.bind(objectDescription);
+      objectDescription.toggleTooltip = function wrappedDescriptionToggle() {
+        closeAuxGizmoPopovers("description");
+        _odToggle();
+        if (objectDescription.tooltip?.classList.contains("is-visible")) {
+          const descBtn = document.getElementById("gizmoDescriptionBtn");
+          if (descBtn) positionAuxFloatingPopover(objectDescription.tooltip, descBtn);
+        }
+      };
+
+      const gizmoInspectorBtn = document.getElementById("gizmoInspectorBtn");
+      const gizmoInspectorPopover = document.getElementById("gizmoInspectorPopover");
+      const gizmoColorTintBtn = document.getElementById("gizmoColorTintBtn");
+      const gizmoColorTintPopover = document.getElementById("gizmoColorTintPopover");
+
+      if (gizmoInspectorBtn && gizmoInspectorPopover) {
+        gizmoInspectorBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const open = !gizmoInspectorPopover.classList.contains("is-visible");
+          if (open) {
+            closeAuxGizmoPopovers("inspector");
+            gizmoInspectorPopover.classList.add("is-visible");
+            gizmoInspectorBtn.classList.remove("is-off");
+            gizmoInspectorBtn.setAttribute("aria-pressed", "true");
+            positionAuxFloatingPopover(gizmoInspectorPopover, gizmoInspectorBtn);
+          } else {
+            gizmoInspectorPopover.classList.remove("is-visible");
+            gizmoInspectorBtn.classList.add("is-off");
+            gizmoInspectorBtn.setAttribute("aria-pressed", "false");
+          }
+        });
+      }
+
+      if (gizmoColorTintBtn && gizmoColorTintPopover) {
+        gizmoColorTintBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const open = !gizmoColorTintPopover.classList.contains("is-visible");
+          if (open) {
+            closeAuxGizmoPopovers("tint");
+            window.__updateGizmoTintPopover?.();
+            gizmoColorTintPopover.classList.add("is-visible");
+            gizmoColorTintBtn.classList.remove("is-off");
+            gizmoColorTintBtn.setAttribute("aria-pressed", "true");
+            positionAuxFloatingPopover(gizmoColorTintPopover, gizmoColorTintBtn);
+          } else {
+            gizmoColorTintPopover.classList.remove("is-visible");
+            gizmoColorTintBtn.classList.add("is-off");
+            gizmoColorTintBtn.setAttribute("aria-pressed", "false");
+          }
+        });
+      }
+
+      document.getElementById("gizmoInspectorPopoverClose")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        gizmoInspectorPopover?.classList.remove("is-visible");
+        gizmoInspectorBtn?.classList.add("is-off");
+        gizmoInspectorBtn?.setAttribute("aria-pressed", "false");
+      });
+      document.getElementById("gizmoDescriptionTooltipClose")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        objectDescription?.hideTooltip?.();
+      });
+      document.getElementById("gizmoColorTintPopoverClose")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        gizmoColorTintPopover?.classList.remove("is-visible");
+        gizmoColorTintBtn?.classList.add("is-off");
+        gizmoColorTintBtn?.setAttribute("aria-pressed", "false");
+      });
+
+      if (!window.__auxPopoversResizeBound) {
+        window.__auxPopoversResizeBound = true;
+        window.addEventListener("resize", () => repositionOpenAuxPopovers());
+      }
+
+      // 에디터 색지정: objectId별 엔티티 (선택 해제 후에도 맵에 있는 오브젝트는 계속 틴트)
+      viewer.setEditorTintEntityResolver?.((objectId) => {
+        if (objectId == null) return [];
+        const obj = timeline?.objects?.find((o) => o.id === objectId);
+        if (!obj) return [];
+        if (obj.entity) return [obj.entity];
+        if (Array.isArray(obj.files)) return obj.files.map((f) => f?.entity).filter(Boolean);
+        return [];
+      });
+
+      const gizmoColorTintObjectName = document.getElementById('gizmoColorTintObjectName');
+      const EDITOR_TINT_PRESETS = {
+        none: null,
+        red: { r: 1, g: 0.22, b: 0.22 },
+        yellow: { r: 1, g: 0.88, b: 0.25 },
+        blue: { r: 0.25, g: 0.55, b: 1 },
+        green: { r: 0.2, g: 0.82, b: 0.38 },
+      };
+      const REVERSE_TINT_PRESETS = new Map();
+      Object.entries(EDITOR_TINT_PRESETS).forEach(([key, rgb]) => {
+        if (rgb) {
+          const k = `${rgb.r},${rgb.g},${rgb.b}`;
+          REVERSE_TINT_PRESETS.set(k, key);
+        } else {
+          REVERSE_TINT_PRESETS.set('null', 'none');
+        }
+      });
+      const syncGizmoTintSwatchSelection = (key) => {
+        if (!gizmoColorTintPopover) return;
+        gizmoColorTintPopover.querySelectorAll('.gizmo-tint-swatch').forEach((el) => {
+          el.classList.toggle('is-selected', el.getAttribute('data-tint') === key);
+        });
+      };
+      const updateGizmoTintPopover = () => {
+        const objectId = timeline?.selectedObjectId;
+        const obj = objectId ? timeline?.objects?.find((o) => o.id === objectId) : null;
+        if (gizmoColorTintObjectName) {
+          gizmoColorTintObjectName.textContent = obj?.name || '—';
+        }
+        if (objectId && viewer) {
+          const tintRgb = viewer.getEditorObjectTint?.(objectId);
+          let selectedKey = 'none';
+          if (tintRgb) {
+            const k = `${tintRgb.r},${tintRgb.g},${tintRgb.b}`;
+            selectedKey = REVERSE_TINT_PRESETS.get(k) || 'none';
+          }
+          syncGizmoTintSwatchSelection(selectedKey);
+        } else {
+          syncGizmoTintSwatchSelection('none');
+        }
+      };
+      if (gizmoColorTintPopover) {
+        gizmoColorTintPopover.querySelectorAll('[data-tint]').forEach((sw) => {
+          sw.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const objectId = timeline?.selectedObjectId;
+            if (!objectId) return;
+            const key = sw.getAttribute('data-tint') || 'none';
+            const rgb = EDITOR_TINT_PRESETS[key];
+            viewer.setEditorObjectTint?.(objectId, rgb);
+            syncGizmoTintSwatchSelection(key);
+          });
+        });
+        window.__updateGizmoTintPopover = updateGizmoTintPopover;
+      }
+
       // Draggable panels
-      const objectInspectorEl = document.getElementById('objectInspector');
-      const objectDetailsPanelEl = document.getElementById('objectDetailsPanel');
       const cameraPathEditorEl = document.getElementById('cameraPathEditor');
-      if (objectInspectorEl) makePanelDraggable(objectInspectorEl, '.object-inspector__title');
-      if (objectDetailsPanelEl) makePanelDraggable(objectDetailsPanelEl);
-      if (gizmoControlsEl) makePanelDraggable(gizmoControlsEl);
-      if (cameraPathEditorEl) makePanelDraggable(cameraPathEditorEl, '.camera-path-editor__drag-handle');
-      
+      if (cameraPathEditorEl) {
+        makePanelDraggable(cameraPathEditorEl, '.camera-path-editor__drag-handle');
+      }
+
       // Init Selection Tool
       const pcCanvas = document.getElementById('pcCanvas');
       selectionTool = new SelectionTool(viewer, pcCanvas);
@@ -2686,7 +3072,7 @@ async function bootstrap() {
           return new Promise((resolve) => {
             const input = document.createElement('input');
             input.type = 'file';
-            input.accept = '.ply';
+            input.accept = '.ply,.step,.stp,.iges,.igs';
             input.onchange = () => resolve(input.files?.[0] || null);
             input.click();
           });
@@ -2704,6 +3090,11 @@ async function bootstrap() {
       };
 
       // Sphere/box button: spawn wire object and attach gizmo
+      detailsPanel.onClearSpatialSelectors = () => {
+        clearAllSpatialSelectors();
+        detailsPanel.deselectShapeButtons?.();
+      };
+
       detailsPanel.onSphereButtonClick = () => {
         if (!viewer || !window.__viewerReady) return;
         detailsPanel.onButtonClick(3);
@@ -2734,7 +3125,6 @@ async function bootstrap() {
           const box = wireBoxObjectsByKey.get(key);
           if (sphere) sphere.enabled = false;
           if (box) box.enabled = false;
-          restoreTimelineAfterSelection();
           return;
         }
 
@@ -2764,7 +3154,6 @@ async function bootstrap() {
           if (sphere) sphere.enabled = false;
           if (box) box.enabled = false;
           selectorOverlay.hide();
-          collapseTimelineForSelection();
         } else if (mode === 'sphere' || mode === 'box') {
           if (!window.__viewerReady || !viewer.app) return;
           selectionTool.deactivate();
@@ -2796,7 +3185,6 @@ async function bootstrap() {
           _setActiveWireObject(activeWire);
           _attachShapeGizmo(spawnedWireObject);
           selectorOverlay.hide();
-          collapseTimelineForSelection();
 
           if (mode === 'box' && detailsPanel && typeof detailsPanel.setBoxGaugeValues === 'function') {
             const s = box.getLocalScale ? box.getLocalScale() : { x: 1, y: 1, z: 1 };

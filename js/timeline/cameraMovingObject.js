@@ -53,6 +53,15 @@ export class CameraMovingObjectManager {
     this._dragTarget = null;
     this._dragStartY = 0;
     this._dragStartValue = 0;
+
+    /** @type {number|null} */
+    this._layoutRaf = null;
+    /** @type {ResizeObserver|null} */
+    this._resizeObserver = null;
+    this._onLayoutChange = this._onLayoutChange.bind(this);
+    this._layoutWatchersReady = false;
+    this._resizeObserveContainer = false;
+    this._resizeObserveTicks = false;
   }
   
   /**
@@ -69,6 +78,79 @@ export class CameraMovingObjectManager {
     
     // 문서 클릭 이벤트 등록 (선택 해제용)
     document.addEventListener('click', this._onDocumentClick);
+
+    this._setupLayoutObservers();
+  }
+
+  /**
+   * 창·타임라인 영역 크기 변경 시 마커 연결선 위치 재계산
+   * @private
+   */
+  _setupLayoutObservers() {
+    if (typeof window === 'undefined') return;
+
+    if (!this._layoutWatchersReady) {
+      this._layoutWatchersReady = true;
+      window.addEventListener('resize', this._onLayoutChange, { passive: true });
+      if (typeof ResizeObserver !== 'undefined') {
+        this._resizeObserver = new ResizeObserver(() => this._onLayoutChange());
+      }
+    }
+
+    if (!this._resizeObserver) return;
+
+    if (this._container && !this._resizeObserveContainer) {
+      this._resizeObserver.observe(this._container);
+      this._resizeObserveContainer = true;
+    }
+
+    const ticksEl = document.getElementById('timelineTicks');
+    if (ticksEl && !this._resizeObserveTicks) {
+      this._resizeObserver.observe(ticksEl);
+      this._resizeObserveTicks = true;
+    }
+  }
+
+  /**
+   * @private
+   */
+  _onLayoutChange() {
+    if (this._layoutRaf != null) return;
+    this._layoutRaf = requestAnimationFrame(() => {
+      this._layoutRaf = null;
+      if (!this._objects.length) return;
+
+      this._clearAllElements();
+      this._renderAll();
+
+      if (this._selectedId) {
+        const selectedObj = this._objects.find((o) => o.id === this._selectedId);
+        if (selectedObj) {
+          if (selectedObj.element) selectedObj.element.classList.add('is-selected');
+          if (selectedObj._element2) selectedObj._element2.classList.add('is-selected');
+        }
+      }
+    });
+  }
+
+  /**
+   * @private
+   */
+  _teardownLayoutObservers() {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('resize', this._onLayoutChange);
+    }
+    if (this._resizeObserver) {
+      this._resizeObserver.disconnect();
+      this._resizeObserver = null;
+    }
+    if (this._layoutRaf != null) {
+      cancelAnimationFrame(this._layoutRaf);
+      this._layoutRaf = null;
+    }
+    this._layoutWatchersReady = false;
+    this._resizeObserveContainer = false;
+    this._resizeObserveTicks = false;
   }
   
   /**
@@ -462,7 +544,9 @@ export class CameraMovingObjectManager {
       this.init();
       if (!this._container) return;
     }
-    
+
+    this._setupLayoutObservers();
+
     const bounds = this._getTrackBounds?.();
     const maxSeconds = this._getMaxSeconds?.() || 10;
     const lineTop = this._getLineTopPosition();
@@ -886,6 +970,8 @@ export class CameraMovingObjectManager {
    * 정리
    */
   dispose() {
+    this._teardownLayoutObservers();
+
     // 이벤트 리스너 제거
     document.removeEventListener('click', this._onDocumentClick);
     
