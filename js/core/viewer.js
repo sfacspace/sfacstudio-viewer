@@ -5,6 +5,7 @@
  */
 
 import { InfiniteGrid } from "../ui/gridDraw.js";
+import { convexHull2D, concaveOutlines2D } from "./selectionSilhouette.js";
 import { loadGSplatDataWithMorton, loadGSplatDataFromUrl } from "./splatLoader.js";
 
 /** R/Y/B/G — js/main.js EDITOR_TINT_PRESETS(색 값)와 동기화 */
@@ -111,6 +112,25 @@ export class PlayCanvasViewer {
 
     /** @type {Object|null} selected object */
     this._selectedObject = null;
+
+    /** Selection outline: projected centers → 2D overlay canvas */
+    this._selectionOutlineUpdateHandler = null;
+    /** @type {HTMLCanvasElement|null} */
+    this._selectionSilhouetteCanvas = null;
+    /** @type {CanvasRenderingContext2D|null} */
+    this._selectionSilhouetteCtx = null;
+    this._selectionSilhouetteOnResize = null;
+    /** @type {import('playcanvas').Vec3|null} */
+    this._silhouetteVecWorld = null;
+    /** @type {import('playcanvas').Vec3|null} */
+    this._silhouetteVecLocal = null;
+    /** @type {import('playcanvas').Vec3|null} */
+    this._silhouetteVecScreen = null;
+    /** Merged AABB for silhouette fallback */
+    /** @type {import('playcanvas').BoundingBox|null} */
+    this._selectionOutlineMerged = null;
+    /** @type {import('playcanvas').BoundingBox|null} */
+    this._selectionOutlineTmp = null;
 
     /** @type {InfiniteGrid|null} */
     this._infiniteGrid = null;
@@ -381,6 +401,7 @@ export class PlayCanvasViewer {
       this._initOrbitControls();
       this._createGrid();
       this._initAxisGizmo();
+      this._initSelectionOutline();
       window.__pcApp = this.app;
       window.__pcCamera = this.cameraEntity;
       window.__pcScene = this.splatRoot;
@@ -2614,6 +2635,7 @@ export class PlayCanvasViewer {
 
       // 코멘트 하이라이트 렌더 타겟도 동기화 (resize() 직접 호출 시에도 적용)
       this._resizeCommentHighlightRT();
+      this._syncSelectionSilhouetteCanvasSize();
     }
   }
 
@@ -2659,6 +2681,8 @@ export class PlayCanvasViewer {
 
     // Axis Gizmo 정리
     this._stopAxisGizmoLoop();
+
+    this._disposeSelectionOutline();
     
     // Axis Gizmo 클릭 이벤트 제거
     if (this._axisGizmoCanvas && this._onAxisGizmoClick) {
@@ -2721,15 +2745,311 @@ export class PlayCanvasViewer {
   }
   
   /**
-   * 선택된 오브젝트 설정
-   * @param {Object|null} obj - 선택된 오브젝트
+   * Set the selected timeline / world object.
+   * @param {Object|null} obj
    */
   setSelectedObject(obj) {
     this._selectedObject = obj;
+    this._updateSelectionOutline();
+  }
+
+  /** @private */
+  _initSelectionOutline() {
+    if (this._selectionOutlineUpdateHandler || !this.app) return;
+    this._ensureSelectionSilhouetteCanvas();
+    const pc = window.pc;
+    if (pc && !this._silhouetteVecWorld) {
+      this._silhouetteVecWorld = new pc.Vec3();
+      this._silhouetteVecLocal = new pc.Vec3();
+      this._silhouetteVecScreen = new pc.Vec3();
+    }
+    this._selectionOutlineUpdateHandler = () => this._updateSelectionOutline();
+    this.app.on("update", this._selectionOutlineUpdateHandler);
+  }
+
+  /** @private */
+  _disposeSelectionOutline() {
+    if (this._selectionOutlineUpdateHandler && this.app) {
+      this.app.off("update", this._selectionOutlineUpdateHandler);
+    }
+    this._selectionOutlineUpdateHandler = null;
+    if (this._selectionSilhouetteOnResize) {
+      window.removeEventListener("resize", this._selectionSilhouetteOnResize);
+      this._selectionSilhouetteOnResize = null;
+    }
+    if (this._selectionSilhouetteCanvas?.parentElement) {
+      try {
+        this._selectionSilhouetteCanvas.parentElement.removeChild(this._selectionSilhouetteCanvas);
+      } catch (_) {
+      }
+    }
+    this._selectionSilhouetteCanvas = null;
+    this._selectionSilhouetteCtx = null;
+    this._silhouetteVecWorld = null;
+    this._silhouetteVecLocal = null;
+    this._silhouetteVecScreen = null;
+    this._selectionOutlineMerged = null;
+    this._selectionOutlineTmp = null;
+  }
+
+  /** @private */
+  _ensureSelectionSilhouetteCanvas() {
+    if (this._selectionSilhouetteCanvas || !this.canvas) return;
+    const parent = this.canvas.parentElement;
+    if (!parent) return;
+    const c = document.createElement("canvas");
+    c.className = "pc-selection-silhouette-canvas";
+    c.setAttribute("aria-hidden", "true");
+    parent.appendChild(c);
+    this._selectionSilhouetteCanvas = c;
+    this._selectionSilhouetteCtx = c.getContext("2d");
+    this._selectionSilhouetteOnResize = () => this._syncSelectionSilhouetteCanvasSize();
+    window.addEventListener("resize", this._selectionSilhouetteOnResize, { passive: true });
+    this._syncSelectionSilhouetteCanvasSize();
+  }
+
+  /** @private */
+  _syncSelectionSilhouetteCanvasSize() {
+    const c = this._selectionSilhouetteCanvas;
+    const main = this.canvas;
+    if (!c || !main?.parentElement) return;
+    const parent = main.parentElement;
+    const cr = main.getBoundingClientRect();
+    const pr = parent.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.max(1, Math.round(main.clientWidth || cr.width));
+    const h = Math.max(1, Math.round(main.clientHeight || cr.height));
+    const pw = Math.floor(w * dpr);
+    const ph = Math.floor(h * dpr);
+    if (c.width !== pw || c.height !== ph) {
+      c.width = pw;
+      c.height = ph;
+    }
+    c.style.width = `${w}px`;
+    c.style.height = `${h}px`;
+    c.style.left = `${Math.round(cr.left - pr.left)}px`;
+    c.style.top = `${Math.round(cr.top - pr.top)}px`;
+  }
+
+  /** @private */
+  _getGsplatResourceForSilhouette(entity) {
+    const gs = entity?.gsplat;
+    if (!gs) return null;
+    if (gs.instance?.resource) return gs.instance.resource;
+    const assetId = gs.asset;
+    const asset =
+      typeof assetId === "number" && this.app?.assets ? this.app.assets.get(assetId) : null;
+    return asset?.resource ?? gs._placement?.resource ?? null;
+  }
+
+  /** @private */
+  _strokeSilhouetteHull2D(ctx, hull) {
+    if (!hull || hull.length < 2) return;
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.beginPath();
+    const n = hull.length;
+    if (n >= 4) {
+      const mid = (a, b) => ({ x: (a.x + b.x) * 0.5, y: (a.y + b.y) * 0.5 });
+      const m0 = mid(hull[n - 1], hull[0]);
+      ctx.moveTo(m0.x, m0.y);
+      for (let i = 0; i < n; i++) {
+        const p = hull[i];
+        const pnext = hull[(i + 1) % n];
+        const m = mid(p, pnext);
+        ctx.quadraticCurveTo(p.x, p.y, m.x, m.y);
+      }
+    } else {
+      ctx.moveTo(hull[0].x, hull[0].y);
+      for (let i = 1; i < n; i++) {
+        ctx.lineTo(hull[i].x, hull[i].y);
+      }
+      if (n >= 3) ctx.closePath();
+    }
+    ctx.strokeStyle = "rgba(90, 220, 255, 0.95)";
+    ctx.lineWidth = 2.65;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.shadowColor = "rgba(0, 200, 255, 0.35)";
+    ctx.shadowBlur = 14;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  /** World AABB corners → screen hull as one ring (or []). */
+  /** @private */
+  _rawRingsFromAabbFallback(cam, entities) {
+    const pc = window.pc;
+    if (!pc) return [];
+    if (!this._selectionOutlineMerged) {
+      this._selectionOutlineMerged = new pc.BoundingBox();
+      this._selectionOutlineTmp = new pc.BoundingBox();
+    }
+    const merged = this._selectionOutlineMerged;
+    const tmp = this._selectionOutlineTmp;
+    let any = false;
+    for (const ent of entities) {
+      if (!this._tryFillWorldAabbForGsplatEntity(ent, tmp)) continue;
+      if (!any) {
+        merged.copy(tmp);
+        any = true;
+      } else {
+        merged.add(tmp);
+      }
+    }
+    if (!any) return [];
+    const he = merged.halfExtents;
+    const c = merged.center;
+    const corners = [
+      [c.x - he.x, c.y - he.y, c.z - he.z],
+      [c.x + he.x, c.y - he.y, c.z - he.z],
+      [c.x + he.x, c.y + he.y, c.z - he.z],
+      [c.x - he.x, c.y + he.y, c.z - he.z],
+      [c.x - he.x, c.y - he.y, c.z + he.z],
+      [c.x + he.x, c.y - he.y, c.z + he.z],
+      [c.x + he.x, c.y + he.y, c.z + he.z],
+      [c.x - he.x, c.y + he.y, c.z + he.z],
+    ];
+    const vW = this._silhouetteVecWorld;
+    const vS = this._silhouetteVecScreen;
+    const projected = [];
+    for (const co of corners) {
+      vW.set(co[0], co[1], co[2]);
+      cam.worldToScreen(vW, vS);
+      if (vS.z < 0) continue;
+      projected.push({ x: vS.x, y: vS.y });
+    }
+    if (projected.length < 2) return [];
+    const hull = projected.length >= 3 ? convexHull2D(projected) : projected;
+    return [hull];
+  }
+
+  /**
+   * Gsplat entities for the current selection (single or multi-file).
+   * @private
+   */
+  _collectEntitiesForSelectionOutline(obj) {
+    if (!obj) return [];
+    if (obj.isMultiFile && Array.isArray(obj.files)) {
+      return obj.files.map((f) => f.entity).filter(Boolean);
+    }
+    if (obj.entity) return [obj.entity];
+    return [];
+  }
+
+  /**
+   * Fill world-space AABB for one gsplat entity (integrated or not).
+   * @private
+   * @returns {boolean}
+   */
+  _tryFillWorldAabbForGsplatEntity(entity, outAabb) {
+    const pc = window.pc;
+    const gs = entity?.gsplat;
+    if (!gs || !entity.enabled) return false;
+
+    if (gs.instance?.meshInstance) {
+      outAabb.copy(gs.instance.meshInstance.aabb);
+      return true;
+    }
+    if (gs._placement?.aabb) {
+      outAabb.setFromTransformedAabb(gs._placement.aabb, entity.getWorldTransform());
+      return true;
+    }
+    const assetId = gs.asset;
+    const asset =
+      typeof assetId === "number" && this.app?.assets
+        ? this.app.assets.get(assetId)
+        : null;
+    const res = asset?.resource;
+    if (res?.aabb) {
+      outAabb.setFromTransformedAabb(res.aabb, entity.getWorldTransform());
+      return true;
+    }
+    return false;
+  }
+
+  /** @private */
+  _updateSelectionOutline() {
+    const ctx = this._selectionSilhouetteCtx;
+    const canvas = this._selectionSilhouetteCanvas;
+    if (!this.app) return;
+    this._ensureSelectionSilhouetteCanvas();
+    if (!ctx || !canvas) return;
+
+    const cam = this.cameraEntity?.camera;
+    if (!cam) return;
+
+    const pc = window.pc;
+    if (pc && !this._silhouetteVecWorld) {
+      this._silhouetteVecWorld = new pc.Vec3();
+      this._silhouetteVecLocal = new pc.Vec3();
+      this._silhouetteVecScreen = new pc.Vec3();
+    }
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const obj = this._selectedObject;
+    if (!obj) return;
+
+    const entities = this._collectEntitiesForSelectionOutline(obj).filter((e) => e.enabled);
+    if (entities.length === 0) return;
+
+    const vW = this._silhouetteVecWorld;
+    const vL = this._silhouetteVecLocal;
+    const vS = this._silhouetteVecScreen;
+    if (!vW || !vL || !vS) return;
+
+    const projected = [];
+    const MAX_POINTS = 4500;
+    const perEntityBudget = Math.max(1, Math.floor(MAX_POINTS / entities.length));
+
+    for (const ent of entities) {
+      const res = this._getGsplatResourceForSilhouette(ent);
+      const centers = res?.centers;
+      if (!centers || !centers.length) continue;
+      const n = centers.length;
+      const stride = Math.max(1, Math.ceil(n / perEntityBudget));
+      const worldMat = ent.getWorldTransform();
+      for (let i = 0; i < n; i += stride) {
+        const o = i * 3;
+        vL.set(centers[o], centers[o + 1], centers[o + 2]);
+        worldMat.transformPoint(vL, vW);
+        cam.worldToScreen(vW, vS);
+        if (vS.z < 0) continue;
+        projected.push({ x: vS.x, y: vS.y });
+      }
+    }
+
+    /** @type {{ x: number, y: number }[][]} */
+    let rawRings;
+    if (projected.length < 2) {
+      rawRings = this._rawRingsFromAabbFallback(cam, entities);
+    } else {
+      const outlines = concaveOutlines2D(projected, {
+        padPx: 20,
+        maxCells: 120,
+        dilatePasses: 3,
+        simplifyEps: 2.35,
+        smoothIters: 2,
+        smoothBlend: 0.42,
+      });
+      if (outlines.length > 0) {
+        rawRings = outlines;
+      } else {
+        const hull = projected.length >= 3 ? convexHull2D(projected) : projected;
+        rawRings = [hull];
+      }
+    }
+
+    if (!rawRings.length) return;
+
+    for (const ring of rawRings) {
+      this._strokeSilhouetteHull2D(ctx, ring);
+    }
   }
   
   /**
-   * 선택된 오브젝트 가져오기
    * @returns {Object|null}
    */
   getSelectedObject() {

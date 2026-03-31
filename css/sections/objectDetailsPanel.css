@@ -13,7 +13,7 @@
   gap: 12px;
   padding: 12px 16px;
   border-radius: 12px;
-  background: rgba(26, 26, 26, 0.42);
+  background: var(--color-sidebar-surface);
   border: none;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.15);
   backdrop-filter: blur(8px);
@@ -100,7 +100,7 @@
   transform: translateX(-50%) scale(1);
 }
 
-/* 오른쪽 도구 열: 보내기 메뉴를 열 왼쪽(뷰 쪽)으로 펼침 */
+/* 오른쪽 도구 열: 보내기 메뉴 DOM은 body 포털(별도 블록), 래퍼에는 버튼만 */
 .object-details-panel__export-wrap--in-gizmo {
   margin-left: 0;
   width: 100%;
@@ -108,18 +108,22 @@
   justify-content: center;
 }
 
-.object-details-panel__export-wrap--in-gizmo .object-details-panel__export-menu {
+/* document.body 직계: 패널 overflow·transform 스태킹과 무관하게 위에 뜸 */
+.object-details-panel__export-menu.object-details-panel__export-menu--body-portal {
+  position: fixed;
   left: auto;
-  right: calc(100% + 8px);
   bottom: auto;
-  top: 50%;
   margin-bottom: 0;
-  transform: translateY(-50%) scale(0.95);
+  z-index: 10050;
+  transform: translateY(-50%);
   transform-origin: center right;
+  pointer-events: none;
+  /* 닫을 때 transform 전환 + 위치 제거 타이밍이 겹치면 튐 → opacity만 전환 */
+  transition: opacity 0.15s ease, visibility 0.15s ease;
 }
 
-.object-details-panel__export-wrap--in-gizmo .object-details-panel__export-menu.is-visible {
-  transform: translateY(-50%) scale(1);
+.object-details-panel__export-menu.object-details-panel__export-menu--body-portal.is-visible {
+  pointer-events: auto;
 }
 
 .object-details-panel__tooltip--in-gizmo.object-details-panel__tooltip--volume {

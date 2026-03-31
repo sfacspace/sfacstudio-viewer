@@ -44,6 +44,11 @@
         <div class="firefly"></div>
       </div>
       <div class="header-left">
+        <div class="header-brand">
+          <a class="header-brand-link" href="https://sfacspace.com/" target="_blank" rel="noopener noreferrer" aria-label="스팩스페이스 (새 창)">
+            <img src="/static/logo_white.svg" alt="SFACSTUDIO" class="header-logo-img" width="120" height="26" decoding="async" />
+          </a>
+        </div>
         <div class="menu-dropdown">
           <button class="menu-dropdown__trigger" data-i18n="menu.file">File</button>
           <ul class="menu-dropdown__list">
@@ -60,12 +65,27 @@
           <span id="fpsCounter" class="fps-counter">0 FPS</span>
         </div>
       </div>
-      <div class="header-center">
-        <span class="header-logo-text" aria-label="SFACSTUDIO Logo Text">
-          <img src="/static/logo.svg" alt="SFACSTUDIO" class="header-logo-img" />
-        </span>
-      </div>
       <div class="header-right">
+        <div class="header-panel-toggles" role="toolbar" data-i18n-attr-label="tooltip.panelTogglesToolbar" aria-label="패널 표시">
+          <button id="toggleLeftSidebar" class="header-panel-toggle" type="button" aria-pressed="true" data-tooltip="왼쪽 패널" data-i18n-tooltip="tooltip.toggleLeftSidebar" data-i18n-aria-label="tooltip.toggleLeftSidebar" aria-label="왼쪽 패널">
+            <svg class="header-panel-toggle__icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="6" height="16" rx="1"></rect>
+              <rect x="11" y="4" width="10" height="16" rx="1" opacity="0.35"></rect>
+            </svg>
+          </button>
+          <button id="toggleTopTimeline" class="header-panel-toggle" type="button" aria-pressed="true" data-tooltip="상단 타임라인" data-i18n-tooltip="tooltip.toggleTopTimeline" data-i18n-aria-label="tooltip.toggleTopTimeline" aria-label="상단 타임라인">
+            <svg class="header-panel-toggle__icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="4" y="3" width="16" height="6" rx="1"></rect>
+              <rect x="4" y="11" width="16" height="10" rx="1" opacity="0.35"></rect>
+            </svg>
+          </button>
+          <button id="toggleRightSidebar" class="header-panel-toggle" type="button" aria-pressed="true" data-tooltip="오른쪽 패널" data-i18n-tooltip="tooltip.toggleRightSidebar" data-i18n-aria-label="tooltip.toggleRightSidebar" aria-label="오른쪽 패널">
+            <svg class="header-panel-toggle__icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="15" y="4" width="6" height="16" rx="1"></rect>
+              <rect x="3" y="4" width="10" height="16" rx="1" opacity="0.35"></rect>
+            </svg>
+          </button>
+        </div>
         <button id="settingsButton" class="settings-button" type="button" aria-pressed="false" data-tooltip="설정" data-i18n-tooltip="tooltip.settings">
           <svg class="settings-button__icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="3"></circle>
@@ -140,11 +160,6 @@
             <span class="gizmo-controls__icon gizmo-controls__icon--scale" aria-hidden="true"></span>
           </button>
           <div class="gizmo-controls__divider" aria-hidden="true"></div>
-          <div class="gizmo-controls__inspector-row">
-            <button id="gizmoInspectorBtn" class="gizmo-controls__button is-off" type="button" aria-pressed="false" data-i18n-title="panel.inspector" title="Inspector">
-              <span class="gizmo-controls__icon gizmo-controls__icon--inspector" aria-hidden="true"></span>
-            </button>
-          </div>
           <div class="gizmo-controls__description-row">
             <button id="gizmoDescriptionBtn" class="gizmo-controls__button is-off" type="button" aria-pressed="false" data-i18n-title="panel.commentAdd" title="설명 추가">
               <span class="gizmo-controls__icon gizmo-controls__icon--description" aria-hidden="true"></span>
@@ -250,17 +265,6 @@
                     <path d="M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"></path>
                   </svg>
                 </button>
-                <div id="objectDetailsPanelExportMenu" class="object-details-panel__export-menu" aria-hidden="true">
-                  <button type="button" class="context-menu__item" data-export-action="ply">
-                    <span class="context-menu__label">ply보내기</span>
-                  </button>
-                  <button type="button" class="context-menu__item" data-export-action="compressed-ply">
-                    <span class="context-menu__label">압축 ply보내기</span>
-                  </button>
-                  <button type="button" class="context-menu__item" data-export-action="create-object">
-                    <span class="context-menu__label">객체보내기</span>
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -325,15 +329,10 @@
     </div>
   </div>
 
-  <!-- 인스펙터·코멘트·컬러: app-shell 밖 고정 레이어(overflow 클립 방지) -->
-  <div id="gizmoInspectorPopover" class="gizmo-controls__tooltip gizmo-controls__tooltip--fixed-layer gizmo-controls__tooltip--inspector-popover" role="dialog" aria-label="Inspector">
-    <div class="gizmo-tooltip__header-row gizmo-tooltip__header-row--with-close">
-      <span class="gizmo-tooltip__title" data-i18n="panel.inspector">Inspector</span>
-      <button type="button" id="gizmoInspectorPopoverClose" class="gizmo-tooltip__close" aria-label="닫기" data-i18n="button.close" data-i18n-attr="aria-label">&times;</button>
-    </div>
-    <div id="objectInspector" class="object-inspector object-inspector--docked is-inspector-idle" aria-label="Inspector">
-      <div id="inspectorName" class="object-inspector__title"></div>
-      <div class="object-inspector__rows">
+  <!-- 인스펙터·코멘트·컬러: app-shell 밖 고정 레이어(overflow 클립 방지) — LiamViewer2 스타일, 선택 시에만 표시 -->
+  <div id="objectInspector" class="object-inspector object-inspector--viewport-float is-hidden" role="region" aria-hidden="true" data-i18n-attr-label="panel.inspector" aria-label="Inspector">
+    <div id="inspectorName" class="object-inspector__title"></div>
+    <div class="object-inspector__rows">
         <div class="object-inspector__row">
           <div class="object-inspector__label">Position</div>
           <div class="object-inspector__inputs">
@@ -372,7 +371,6 @@
           </div>
         </div>
       </div>
-    </div>
   </div>
 
   <div id="gizmoDescriptionTooltip" class="gizmo-controls__tooltip gizmo-controls__tooltip--fixed-layer" role="region" aria-label="Comments form">
@@ -503,7 +501,7 @@
     </div>
   </div>
 
-  <div id="objectBlockContextMenu" class="context-menu" aria-hidden="true">
+  <div id="timelineObjectContextMenu" class="context-menu" aria-hidden="true">
     <button type="button" class="context-menu__item" data-action="duplicate">
       <span class="context-menu__label">복제</span>
     </button>
@@ -763,6 +761,19 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- 보내기 드롭다운: 오른쪽 패널과 DOM/스태킹 분리, 뷰포트 오버레이 -->
+  <div id="objectDetailsPanelExportMenu" class="object-details-panel__export-menu object-details-panel__export-menu--body-portal" aria-hidden="true">
+    <button type="button" class="context-menu__item" data-export-action="ply">
+      <span class="context-menu__label">ply보내기</span>
+    </button>
+    <button type="button" class="context-menu__item" data-export-action="compressed-ply">
+      <span class="context-menu__label">압축 ply보내기</span>
+    </button>
+    <button type="button" class="context-menu__item" data-export-action="create-object">
+      <span class="context-menu__label">객체보내기</span>
+    </button>
   </div>
 
   <script type="importmap">

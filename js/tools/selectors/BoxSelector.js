@@ -22,8 +22,11 @@ export function createWireBox(app, pos = {x:0, y:0, z:0}, size = {x:1, y:1, z:1}
     return entity;
 }
 
-/** Create wireframe box mesh and material. */
-export function createWireBoxMeshAndMaterial(app, size = { x: 1, y: 1, z: 1 }) {
+/** Create wireframe box mesh and material.
+ * @param {{ outlineOnly?: boolean, edgeColor?: number[] }} [options] — outlineOnly: 면 그리드 생략(선택 하이라이트용)
+ */
+export function createWireBoxMeshAndMaterial(app, size = { x: 1, y: 1, z: 1 }, options = {}) {
+    const outlineOnly = options.outlineOnly === true;
     const pc = window.pc;
     if (!app?.graphicsDevice || !pc) return { mesh: null, material: null };
     const device = app.graphicsDevice;
@@ -155,18 +158,20 @@ export function createWireBoxMeshAndMaterial(app, size = { x: 1, y: 1, z: 1 }) {
     const positions = [];
     const colors = [];
     const indices = [];
-    const color = [0.85, 0.85, 0.85, 1];
+    const color = options.edgeColor || [0.85, 0.85, 0.85, 1];
     const width = 0.012;
     for (const [a, b] of edges) {
         addThickSegment(positions, colors, indices, v[a], v[b], width, color);
     }
 
-    addFaceGridXZ(hy);
-    addFaceGridXZ(-hy);
-    addFaceGridYZ(hx);
-    addFaceGridYZ(-hx);
-    addFaceGridXY(hz);
-    addFaceGridXY(-hz);
+    if (!outlineOnly) {
+        addFaceGridXZ(hy);
+        addFaceGridXZ(-hy);
+        addFaceGridYZ(hx);
+        addFaceGridYZ(-hx);
+        addFaceGridXY(hz);
+        addFaceGridXY(-hz);
+    }
     const posArray = new Float32Array(positions);
     const colArray = new Uint8Array(colors.map(c => Math.floor(c * 255)));
     const idxArray = (posArray.length / 3 > 65535) ? new Uint32Array(indices) : new Uint16Array(indices);

@@ -18,11 +18,19 @@ import { CameraSettings } from "./ui/cameraSettings.js";
 import { PerformanceSettings } from "./ui/performanceSettings.js";
 import { createWireSphere, createWireSphereMeshAndMaterial } from "./tools/selectors/SphereSelector.js";
 import { SelectorOverlay } from "./ui/selectorOverlay.js";
-import { makePanelDraggable } from "./ui/draggablePanel.js";
+import { makePanelDraggable, getInspectorDragBounds } from "./ui/draggablePanel.js";
 import {
   restoreAllSidePanelWidthsFromStorage,
   attachObjectsPanelResize,
 } from "./ui/objectsPanelResize.js";
+import {
+  initPanelToggles,
+  applyPanelChromeVisibility,
+  togglePanels,
+  setBothSidePanelsFromSettings,
+  areBothSidePanelsVisible,
+  isRightSidebarVisible,
+} from "./ui/panelToggles.js";
 import MemoryMonitor from './services/memoryMonitor.js';
 import LoadSessionManager from './core/loadSessionManager.js';
 import { importCache } from './services/importCache.js';
@@ -58,17 +66,10 @@ let gizmo = null;
 /** @type {import("./ui/objectDescription.js").ObjectDescription|null} */
 let objectDescription = null;
 
-/** 인스펙터·코멘트·컬러 중 하나만 열림(또는 모두 닫힘). 닫기는 버튼/X만. */
+/** 코멘트·컬러 중 하나만 열림(또는 모두 닫힘). 닫기는 버튼/X만. */
 function closeAuxGizmoPopovers(except) {
-  const inspPop = document.getElementById("gizmoInspectorPopover");
-  const inspBtn = document.getElementById("gizmoInspectorBtn");
   const tintPop = document.getElementById("gizmoColorTintPopover");
   const tintBtn = document.getElementById("gizmoColorTintBtn");
-  if (except !== "inspector" && inspPop) {
-    inspPop.classList.remove("is-visible");
-    inspBtn?.classList.add("is-off");
-    inspBtn?.setAttribute("aria-pressed", "false");
-  }
   if (except !== "tint" && tintPop) {
     tintPop.classList.remove("is-visible");
     tintBtn?.classList.add("is-off");
@@ -94,40 +95,21 @@ function positionAuxFloatingPopover(popoverEl, anchorBtn) {
   popoverEl.style.left = "auto";
   popoverEl.style.bottom = "auto";
   const br = anchorBtn.getBoundingClientRect();
-  const useCenter = popoverEl.classList.contains("gizmo-controls__tooltip--inspector-popover");
   const pad = 8;
   const applyClamp = () => {
     const pr = popoverEl.getBoundingClientRect();
-    if (useCenter) {
-      const half = pr.height / 2;
-      let center = br.top + br.height / 2;
-      center = Math.max(pad + half, Math.min(window.innerHeight - pad - half, center));
-      popoverEl.style.top = `${center}px`;
-      popoverEl.style.transform = "translateY(-50%)";
-      return;
-    }
     let t = br.top;
     if (pr.bottom > window.innerHeight - pad) t = window.innerHeight - pad - pr.height;
     if (t < pad) t = pad;
     popoverEl.style.top = `${t}px`;
     popoverEl.style.transform = "none";
   };
-  if (useCenter) {
-    popoverEl.style.top = `${br.top + br.height / 2}px`;
-    popoverEl.style.transform = "translateY(-50%)";
-  } else {
-    popoverEl.style.top = `${br.top}px`;
-    popoverEl.style.transform = "none";
-  }
+  popoverEl.style.top = `${br.top}px`;
+  popoverEl.style.transform = "none";
   requestAnimationFrame(applyClamp);
 }
 
 function repositionOpenAuxPopovers() {
-  const inspBtn = document.getElementById("gizmoInspectorBtn");
-  const inspPop = document.getElementById("gizmoInspectorPopover");
-  if (inspPop?.classList.contains("is-visible") && inspBtn) {
-    positionAuxFloatingPopover(inspPop, inspBtn);
-  }
   const descBtn = document.getElementById("gizmoDescriptionBtn");
   const descPop = document.getElementById("gizmoDescriptionTooltip");
   if (descPop?.classList.contains("is-visible") && descBtn) {
@@ -264,13 +246,10 @@ const menuLoadProjectEl = document.querySelector('a[data-action="load-project"]'
 const menuExportViewerEl = document.querySelector('a[data-action="export-viewer"]');
 const menuExportMp4El = document.querySelector('a[data-action="export-mp4"]');
 const cameraModeSwitch = document.getElementById("cameraMode");
-const panelsToggleEl = document.getElementById("panelsToggle");
 const gridToggleEl = document.getElementById("gridToggle");
 const orbitCenterToggleEl = document.getElementById("orbitCenterToggle");
 const fullscreenToggleEl = document.getElementById("fullscreenToggle");
 const axisGizmoCanvas = document.getElementById("axisGizmo");
-const rightToolsPanelEl = document.getElementById("rightToolsPanel");
-const objectsPanelEl = document.getElementById("objectsPanel");
 const gizmoTransformBtn = document.getElementById("gizmoTransform");
 const fpsCounterEl = document.getElementById("fpsCounter");
 const gizmoRotateBtn = document.getElementById("gizmoRotate");
@@ -784,6 +763,14 @@ function applyTranslations() {
     const key = el.getAttribute('data-i18n-placeholder');
     if (key) el.setAttribute('placeholder', t(key));
   });
+  document.querySelectorAll('[data-i18n-attr-label]:not([data-i18n])').forEach((el) => {
+    const key = el.getAttribute('data-i18n-attr-label');
+    if (key) el.setAttribute('aria-label', t(key));
+  });
+  document.querySelectorAll('[data-i18n-aria-label]').forEach((el) => {
+    const key = el.getAttribute('data-i18n-aria-label');
+    if (key) el.setAttribute('aria-label', t(key));
+  });
   // If play button is playing, re-apply label in current language
   if (timelinePlayBtn && window.__timeline?.isPlaying) {
     updatePlayButton(true);
@@ -876,12 +863,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  if (panelsSwitch && panelsToggleEl) {
+  if (panelsSwitch) {
     panelsSwitch.addEventListener("change", () => {
-      // Settings: checked = visible ON
-      if (panelsSwitch.checked !== panelsVisible) {
-        panelsToggleEl.click();
-      }
+      setBothSidePanelsFromSettings(panelsSwitch.checked);
     });
   }
 });
@@ -901,113 +885,27 @@ function syncSettingsModalSwitches() {
   if (fullscreenSwitch) {
     fullscreenSwitch.checked = !!document.fullscreenElement;
   }
-  if (panelsSwitch && panelsToggleEl) {
-    // panelsToggleEl: is-off = panels hidden; panelsVisible true → switch checked
-    panelsSwitch.checked = panelsVisible;
-  }
-}
-
-// Panel toggle
-
-let panelsVisible = true;
-
-function togglePanels() {
-  panelsVisible = !panelsVisible;
-  
-  // Axis Gizmo toggle
-  if (viewer && window.__viewerReady) {
-    viewer.setAxisGizmoVisible(panelsVisible);
-  }
-  
-  // Gizmo window visibility
-  updateGizmoControlsVisibility();
-
-  // 3D gizmo show/hide
-  updateGizmo3DVisibility();
-
-  // Inspector visibility
-  updateInspectorVisibility();
-
-  // Object Details Panel visibility
-  updateDetailsPanelVisibility();
-  
-  if (panelsToggleEl) {
-    panelsToggleEl.classList.toggle("is-off", !panelsVisible);
-    panelsToggleEl.setAttribute("aria-pressed", panelsVisible ? "true" : "false");
-  }
-
-  // Sync settings modal switch
-  syncSettingsModalSwitches();
-}
-
-if (panelsToggleEl) {
-  panelsToggleEl.addEventListener("click", togglePanels);
-}
-
-function updateGizmoControlsVisibility() {
-  const hide = !panelsVisible;
-  objectsPanelEl?.classList.toggle("is-hidden", hide);
-  rightToolsPanelEl?.classList.toggle("is-hidden", hide);
-  if (!panelsVisible) {
-    closeAuxGizmoPopovers(null);
-    selectorOverlay.hide();
-  }
-}
-
-function updateGizmo3DVisibility() {
-  if (!gizmo) return;
-  if (!panelsVisible) {
-     gizmo.setMode(null);
-     selectorOverlay.hide();
-     return;
-  }
-  // Panels visible: show again if selection and active mode exist
-  if (activeGizmoMode && timeline?.selectedObjectId) {
-    const obj = timeline.objects?.find(o => o.id === timeline.selectedObjectId);
-    if (obj) {
-      gizmo.setTarget(obj);
-      gizmo.setMode(activeGizmoMode);
-    }
-  }
-}
-
-function updateInspectorVisibility() {
-  if (!inspector) return;
-  if (panelsVisible) {
-    const selectedId = timeline?.selectedObjectId;
-    if (selectedId && timeline?.objects) {
-      const obj = timeline.objects.find(o => o.id === selectedId);
-      if (obj) {
-        inspector.show(obj);
-        return;
-      }
-    }
-    inspector.hide("idle");
-  } else {
-    inspector.hide("collapse");
-  }
-}
-
-function updateDetailsPanelVisibility() {
-  if (!detailsPanel) return;
-  if (panelsVisible) {
-    const selectedId = timeline?.selectedObjectId;
-    if (selectedId && timeline?.objects) {
-      const obj = timeline.objects.find(o => o.id === selectedId);
-      if (obj) {
-        detailsPanel.show();
-        return;
-      }
-    }
-    detailsPanel.hide();
-  } else {
-    detailsPanel.hide();
+  if (panelsSwitch) {
+    panelsSwitch.checked = areBothSidePanelsVisible();
   }
 }
 
 // Gizmo control buttons
 
 let activeGizmoMode = null;
+
+initPanelToggles({
+  getViewer: () => viewer,
+  isViewerReady: () => !!window.__viewerReady,
+  getGizmo: () => gizmo,
+  getInspector: () => inspector,
+  getDetailsPanel: () => detailsPanel,
+  getTimeline: () => timeline,
+  getActiveGizmoMode: () => activeGizmoMode,
+  selectorOverlay,
+  closeAuxGizmoPopovers,
+  syncSettingsModalSwitches,
+});
 
 function setGizmoMode(mode) {
   if (!window.__viewerReady) return;
@@ -1050,9 +948,6 @@ function setGizmoMode(mode) {
 if (gizmoTransformBtn) gizmoTransformBtn.addEventListener("click", () => setGizmoMode('transform'));
 if (gizmoRotateBtn) gizmoRotateBtn.addEventListener("click", () => setGizmoMode('rotate'));
 if (gizmoScaleBtn) gizmoScaleBtn.addEventListener("click", () => setGizmoMode('scale'));
-
-// Initial: gizmo window shown when panels visible
-updateGizmoControlsVisibility();
 
 // Camera mode switch (Orbit / Fly)
 
@@ -1260,12 +1155,7 @@ function initTimeline() {
 
       detailsPanel?.setMultiFileMode?.(!!obj.isMultiFile);
       
-      // Show inspector only when panels visible
-      if (panelsVisible) {
-        inspector?.show(obj);
-      } else {
-        inspector?.hide("collapse");
-      }
+      inspector?.show(obj);
       
       // On selection: set target, show gizmo if mode active
       gizmo?.setTarget(obj);
@@ -1274,9 +1164,9 @@ function initTimeline() {
         gizmo?.setMode(activeGizmoMode);
       }
       
-      // Show object details panel
       if (detailsPanel) {
-        detailsPanel.show();
+        if (isRightSidebarVisible()) detailsPanel.show();
+        else detailsPanel.hide();
       }
 
       // Shape mode: swap to wire shape for selected object
@@ -1301,7 +1191,7 @@ function initTimeline() {
       detailsPanel?.updateEraserComplementDisabledState?.();
       detailsPanel?.setMultiFileMode?.(false);
       
-      inspector?.hide(panelsVisible ? "idle" : "collapse");
+      inspector?.hide();
 
       // On deselect: hide 3D gizmo only, keep mode
       gizmo?.setTarget(null);
@@ -2373,7 +2263,7 @@ document.addEventListener("click", (e) => {
   const target = e.target;
   
   // Ignore object button/block click
-  if (target.closest(".timeline__obj-row") || target.closest(".timeline__obj-block")) return;
+  if (target.closest(".timeline__obj-row")) return;
   
   // Ignore inspector inner click
   if (target.closest(".object-inspector")) return;
@@ -2806,6 +2696,12 @@ async function bootstrap() {
       inspector.init(gizmo);
       inspector.setGizmoController(gizmo);
       window.__inspector = inspector;
+      const objectInspectorEl = document.getElementById("objectInspector");
+      if (objectInspectorEl) {
+        makePanelDraggable(objectInspectorEl, ".object-inspector__title", {
+          getDragBounds: getInspectorDragBounds,
+        });
+      }
       window.__gizmo = gizmo;
       // Update inspector on gizmo change
       gizmo.onTransformChange = (obj, isRealtime = false) => {
@@ -2842,6 +2738,7 @@ async function bootstrap() {
       // Init Object Details Panel
       detailsPanel = new ObjectDetailsPanel();
       window.__detailsPanel = detailsPanel;
+      applyPanelChromeVisibility();
 
       if (!window.__selectionUndoRedoKeysBound) {
         window.__selectionUndoRedoKeysBound = true;
@@ -2896,28 +2793,8 @@ async function bootstrap() {
         }
       };
 
-      const gizmoInspectorBtn = document.getElementById("gizmoInspectorBtn");
-      const gizmoInspectorPopover = document.getElementById("gizmoInspectorPopover");
       const gizmoColorTintBtn = document.getElementById("gizmoColorTintBtn");
       const gizmoColorTintPopover = document.getElementById("gizmoColorTintPopover");
-
-      if (gizmoInspectorBtn && gizmoInspectorPopover) {
-        gizmoInspectorBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          const open = !gizmoInspectorPopover.classList.contains("is-visible");
-          if (open) {
-            closeAuxGizmoPopovers("inspector");
-            gizmoInspectorPopover.classList.add("is-visible");
-            gizmoInspectorBtn.classList.remove("is-off");
-            gizmoInspectorBtn.setAttribute("aria-pressed", "true");
-            positionAuxFloatingPopover(gizmoInspectorPopover, gizmoInspectorBtn);
-          } else {
-            gizmoInspectorPopover.classList.remove("is-visible");
-            gizmoInspectorBtn.classList.add("is-off");
-            gizmoInspectorBtn.setAttribute("aria-pressed", "false");
-          }
-        });
-      }
 
       if (gizmoColorTintBtn && gizmoColorTintPopover) {
         gizmoColorTintBtn.addEventListener("click", (e) => {
@@ -2938,12 +2815,6 @@ async function bootstrap() {
         });
       }
 
-      document.getElementById("gizmoInspectorPopoverClose")?.addEventListener("click", (e) => {
-        e.stopPropagation();
-        gizmoInspectorPopover?.classList.remove("is-visible");
-        gizmoInspectorBtn?.classList.add("is-off");
-        gizmoInspectorBtn?.setAttribute("aria-pressed", "false");
-      });
       document.getElementById("gizmoDescriptionTooltipClose")?.addEventListener("click", (e) => {
         e.stopPropagation();
         objectDescription?.hideTooltip?.();

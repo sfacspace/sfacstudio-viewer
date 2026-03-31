@@ -1,5 +1,5 @@
 /**
- * Timeline object list (left panel). Visibility by time; multi-file cycles by frame within start/end.
+ * Timeline object list (left panel). Visibility: eye toggle; multi-file cycles by global frame index.
  */
 
 import { t } from '../i18n.js';
@@ -21,13 +21,6 @@ export class ObjectsManager {
    * @param {Function} options.hideTooltip - hide tooltip
    */
   constructor(options) {
-    // Scrubbing detection for frame loading optimization
-    this._isScrubbing = false;
-    this._scrubDebounceTimer = null;
-    this._scrubThrottleTimer = null;
-    this._lastScrubTime = 0;
-    this._scrubDebounceMs = 150; // Wait 150ms after drag ends before loading final frame
-    this._scrubThrottleMs = 100; // Load at most once per 100ms during scrubbing
     this._objectsListEl = options.objectsListEl;
     this._getMaxSeconds = options.getMaxSeconds;
     this._getCurrentTime = options.getCurrentTime;
@@ -80,8 +73,6 @@ export class ObjectsManager {
     const obj = {
       id: `obj_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
       name,
-      startSeconds: 0,
-      endSeconds: this._getMaxSeconds(),
       visible: true,
       entity,
       splatId,
@@ -132,8 +123,6 @@ export class ObjectsManager {
     const obj = {
       id: `obj_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
       name,
-      startSeconds: 0,
-      endSeconds: this._getMaxSeconds(),
       visible: true,
       entity: null, // multi-file uses files, not entity
       splatId: null,
@@ -277,7 +266,7 @@ export class ObjectsManager {
           if (f.entity) f.entity.enabled = false;
         });
       } else {
-        this._updateSingleObjectVisibility(obj);
+        this._refreshObjectVisibility(obj);
       }
     } else if (obj.entity) {
       obj.entity.enabled = obj.visible;
@@ -316,120 +305,66 @@ export class ObjectsManager {
   }
 
   /**
-   * Update object visibility by current time
-   * @param {number} t - 현재 시간
-   * @param {{dt?: number, isPlaying?: boolean}|null} [opts]
+   * Apply visibility: single-file uses `visible` only; multi-file picks one splat by global frame.
+   * @param {number} t - time (seconds)
+   * @param {{ isPlaying?: boolean, frameIndex?: number }|null} [opts]
    */
   updateVisibilityByTime(t, opts = null) {
-    // Detect scrubbing: if not playing and time changed rapidly
-    const isPlaying = opts?.isPlaying === true;
-    const now = performance?.now ? performance.now() : Date.now();
-    const timeSinceLastUpdate = now - this._lastScrubTime;
-
-    // If not playing and time changed quickly, we're likely scrubbing
-    if (!isPlaying && timeSinceLastUpdate < 200) {
-      this._isScrubbing = true;
-      this._lastScrubTime = now;
-    } else if (isPlaying || timeSinceLastUpdate > 500) {
-      // Not scrubbing anymore
-      this._isScrubbing = false;
-    }
-
-    // Playback is frame-based; compute visibility by frame index
     const fps = Math.max(1, Math.min(60, parseInt(this._getFps?.() || 30) || 30));
     const frameIndex = opts?.frameIndex ?? Math.floor((Number(t) || 0) * fps);
+    const totalFrames = Math.max(1, parseInt(this._getTotalFrames?.() || 90) || 90);
     const effectiveOpts = { ...opts, frameIndex };
 
     for (const obj of this.objects) {
-      const startFrame = Math.floor((Number(obj.startSeconds) || 0) * fps);
-      const endFrame = Math.floor((Number(obj.endSeconds) || 0) * fps);
-      const inRange = frameIndex >= startFrame && frameIndex < endFrame;
-
       if (obj.isMultiFile && obj.files) {
-        this._updateMultiFileVisibility(obj, inRange, effectiveOpts);
+        this._updateMultiFileVisibility(obj, effectiveOpts, totalFrames);
       } else if (obj.entity) {
-        obj.entity.enabled = inRange && obj.visible;
+        obj.entity.enabled = !!obj.visible;
       }
     }
   }
-  
-  /**
-   * Load final frame after scrubbing ends (debounced).
-   */
+
+  /** Pin scrub end: refresh visibility at current time. */
   commitScrub() {
-    // Clear any pending throttle
-    if (this._scrubThrottleTimer) {
-      clearTimeout(this._scrubThrottleTimer);
-      this._scrubThrottleTimer = null;
-    }
-    
-    // Mark as not scrubbing
-    this._isScrubbing = false;
-    
-    // Force immediate update for final frame
     const t = this._getCurrentTime?.() || 0;
     this.updateVisibilityByTime(t, { isPlaying: false });
   }
 
   /**
-   * Update multi-file visibility (per frame).
-   * @param {import('./types').TimelineObject} obj
-   * @param {boolean} inRange - within time block
-   * @param {{ frameIndex?: number }} opts
+   * Multi-file: one active file from frame index over full timeline length.
    * @private
    */
-  _updateMultiFileVisibility(obj, inRange, opts = null) {
-    if (!obj.files || obj.files.length === 0) return;
-
-    const fileCount = obj.files.length;
-
-    if (!inRange || !obj.visible) {
-      obj.files.forEach(f => {
+  _updateMultiFileVisibility(obj, opts, totalFrames) {
+    if (!obj.files?.length) return;
+    if (!obj.visible) {
+      obj.files.forEach((f) => {
         if (f.entity) f.entity.enabled = false;
       });
       return;
     }
-
-    const fps = Math.max(1, Math.min(60, parseInt(this._getFps?.() || 30) || 30));
-    const startFrame = Math.floor((Number(obj.startSeconds) || 0) * fps);
-    const endFrame = Math.floor((Number(obj.endSeconds) || 0) * fps);
-    const framesInBlock = Math.max(1, endFrame - startFrame);
-    const frameIndex = opts?.frameIndex ?? 0;
-    let localFrame = frameIndex - startFrame;
-    if (localFrame < 0) localFrame = 0;
-    if (localFrame >= framesInBlock) localFrame = framesInBlock - 1;
-
-    let activeIndex = Math.floor((localFrame * fileCount) / framesInBlock);
-    if (activeIndex < 0) activeIndex = 0;
+    const fileCount = obj.files.length;
+    const fi = Math.max(0, Math.min(totalFrames - 1, opts?.frameIndex ?? 0));
+    const span = Math.max(1, totalFrames);
+    let activeIndex = Math.floor((fi * fileCount) / span);
     if (activeIndex >= fileCount) activeIndex = fileCount - 1;
-
     obj.files.forEach((f, idx) => {
-      if (f.entity) {
-        f.entity.enabled = (idx === activeIndex);
-      }
+      if (f.entity) f.entity.enabled = idx === activeIndex;
     });
   }
 
   /**
-   * Update single object visibility (during drag/resize).
-   * @param {import('./types').TimelineObject} obj
    * @private
    */
-  _updateSingleObjectVisibility(obj) {
+  _refreshObjectVisibility(obj) {
     if (!this._getCurrentTime) return;
-
     const t = this._getCurrentTime();
     const fps = Math.max(1, Math.min(60, parseInt(this._getFps?.() || 30) || 30));
     const frameIndex = Math.floor((Number(t) || 0) * fps);
-    const startFrame = Math.floor((Number(obj.startSeconds) || 0) * fps);
-    const endFrame = Math.floor((Number(obj.endSeconds) || 0) * fps);
-    const inRange = frameIndex >= startFrame && frameIndex < endFrame;
-    const effectiveOpts = { frameIndex };
-
+    const totalFrames = Math.max(1, parseInt(this._getTotalFrames?.() || 90) || 90);
     if (obj.isMultiFile && obj.files) {
-      this._updateMultiFileVisibility(obj, inRange, effectiveOpts);
+      this._updateMultiFileVisibility(obj, { frameIndex }, totalFrames);
     } else if (obj.entity) {
-      obj.entity.enabled = inRange && obj.visible;
+      obj.entity.enabled = !!obj.visible;
     }
   }
 
@@ -1002,14 +937,14 @@ export class ObjectsManager {
     this._contextMenuTargetId = null;
   }
 
-  /** @type {string|null} - single-file block context menu target object ID */
-  _objectBlockContextMenuTargetId = null;
+  /** @type {string|null} */
+  _timelineObjectContextMenuTargetId = null;
 
-  _showObjectBlockContextMenu(x, y, objectId) {
-    const menu = document.getElementById("objectBlockContextMenu");
+  _showTimelineObjectContextMenu(x, y, objectId) {
+    const menu = document.getElementById("timelineObjectContextMenu");
     if (!menu) return;
 
-    this._objectBlockContextMenuTargetId = objectId;
+    this._timelineObjectContextMenuTargetId = objectId;
     const menuWidth = 200;
     const menuHeight = 220;
     const maxX = window.innerWidth - menuWidth - 10;
@@ -1034,21 +969,21 @@ export class ObjectsManager {
     if (clearParentBtn) clearParentBtn.style.display = canClearParent ? "" : "none";
     if (sepHi) sepHi.style.display = canMakeChild || canClearParent ? "" : "none";
 
-    if (!menu._hasObjectBlockMenuClickHandler) {
-      menu._hasObjectBlockMenuClickHandler = true;
+    if (!menu._hasTimelineObjectMenuClickHandler) {
+      menu._hasTimelineObjectMenuClickHandler = true;
       menu.addEventListener("click", (e) => {
         const item = e.target.closest(".context-menu__item");
         if (!item) return;
         const action = item.dataset.action;
-        const id = this._objectBlockContextMenuTargetId;
+        const id = this._timelineObjectContextMenuTargetId;
         if (!id) return;
         if (action === "duplicate") {
-          this._hideObjectBlockContextMenu();
+          this._hideTimelineObjectContextMenu();
           this.onDuplicateRequest?.(id);
           return;
         }
         if (action === "parentFromSelection") {
-          this._hideObjectBlockContextMenu();
+          this._hideTimelineObjectContextMenu();
           const ok = this.attachSelectionAsParentOf(id);
           if (!ok) {
             alert(t("panel.hierarchyAttachFailed"));
@@ -1056,13 +991,13 @@ export class ObjectsManager {
           return;
         }
         if (action === "clearParent") {
-          this._hideObjectBlockContextMenu();
+          this._hideTimelineObjectContextMenu();
           this.clearObjectParent(id);
           return;
         }
         if (action === "delete") {
           const target = this.objects.find((o) => o.id === id);
-          this._hideObjectBlockContextMenu();
+          this._hideTimelineObjectContextMenu();
           if (target && this.onDeleteRequest) {
             this.onDeleteRequest(target.id, target.name);
           }
@@ -1070,24 +1005,24 @@ export class ObjectsManager {
         }
       });
     }
-    if (!this._objectBlockContextMenuCloseHandler) {
-      this._objectBlockContextMenuCloseHandler = (e) => {
-        if (!menu.contains(e.target)) this._hideObjectBlockContextMenu();
+    if (!this._timelineObjectContextMenuCloseHandler) {
+      this._timelineObjectContextMenuCloseHandler = (e) => {
+        if (!menu.contains(e.target)) this._hideTimelineObjectContextMenu();
       };
-      setTimeout(() => document.addEventListener("click", this._objectBlockContextMenuCloseHandler), 0);
+      setTimeout(() => document.addEventListener("click", this._timelineObjectContextMenuCloseHandler), 0);
     }
   }
 
-  _hideObjectBlockContextMenu() {
-    const menu = document.getElementById("objectBlockContextMenu");
+  _hideTimelineObjectContextMenu() {
+    const menu = document.getElementById("timelineObjectContextMenu");
     if (menu) {
       menu.classList.remove("is-visible");
       menu.setAttribute("aria-hidden", "true");
     }
-    this._objectBlockContextMenuTargetId = null;
-    if (this._objectBlockContextMenuCloseHandler) {
-      document.removeEventListener("click", this._objectBlockContextMenuCloseHandler);
-      this._objectBlockContextMenuCloseHandler = null;
+    this._timelineObjectContextMenuTargetId = null;
+    if (this._timelineObjectContextMenuCloseHandler) {
+      document.removeEventListener("click", this._timelineObjectContextMenuCloseHandler);
+      this._timelineObjectContextMenuCloseHandler = null;
     }
   }
 

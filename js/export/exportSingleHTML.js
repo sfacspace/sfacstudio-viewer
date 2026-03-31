@@ -1,5 +1,5 @@
 /**
- * Serialize viewer to single HTML (frame-based: totalFrames, keyframes[].frame, startFrame/endFrame).
+ * Serialize viewer to single HTML (frame-based: totalFrames, keyframes[].frame; objects span full timeline).
  * When PLY has baked world transform → JSON transform = null; otherwise keep baseTransform.
  * Viewer: getCameraState(), _orbitTarget, _orbitDistance 사용.
  *
@@ -140,7 +140,7 @@ export async function serializeViewer(options = {}) {
       }
     }
     let logoBase64 = null;
-    for (const logoPath of ['/static/logo.svg', './static/logo.svg']) {
+    for (const logoPath of ['/static/logo_white.svg', './static/logo_white.svg', '/static/logo.svg', './static/logo.svg']) {
       try {
         const r = await fetch(logoPath, { signal: signal || undefined });
         if (r.ok) {
@@ -291,9 +291,8 @@ export async function serializeViewer(options = {}) {
 
       // Multi-file object
       if (obj.isMultiFile && obj.files) {
-        const objFps = Math.max(1, Math.min(60, parseInt(fps) || 30));
-        const startFrame = Math.max(0, Math.round((Number(obj.startSeconds) || 0) * objFps));
-        const endFrame = Math.max(0, Math.round((Number(obj.endSeconds) || 0) * objFps));
+        const startFrame = 0;
+        const endFrame = streamTotalFrames;
 
         await writable.write('{"id":' + JSON.stringify(obj.id) + ',"name":' + JSON.stringify(obj.name) + ',"startFrame":' + startFrame + ',"endFrame":' + endFrame + ',"isMultiFile":true,"files":[');
 
@@ -345,9 +344,8 @@ export async function serializeViewer(options = {}) {
       }
 
       // (C) Single-file object
-      const objFps = Math.max(1, Math.min(60, parseInt(fps) || 30));
-      const startFrame = Math.max(0, Math.round((Number(obj.startSeconds) || 0) * objFps));
-      const endFrame = Math.max(0, Math.round((Number(obj.endSeconds) || 0) * objFps));
+      const startFrame = 0;
+      const endFrame = streamTotalFrames;
 
       const { bytes, transformBaked } = extractPlyBytes(obj.entity);
       const exportTransform = transformBaked ? null : (baseTransform || obj.transform || null);
@@ -511,8 +509,8 @@ function generateHTML(viewerSettingsJson, opts = {}) {
         : `<link rel="icon" type="image/png" href="data:image/png;base64,${opts.iconBase64}">`)
     : '';
   const headerLogoHtml = opts.logoBase64
-    ? `<span class="header-logo-text" aria-label="SFACSTUDIO"><img src="data:image/svg+xml;base64,${opts.logoBase64}" alt="SFACSTUDIO" class="header-logo-img" /></span>`
-    : `<span class="logo-text">SFACSTUDIO</span>`;
+    ? `<a class="header-brand-link" href="https://sfacspace.com/" target="_blank" rel="noopener noreferrer" aria-label="스팩스페이스 (새 창)"><img src="data:image/svg+xml;base64,${opts.logoBase64}" alt="SFACSTUDIO" class="header-logo-img" width="120" height="26" decoding="async" /></a>`
+    : `<a class="header-brand-link" href="https://sfacspace.com/" target="_blank" rel="noopener noreferrer" aria-label="스팩스페이스 (새 창)"><span class="logo-text">SFACSTUDIO</span></a>`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -525,15 +523,17 @@ function generateHTML(viewerSettingsJson, opts = {}) {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: system-ui, sans-serif; }
     .logo-text { font-family: system-ui, sans-serif; letter-spacing: 0.5px; }
-    #app { position: fixed; inset: 0; top: 52px; height: calc(100vh - 52px); }
+    #app { position: fixed; inset: 0; top: 44px; height: calc(100vh - 44px); }
     #pcCanvas { width: 100% !important; height: 100% !important; display: block; touch-action: none; }
-    #header { position: fixed; top: 0; left: 0; right: 0; height: 52px; background: rgba(10,15,24,0.96); display: flex; align-items: center; justify-content: center; gap: 24px; z-index: 200; overflow: hidden; transition: opacity 0.25s ease; }
+    #header { position: fixed; top: 0; left: 0; right: 0; height: 44px; padding: 0 12px; background: rgba(10,15,24,0.96); display: flex; align-items: center; justify-content: flex-start; gap: 12px; z-index: 200; overflow: hidden; transition: opacity 0.25s ease; }
     #header .logo-text { font-size: 32px; color: #3d5d85; user-select: none; -webkit-user-select: none; white-space: nowrap; pointer-events: none; }
-    .header-logo-text { display: inline-flex; align-items: center; justify-content: center; user-select: none; pointer-events: auto; position: relative; cursor: pointer; }
-    .header-logo-img { height: 44px; width: auto; display: block; object-fit: contain; transform: translateY(2px); transform-origin: 50% 50%; transition: filter 1.2s cubic-bezier(0.22, 0.61, 0.36, 1); filter: drop-shadow(0 0 6px rgba(150, 200, 255, 0.75)) drop-shadow(0 0 2px rgba(170, 210, 255, 0.6)); }
-    .header-logo-text:hover .header-logo-img { filter: drop-shadow(0 0 6px rgba(180, 220, 255, 0.85)) drop-shadow(0 0 12px rgba(160, 210, 255, 0.6)) drop-shadow(0 0 20px rgba(140, 200, 255, 0.4)); }
-    .camera-mode-switch { display: flex; align-items: center; margin-left: 16px; }
-    .camera-mode-switch__label { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 34px; min-width: 40px; padding: 0; border-radius: 10px; border: none; background: transparent; color: #3d5d85; cursor: pointer; transition: color 140ms ease, transform 120ms ease, opacity 140ms ease, background 140ms ease; }
+    .header-brand-link { display: inline-flex; align-items: center; line-height: 0; border-radius: 8px; text-decoration: none; color: inherit; transition: opacity 0.18s ease, filter 0.22s ease, transform 0.14s ease; }
+    .header-brand-link:hover { opacity: 0.9; filter: brightness(1.15) drop-shadow(0 0 10px rgba(61, 93, 133, 0.4)); }
+    .header-brand-link:active { transform: scale(0.97); opacity: 1; }
+    .header-brand-link:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(61, 93, 133, 0.55); }
+    .header-logo-img { height: 26px; width: auto; max-width: min(148px, 32vw); display: block; object-fit: contain; user-select: none; pointer-events: none; }
+    .camera-mode-switch { display: flex; align-items: center; margin-left: auto; }
+    .camera-mode-switch__label { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 28px; min-width: 36px; padding: 0; border-radius: 8px; border: none; background: transparent; color: #3d5d85; cursor: pointer; transition: color 140ms ease, transform 120ms ease, opacity 140ms ease, background 140ms ease; }
     .camera-mode-switch__label:hover { background: rgba(255,255,255,0.08); opacity: 0.95; }
     .camera-mode-switch__label:active { transform: translateY(1px); }
     .camera-mode-switch__input { position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none; }
@@ -543,7 +543,7 @@ function generateHTML(viewerSettingsJson, opts = {}) {
     .camera-mode-switch__input:checked ~ .camera-mode-switch__icon-wrap .camera-mode-switch__icon--orbit { opacity: 0; transform: scale(0.6) rotate(-25deg); pointer-events: none; }
     .camera-mode-switch__icon--fly { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 2L11 13'/%3E%3Cpath d='M22 2L15 22L11 13L2 9L22 2Z'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 2L11 13'/%3E%3Cpath d='M22 2L15 22L11 13L2 9L22 2Z'/%3E%3C/svg%3E"); opacity: 0; transform: scale(0.6) rotate(25deg); }
     .camera-mode-switch__input:checked ~ .camera-mode-switch__icon-wrap .camera-mode-switch__icon--fly { opacity: 1; transform: scale(1) rotate(0deg); }
-    #hudRow { position: fixed; top: 66px; right: 20px; display: flex; align-items: center; gap: 10px; z-index: 100; transition: opacity 0.25s ease; }
+    #hudRow { position: fixed; top: 52px; right: 20px; display: flex; align-items: center; gap: 10px; z-index: 100; transition: opacity 0.25s ease; }
     #memoryHud { display: none; padding: 8px 12px; background: rgba(35,35,35,0.92); border-radius: 8px; color: rgba(244,247,255,0.75); font-size: 12px; font-weight: 600; font-family: monospace; }
     #memoryHud.is-visible { display: block; }
     #fpsCounter { padding: 8px 16px; background: rgba(35,35,35,0.92); border-radius: 8px; color: rgba(180,255,140,0.9); font-size: 13px; }
@@ -567,7 +567,7 @@ function generateHTML(viewerSettingsJson, opts = {}) {
     #loading-bar { height: 100%; background: linear-gradient(90deg, #3d5d85, #5a7fa8); width: 0%; transition: width 0.2s; }
     #loading-logo { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); }
     #loading-logo .logo-text { font-size: 28px; color: #c8d4e4; }
-    .comment-markers-overlay { position: fixed; top: 52px; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 100; }
+    .comment-markers-overlay { position: fixed; top: 44px; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 100; }
     .comment-markers-overlay > * { pointer-events: auto; }
     .comment-marker { position: absolute; width: 40px; height: 40px; margin: 0; padding: 0; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; background: transparent; transition: transform 0.15s ease; }
     .comment-marker:hover { transform: scale(1.1); }

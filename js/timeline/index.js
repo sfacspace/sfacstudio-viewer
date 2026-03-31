@@ -1,5 +1,5 @@
 /**
- * TimelineController: keyframes, playback, object blocks, pin, ticks.
+ * TimelineController: keyframes, playback, objects list, pin, ticks.
  */
 
 import { TooltipManager } from './tooltip.js';
@@ -30,7 +30,6 @@ export class TimelineController {
     // DOM cache
     this._ticksEl = null;
     this._objectsListEl = null;
-    this._cameraLineRightEl = null;
 
     this._frameGridTopEl = null;
     this._frameGridRightEl = null;
@@ -110,8 +109,6 @@ export class TimelineController {
     // DOM cache
     this._ticksEl = document.getElementById("timelineTicks");
     this._objectsListEl = document.getElementById("timelineSpacerObjectsList");
-    this._cameraLineRightEl = document.querySelector(".timeline-camera-line__right");
-
     // Tooltip init
     this._tooltip.init();
     
@@ -201,7 +198,7 @@ export class TimelineController {
         if (btn.classList.contains("is-multi-file")) {
           this._objects._showMultiFileContextMenu(e.clientX, e.clientY, objectId);
         } else {
-          this._objects._showObjectBlockContextMenu(e.clientX, e.clientY, objectId);
+          this._objects._showTimelineObjectContextMenu(e.clientX, e.clientY, objectId);
         }
       }, true);
     }
@@ -398,7 +395,7 @@ export class TimelineController {
   }
 
   /**
-   * Render object blocks.
+   * Render object list (left panel).
    */
   renderObjects() {
     this._objects?.render();
@@ -587,11 +584,10 @@ export class TimelineController {
       return;
     }
 
-    // Remap keyframes/objects to preserve FRAME INDICES across FPS changes.
+    // Remap keyframes to preserve frame indices across FPS changes.
     // totalFrames stays the same; maxSeconds changes (= totalFrames / fps).
     try {
       const totalFrames = Math.max(1, Math.min(18000, parseInt(this.totalFrames) || 90));
-      const maxSecondsNew = totalFrames / fps;
 
       if (this._keyframes?.keyframes) {
         this._keyframes.keyframes.forEach((kf) => {
@@ -603,20 +599,6 @@ export class TimelineController {
         this._keyframes.onKeyframesChange?.(this._keyframes.keyframes);
       }
 
-      const objs = this._objects?.objects || [];
-      for (const obj of objs) {
-        let sF = Math.round((Number(obj.startSeconds) || 0) * prevFps);
-        let eF = Math.round((Number(obj.endSeconds) || 0) * prevFps);
-
-        if (sF < 0) sF = 0;
-        if (eF < 0) eF = 0;
-        if (sF > totalFrames) sF = totalFrames;
-        if (eF > totalFrames) eF = totalFrames;
-
-        if (eF < sF) eF = sF;
-        obj.startSeconds = Math.max(0, Math.min(maxSecondsNew, sF / fps));
-        obj.endSeconds = Math.max(0, Math.min(maxSecondsNew, eF / fps));
-      }
     } catch (e) {
     }
 
@@ -624,7 +606,7 @@ export class TimelineController {
     // SuperSplat: PlaybackController는 getFrameRate를 통해 FPS를 읽음
     // setSpeed 메서드가 없으므로 fps만 업데이트
 
-    // Full refresh so markers/white lines/blocks reflow to the new maxSeconds.
+    // Full refresh so markers reflow to the new maxSeconds.
     this.renderTicks();
     this.renderObjects();
     this.renderKeyframeMarkers();
@@ -677,30 +659,6 @@ export class TimelineController {
         this._keyframes.refresh?.();
       } catch (e) {
       }
-    }
-
-    // Objects: preserve start/end frame boundaries.
-    try {
-      const objs = this._objects?.objects || [];
-      for (const obj of objs) {
-        let sF = Math.round((Number(obj.startSeconds) || 0) * fps);
-        let eF = Math.round((Number(obj.endSeconds) || 0) * fps);
-
-        if (sF < 0) sF = 0;
-        if (eF < 0) eF = 0;
-        if (sF > newFrames) sF = newFrames;
-        if (eF > newFrames) eF = newFrames;
-
-        if (eF > newFrames) {
-          eF = newFrames;
-        }
-
-        if (eF < sF) eF = sF;
-
-        obj.startSeconds = Math.max(0, Math.min(maxSeconds, sF / fps));
-        obj.endSeconds = Math.max(0, Math.min(maxSeconds, eF / fps));
-      }
-    } catch (e) {
     }
 
     // Playback/pin: preserve current frame index.

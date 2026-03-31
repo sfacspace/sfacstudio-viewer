@@ -2,7 +2,7 @@
 .timeline {
   position: relative;
   height: 36px;
-  background: rgba(26, 26, 26, 0.42);
+  background: var(--color-sidebar-surface);
   backdrop-filter: blur(8px);
   border: none;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);

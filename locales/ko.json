@@ -89,6 +89,10 @@
   },
   "tooltip": {
     "settings": "설정",
+    "panelTogglesToolbar": "패널 표시",
+    "toggleLeftSidebar": "왼쪽 패널 (계층)",
+    "toggleTopTimeline": "상단 타임라인",
+    "toggleRightSidebar": "오른쪽 패널 (도구)",
     "cameraModeSwitch": "단축키: F (Orbit/Fly 모드 전환)",
     "orbitCenter": "궤도 중심 표시 (O)",
     "grid": "그리드 표시 (G)",

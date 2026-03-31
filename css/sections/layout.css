@@ -5,12 +5,21 @@ html {
 }
 
 :root {
-  --header-height: 62px;
+  --header-height: 48px;
   /* 패널·캔버스 상단 (뷰 도구 스트립은 오버레이만, 레이아웃에 포함 안 함) */
   --app-chrome-top: var(--header-height);
   --objects-panel-width: 288px;
   /* 오른쪽 아이콘 열: border(2) + 패딩(8+8) + 버튼(44) = 62px, 리사이즈 없음 */
   --right-tools-strip-width: 62px;
+  /* Axis gizmo: 뷰포트 오른쪽 기준 (사이드바 유무는 gizmo.css에서 :has 로 전환) */
+  --axis-gizmo-inset-from-viewport: 16px;
+  --axis-gizmo-gap-from-sidebar: 12px;
+  /* 플로팅 인스펙터: 왼쪽 패널 너비에 맞춤 (Axis 우측과 대칭) */
+  --inspector-inset-from-viewport: 16px;
+  --inspector-gap-from-sidebar: 12px;
+  /* 사이드바·독 슬라이드 (display:none 대신 transform) */
+  --panel-slide-duration: 0.28s;
+  --panel-slide-easing: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 body {
@@ -43,12 +52,17 @@ body {
   bottom: 0;
   z-index: 90;
   box-sizing: border-box;
-  background: rgba(18, 18, 18, 0.92);
-  backdrop-filter: blur(10px);
+  background: var(--color-sidebar-surface);
+  backdrop-filter: blur(8px);
   border-right: 2px solid rgb(var(--color-accent-rgb));
   display: flex;
   flex-direction: column;
   pointer-events: auto;
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+  transition:
+    transform var(--panel-slide-duration) var(--panel-slide-easing),
+    opacity var(--panel-slide-duration) var(--panel-slide-easing);
 }
 
 /* 우측 세로 구분선 드래그로 패널 너비 조절 */
@@ -94,9 +108,14 @@ body.is-resizing-objects-panel {
   user-select: none;
 }
 
-.right-tools-panel.is-hidden,
 .objects-panel.is-hidden {
-  display: none !important;
+  transform: translate3d(-100%, 0, 0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.objects-panel.is-hidden * {
+  pointer-events: none !important;
 }
 
 /* 오른쪽 도구 패널: 아이콘 열 고정 너비, 리사이즈 없음 */
@@ -108,12 +127,27 @@ body.is-resizing-objects-panel {
   width: var(--right-tools-strip-width);
   z-index: 90;
   box-sizing: border-box;
-  background: rgba(18, 18, 18, 0.92);
-  backdrop-filter: blur(10px);
+  background: var(--color-sidebar-surface);
+  backdrop-filter: blur(8px);
   border-left: 2px solid rgb(var(--color-accent-rgb));
   display: flex;
   flex-direction: column;
   pointer-events: auto;
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+  transition:
+    transform var(--panel-slide-duration) var(--panel-slide-easing),
+    opacity var(--panel-slide-duration) var(--panel-slide-easing);
+}
+
+.right-tools-panel.is-hidden {
+  transform: translate3d(100%, 0, 0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.right-tools-panel.is-hidden * {
+  pointer-events: none !important;
 }
 
 .right-tools-panel__inner {
@@ -156,7 +190,7 @@ body.is-resizing-objects-panel {
   border-top: 2px solid rgb(var(--color-accent-rgb));
   padding: 4px 6px 6px;
   box-sizing: border-box;
-  background: rgba(14, 16, 22, 0.96);
+  background: transparent;
   pointer-events: auto;
   overflow-x: visible;
 }
@@ -182,9 +216,9 @@ body.is-resizing-objects-panel {
   padding: 3px 4px;
   box-sizing: border-box;
   overflow-x: visible;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(var(--color-accent-rgb), 0.28);
-  border-radius: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   width: 100%;
   min-height: 28px;
   box-shadow: none;
@@ -357,4 +391,23 @@ body.is-resizing-objects-panel {
   width: 100%;
   min-height: 0;
   height: 0;
+}
+
+/* Selection silhouette overlay: same coords as worldToScreen; no hit-testing */
+.pc-render-container canvas.pc-selection-silhouette-canvas {
+  position: absolute;
+  flex: none;
+  min-height: 0;
+  width: auto;
+  height: auto;
+  pointer-events: none;
+  z-index: 3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .objects-panel,
+  .right-tools-panel,
+  .object-inspector--viewport-float {
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -89,6 +89,10 @@
   },
   "tooltip": {
     "settings": "Settings",
+    "panelTogglesToolbar": "Panel visibility",
+    "toggleLeftSidebar": "Left panel (hierarchy)",
+    "toggleTopTimeline": "Top timeline",
+    "toggleRightSidebar": "Right panel (tools)",
     "cameraModeSwitch": "Shortcut: F (Orbit/Fly mode toggle)",
     "orbitCenter": "Orbit center (O)",
     "grid": "Grid (G)",

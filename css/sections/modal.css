@@ -17,7 +17,7 @@
 }
 
 /* Timeline block context menus: above timeline and overlays */
-#objectBlockContextMenu,
+#timelineObjectContextMenu,
 #multiFileContextMenu {
   z-index: 10000;
 }

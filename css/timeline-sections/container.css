@@ -1,12 +1,27 @@
 /* Timeline container (기본: 상단 전체 폭 —보내기 HTML 등 호환) */
 .timeline-container {
   position: fixed;
-  top: var(--app-chrome-top, var(--header-height, 62px));
+  top: var(--app-chrome-top, var(--header-height, 48px));
   left: 0;
   right: 0;
   z-index: 100;
   overflow: visible;
   pointer-events: none;
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+  transition:
+    transform var(--panel-slide-duration, 0.28s) var(--panel-slide-easing, cubic-bezier(0.22, 1, 0.36, 1)),
+    opacity var(--panel-slide-duration, 0.28s) var(--panel-slide-easing, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.timeline-container.is-hidden {
+  transform: translate3d(0, -100%, 0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.timeline-container.is-hidden * {
+  pointer-events: none !important;
 }
 
 /* 앱: 상단(헤더 아래), 왼쪽 계층 패널 ~ 오른쪽 도구 열 사이 — 하단 액센트 선(패널 세로선과 동일) */
@@ -15,6 +30,11 @@
   right: var(--right-tools-strip-width);
   border-bottom: 2px solid rgb(var(--color-accent-rgb));
   box-sizing: border-box;
+  transition:
+    left var(--panel-slide-duration, 0.28s) var(--panel-slide-easing, cubic-bezier(0.22, 1, 0.36, 1)),
+    right var(--panel-slide-duration, 0.28s) var(--panel-slide-easing, cubic-bezier(0.22, 1, 0.36, 1)),
+    transform var(--panel-slide-duration, 0.28s) var(--panel-slide-easing, cubic-bezier(0.22, 1, 0.36, 1)),
+    opacity var(--panel-slide-duration, 0.28s) var(--panel-slide-easing, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 body:has(#objectsPanel.is-hidden) .timeline-container.timeline-container--dock-top {
@@ -57,5 +77,12 @@ body:has(#rightToolsPanel.is-hidden) .timeline-container.timeline-container--doc
 /* 타임블록(스페이서) 없음: 재생 줄 + 카메라 라인만 */
 .timeline-container--dock-top .timeline-bottom__content {
   max-height: 120px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline-container,
+  .timeline-container.timeline-container--dock-top {
+    transition-duration: 0.01ms !important;
+  }
 }
 

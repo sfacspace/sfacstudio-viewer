@@ -107,8 +107,6 @@ export async function buildProjectData(deps) {
       path,
       fileName: obj.name ?? '',
       transform: { position, rotation, scale },
-      startSeconds: obj.startSeconds ?? 0,
-      endSeconds: obj.endSeconds ?? 0,
       visible: obj.visible !== false,
       parentId: obj.parentId && !obj.isMultiFile ? obj.parentId : null,
     };
@@ -259,7 +257,7 @@ export async function loadProjectFromFile(deps, opts = {}) {
 
   timeline.clearObjects();
   viewer.clearSplat();
-  deps.inspector?.hide?.("idle");
+    deps.inspector?.hide?.();
   if (objectDescription) {
     objectDescription.comments = [];
     objectDescription._rebuildMarkers?.();
@@ -297,8 +295,6 @@ export async function loadProjectFromFile(deps, opts = {}) {
           const sz = t.scale?.z ?? 1;
           added.entity.setLocalScale(sx, sy, sz);
         }
-        if (typeof ob.startSeconds === 'number') added.startSeconds = ob.startSeconds;
-        if (typeof ob.endSeconds === 'number') added.endSeconds = ob.endSeconds;
         if (typeof ob.visible === 'boolean') added.visible = ob.visible;
         added.entity.enabled = added.visible;
         const oldPid = ob.parentId;
@@ -374,8 +370,6 @@ export async function loadProjectFromFile(deps, opts = {}) {
         const sx = t.scale?.x ?? 1, sy = t.scale?.y ?? 1, sz = t.scale?.z ?? 1;
         added.entity.setLocalScale(sx, sy, sz);
       }
-      if (typeof ob.startSeconds === 'number') added.startSeconds = ob.startSeconds;
-      if (typeof ob.endSeconds === 'number') added.endSeconds = ob.endSeconds;
       if (typeof ob.visible === 'boolean') added.visible = ob.visible;
       added.entity.enabled = added.visible;
       const oldPid = ob.parentId;

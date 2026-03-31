@@ -305,30 +305,49 @@ export class ObjectDetailsPanel {
       });
     }
 
+    this._boundPositionExportMenu = () => {
+      if (this.exportMenu?.classList.contains('is-visible')) this.positionExportMenuFixed();
+    };
+    this._boundRepositionExportMenuOnScroll = () => {
+      if (this.exportMenu?.classList.contains('is-visible')) this.positionExportMenuFixed();
+    };
+    this._exportMenuOutsideCloser = null;
+    /** @type {ReturnType<typeof setTimeout>|null} */
+    this._exportMenuCloseTimer = null;
+
     if (this.exportButton && this.exportMenu) {
       this.exportButton.addEventListener('click', (e) => {
         e.stopPropagation();
-        const isVisible = this.exportMenu.classList.contains('is-visible');
-        this.exportMenu.classList.toggle('is-visible', !isVisible);
-        this.exportMenu.setAttribute('aria-hidden', isVisible ? 'true' : 'false');
-        if (!isVisible) {
-          const closeMenu = (e2) => {
-            if (this.exportWrap && !this.exportWrap.contains(e2.target)) {
-              this.exportMenu.classList.remove('is-visible');
-              this.exportMenu.setAttribute('aria-hidden', 'true');
-              document.removeEventListener('click', closeMenu);
-            }
-          };
-          requestAnimationFrame(() => document.addEventListener('click', closeMenu));
+        const wasOpen = this.exportMenu.classList.contains('is-visible');
+        if (wasOpen) {
+          this.hideExportMenu();
+          return;
         }
+        if (this._exportMenuCloseTimer) {
+          clearTimeout(this._exportMenuCloseTimer);
+          this._exportMenuCloseTimer = null;
+        }
+        this.exportMenu.classList.add('is-visible');
+        this.exportMenu.setAttribute('aria-hidden', 'false');
+        this.positionExportMenuFixed();
+        window.addEventListener('resize', this._boundPositionExportMenu, { passive: true });
+        document.addEventListener('scroll', this._boundRepositionExportMenuOnScroll, true);
+        if (this._exportMenuOutsideCloser) {
+          document.removeEventListener('click', this._exportMenuOutsideCloser);
+        }
+        this._exportMenuOutsideCloser = (e2) => {
+          const t = e2.target;
+          if (this.exportWrap?.contains(t) || this.exportMenu?.contains(t)) return;
+          this.hideExportMenu();
+        };
+        requestAnimationFrame(() => document.addEventListener('click', this._exportMenuOutsideCloser));
       });
     }
     if (this.exportMenu) {
       this.exportMenu.addEventListener('click', (e) => {
         const item = e.target.closest('[data-export-action]');
         if (!item) return;
-        this.exportMenu.classList.remove('is-visible');
-        this.exportMenu.setAttribute('aria-hidden', 'true');
+        this.hideExportMenu();
         const action = item.getAttribute('data-export-action');
         if (action === 'ply') {
           if (this.onExportClick) this.onExportClick();
@@ -414,6 +433,48 @@ export class ObjectDetailsPanel {
         const value = parseInt(e.target.value) / 10.0;
         this.updateFloodThreshold(value);
       });
+    }
+  }
+
+  /** 보내기 버튼 기준 왼쪽(뷰 쪽)에 메뉴 고정 — 메뉴는 body 포털이라 패널과 독립 */
+  positionExportMenuFixed() {
+    const btn = this.exportButton;
+    const menu = this.exportMenu;
+    if (!btn || !menu) return;
+    const r = btn.getBoundingClientRect();
+    const gap = 8;
+    menu.style.right = `${Math.round(window.innerWidth - r.left + gap)}px`;
+    menu.style.top = `${Math.round(r.top + r.height / 2)}px`;
+  }
+
+  clearExportMenuViewportStyles() {
+    if (!this.exportMenu) return;
+    this.exportMenu.style.right = '';
+    this.exportMenu.style.top = '';
+  }
+
+  hideExportMenu() {
+    if (!this.exportMenu) return;
+    if (this._exportMenuCloseTimer) {
+      clearTimeout(this._exportMenuCloseTimer);
+      this._exportMenuCloseTimer = null;
+    }
+    this.exportMenu.classList.remove('is-visible');
+    this.exportMenu.setAttribute('aria-hidden', 'true');
+    // top/right를 즉시 지우면 fixed 박스가 순간 이동하며 튐 → 페이드 후 정리
+    const menu = this.exportMenu;
+    this._exportMenuCloseTimer = window.setTimeout(() => {
+      this._exportMenuCloseTimer = null;
+      if (menu && !menu.classList.contains('is-visible')) {
+        this.clearExportMenuViewportStyles();
+      }
+    }, 180);
+
+    window.removeEventListener('resize', this._boundPositionExportMenu);
+    document.removeEventListener('scroll', this._boundRepositionExportMenuOnScroll, true);
+    if (this._exportMenuOutsideCloser) {
+      document.removeEventListener('click', this._exportMenuOutsideCloser);
+      this._exportMenuOutsideCloser = null;
     }
   }
 

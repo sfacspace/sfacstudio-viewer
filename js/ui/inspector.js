@@ -60,7 +60,7 @@ export class InspectorController {
           this._syncUniformScaleToGizmo();
         });
     }
-    this.hide("idle");
+    this.hide();
     this._setupInputEvents();
     this._syncUniformScaleToGizmo();
   }
@@ -97,14 +97,14 @@ export class InspectorController {
     const primaryEntity = this._getPrimaryEntity(obj);
     
     if (!obj || !primaryEntity) {
-      this.hide("idle");
+      this.hide();
       return;
     }
-    
+
     this._currentObject = obj;
     if (this._containerEl) {
       this._containerEl.classList.remove("is-hidden");
-      this._containerEl.classList.remove("is-inspector-idle");
+      this._containerEl.setAttribute("aria-hidden", "false");
     }
     if (this._nameEl) {
       this._nameEl.textContent = obj.name || "Unknown";
@@ -121,19 +121,12 @@ export class InspectorController {
     return obj.entity;
   }
 
-  /**
-   * @param {'idle'|'collapse'} mode - idle: no selection, panel still visible; collapse: tool panels off (hide block)
-   */
-  hide(mode = "idle") {
+  /** 선택 해제 시 패널 전체 숨김 (LiamViewer2와 동일) */
+  hide() {
     this._currentObject = null;
     if (this._containerEl) {
-      if (mode === "collapse") {
-        this._containerEl.classList.add("is-hidden");
-        this._containerEl.classList.remove("is-inspector-idle");
-      } else {
-        this._containerEl.classList.remove("is-hidden");
-        this._containerEl.classList.add("is-inspector-idle");
-      }
+      this._containerEl.classList.add("is-hidden");
+      this._containerEl.setAttribute("aria-hidden", "true");
     }
 
     if (this._nameEl) {

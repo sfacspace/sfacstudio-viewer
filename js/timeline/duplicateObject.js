@@ -1,6 +1,5 @@
 /**
- * 오브젝트 블록 우클릭 "복제": 인스펙터(transform), 타임라인(start/end, visible), 지우기 연산이 반영된
- * 상태를 메모리에서 그대로 복제하여 새 타임라인 오브젝트로 추가. 디스크 저장 없음.
+ * Context-menu duplicate: copy transform, visibility, erasures into a new timeline object (memory only).
  */
 
 import { getGsplatResourceFromEntity, writePlyBinary } from '../export/exportPly.js';
@@ -67,8 +66,6 @@ async function duplicateEmpty(viewer, timeline, obj) {
   const addFn = timeline.addObject || timeline.add;
   const added = addFn.call(timeline, newName, cloneEnt, null, { objectType: 'empty' });
   if (!added) return null;
-  added.startSeconds = obj.startSeconds ?? 0;
-  added.endSeconds = obj.endSeconds ?? added.endSeconds;
   added.visible = obj.visible !== false;
   if (typeof timeline.renderObjects === 'function') timeline.renderObjects();
   else if (typeof timeline.render === 'function') timeline.render();
@@ -117,8 +114,6 @@ async function duplicateSingle(viewer, timeline, selectionTool, obj) {
     duplicatedFromSourcePath: sourcePathForDuplicate,
   });
 
-  added.startSeconds = obj.startSeconds ?? 0;
-  added.endSeconds = obj.endSeconds ?? added.endSeconds;
   added.visible = obj.visible !== false;
   if (typeof timeline.renderObjects === 'function') timeline.renderObjects();
   else if (typeof timeline.render === 'function') timeline.render();
@@ -180,8 +175,6 @@ async function duplicateMultiFile(viewer, timeline, selectionTool, obj) {
   if (!added) return null;
 
   added.name = newName;
-  added.startSeconds = obj.startSeconds ?? 0;
-  added.endSeconds = obj.endSeconds ?? added.endSeconds;
   added.visible = obj.visible !== false;
   if (typeof timeline.renderObjects === 'function') timeline.renderObjects();
   else if (typeof timeline.render === 'function') timeline.render();
@@ -191,8 +184,7 @@ async function duplicateMultiFile(viewer, timeline, selectionTool, obj) {
 }
 
 /**
- * 오브젝트 블록 복제 실행.
- * 단일/멀티파일 지원. 디스크 저장 없이 메모리에서 복제 후 타임라인에 추가.
+ * Run duplicate (single or multi-file). No disk write.
  *
  * @param {Object} obj - 타임라인 오브젝트 (timeline.objects 항목)
  * @param {{ viewer: Object, timeline: Object, selectionTool: Object }} deps

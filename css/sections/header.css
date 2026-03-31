@@ -2,8 +2,8 @@
 header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 20px;
+  gap: 10px;
+  padding: 6px 16px;
   background: #03060c;
   border-bottom: 2px solid var(--color-accent);
   position: fixed;
@@ -11,7 +11,7 @@ header {
   left: 0;
   right: 0;
   z-index: 1000;
-  height: 62px;
+  height: var(--header-height, 48px);
   box-sizing: border-box;
   overflow: visible;
 }
@@ -122,53 +122,60 @@ header::after {
   }
 }
 
-/* Header logo (center, glow on hover) */
-header > .header-center {
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 62px;
+/* Header logo (left, with File menu) */
+.header-brand {
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 1001;
-  pointer-events: none;
-  text-align: center;
-}
-.header-center .header-logo-text {
-  pointer-events: auto;
+  flex-shrink: 0;
 }
 
-.header-logo-text {
-  display: inline-flex;
+.header-brand-link {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  user-select: none;
-  cursor: pointer;
-  position: relative;
-  z-index: 1;
+  line-height: 0;
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: opacity 0.18s ease, filter 0.22s ease, transform 0.14s ease;
+}
+
+.header-brand-link:hover {
+  opacity: 0.9;
+  filter: brightness(1.15) drop-shadow(0 0 10px rgba(var(--color-accent-rgb), 0.35));
+}
+
+.header-brand-link:active {
+  transform: scale(0.97);
+  opacity: 1;
+}
+
+.header-brand-link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb), 0.55);
 }
 
 .header-logo-img {
-  height: 60px;
+  height: 26px;
   width: auto;
+  max-width: min(148px, 32vw);
   display: block;
   object-fit: contain;
-  transform: translateY(3px);
-  transform-origin: 50% 50%;
-  transition: filter 1.2s cubic-bezier(0.22, 0.61, 0.36, 1);
-  filter:
-    drop-shadow(0 0 6px rgba(150, 200, 255, 0.75))
-    drop-shadow(0 0 2px rgba(170, 210, 255, 0.6));
+  user-select: none;
+  pointer-events: none;
 }
 
-/* Logo glow on hover */
-.header-logo-text:hover .header-logo-img {
-  filter:
-    drop-shadow(0 0 6px rgba(180, 220, 255, 0.85))
-    drop-shadow(0 0 12px rgba(160, 210, 255, 0.6))
-    drop-shadow(0 0 20px rgba(140, 200, 255, 0.4));
+header .header-panel-toggle,
+header .settings-button {
+  height: 30px;
+  min-width: 34px;
+  padding: 0 8px;
+  border-radius: 8px;
+}
+
+header .header-panel-toggle__icon,
+header .settings-button__icon {
+  width: 16px;
+  height: 16px;
 }
 
 /* Header right */
@@ -176,7 +183,13 @@ header > .header-center {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+}
+
+.header-panel-toggles {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
 }
 
 /* Header left (dropdown) */
@@ -214,6 +227,11 @@ header > .header-center {
 
 .menu-dropdown__trigger:active {
   transform: translateY(1px);
+}
+
+header .menu-dropdown__trigger {
+  padding: 5px 10px;
+  font-size: 12px;
 }
 
 .menu-dropdown__trigger::after {
@@ -336,6 +354,13 @@ header > .header-center {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
+}
+
+header .fps-counter,
+header .memory-hud {
+  font-size: 11px;
+  padding: 3px 6px;
+  min-width: 0;
 }
 
 header h1 {
