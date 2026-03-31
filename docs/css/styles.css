@@ -1,17 +1,22 @@
-/* SFAC Studio landing — ShapeR-style research page layout */
+/* SFAC Studio landing — dark theme (aligned with viewer theme.css) */
 
 :root {
-  --bg: #fafafa;
-  --bg-card: #ffffff;
-  --text: #1a1a1a;
-  --text-muted: #5c5c5c;
-  --link: #0066cc;
-  --link-hover: #004499;
-  --border: #e8e8e8;
+  --bg: #050810;
+  --bg-elevated: #0a0f18;
+  --bg-card: #0d1320;
+  --bg-card-hover: #111827;
+  --text: #dce4f2;
+  --text-muted: rgba(220, 228, 242, 0.62);
+  --text-dim: rgba(220, 228, 242, 0.48);
+  --link: #7eb0e8;
+  --link-hover: #a8cbf5;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.12);
   --accent: #4a6d98;
-  --accent-soft: rgba(74, 109, 152, 0.12);
+  --accent-strong: #5a7fa8;
+  --accent-soft: rgba(74, 109, 152, 0.22);
   --radius: 8px;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
   --max: 920px;
   --font: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
 }
@@ -33,6 +38,7 @@ body {
   line-height: 1.65;
   color: var(--text);
   background: var(--bg);
+  background-image: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(74, 109, 152, 0.12), transparent 55%);
 }
 
 a {
@@ -45,12 +51,22 @@ a:hover {
   text-decoration: underline;
 }
 
+code {
+  font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, monospace;
+  font-size: 0.88em;
+  padding: 0.15em 0.45em;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
 .site-header {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: rgba(250, 250, 250, 0.92);
-  backdrop-filter: blur(10px);
+  background: rgba(5, 8, 16, 0.88);
+  backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
 }
 
@@ -73,7 +89,7 @@ a:hover {
 }
 
 .site-logo:hover {
-  color: var(--accent);
+  color: var(--accent-strong);
   text-decoration: none;
 }
 
@@ -109,6 +125,7 @@ a:hover {
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.15;
+  color: var(--text);
 }
 
 .hero .tagline {
@@ -150,29 +167,29 @@ a:hover {
   font-size: 0.875rem;
   font-weight: 600;
   border-radius: 6px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   background: var(--bg-card);
   color: var(--text);
-  box-shadow: var(--shadow);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
   transition: border-color 0.15s, background 0.15s;
 }
 
 .btn:hover {
   text-decoration: none;
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  border-color: rgba(74, 109, 152, 0.55);
+  background: var(--bg-card-hover);
   color: var(--text);
 }
 
 .btn--primary {
   background: var(--accent);
-  border-color: var(--accent);
+  border-color: rgba(90, 127, 168, 0.85);
   color: #fff;
 }
 
 .btn--primary:hover {
   background: #3d5d82;
-  border-color: #3d5d82;
+  border-color: #5a7fa8;
   color: #fff;
 }
 
@@ -181,8 +198,8 @@ a:hover {
   max-width: 100%;
   border-radius: var(--radius);
   overflow: hidden;
-  border: 1px solid var(--border);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow);
   background: linear-gradient(145deg, #0a0f18 0%, #1a2744 50%, #0d1320 100%);
   aspect-ratio: 16 / 9;
   display: flex;
@@ -215,20 +232,22 @@ section h2 {
   font-size: 1.5rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  border-bottom: 2px solid var(--text);
+  border-bottom: 2px solid var(--accent);
   padding-bottom: 0.35rem;
   display: inline-block;
+  color: var(--text);
 }
 
 section h3 {
   margin: 1.5rem 0 0.5rem;
   font-size: 1.1rem;
   font-weight: 700;
+  color: var(--text);
 }
 
 section p {
   margin: 0 0 1rem;
-  color: var(--text);
+  color: rgba(220, 228, 242, 0.9);
 }
 
 section p:last-child {
@@ -252,12 +271,13 @@ section p:last-child {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 1.15rem 1.25rem;
-  box-shadow: var(--shadow);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
 }
 
 .card h3 {
   margin: 0 0 0.5rem;
   font-size: 1rem;
+  color: var(--text);
 }
 
 .card p {
@@ -310,6 +330,7 @@ section p:last-child {
 .comparison__box h3 {
   margin: 0 0 0.5rem;
   font-size: 1rem;
+  color: var(--text);
 }
 
 .comparison__box p {
@@ -321,8 +342,8 @@ section p:last-child {
 .cite-block {
   position: relative;
   margin-top: 1rem;
-  background: #f3f3f3;
-  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   padding: 1rem 1.1rem;
   font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, monospace;
@@ -330,6 +351,7 @@ section p:last-child {
   line-height: 1.5;
   overflow-x: auto;
   white-space: pre;
+  color: rgba(220, 228, 242, 0.88);
 }
 
 .copy-wrap {
@@ -342,12 +364,14 @@ section p:last-child {
   padding: 0.35rem 0.75rem;
   cursor: pointer;
   border-radius: 6px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   background: var(--bg-card);
+  color: var(--text);
 }
 
 .copy-btn:hover {
   border-color: var(--accent);
+  background: var(--bg-card-hover);
 }
 
 .resources {
@@ -362,12 +386,13 @@ section p:last-child {
   border-radius: var(--radius);
   padding: 1.1rem;
   background: var(--bg-card);
-  box-shadow: var(--shadow);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
 }
 
 .resource h3 {
   margin: 0 0 0.35rem;
   font-size: 1rem;
+  color: var(--text);
 }
 
 .resource p {
@@ -382,7 +407,7 @@ section p:last-child {
   border-top: 1px solid var(--border);
   text-align: center;
   font-size: 0.85rem;
-  color: var(--text-muted);
+  color: var(--text-dim);
 }
 
 .site-footer a {

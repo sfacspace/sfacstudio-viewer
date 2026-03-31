@@ -2,13 +2,24 @@
 
 [![License](https://img.shields.io/github/license/sfacspace/sfacstudio-viewer)](https://github.com/sfacspace/sfacstudio-viewer/blob/main/LICENSE)
 
-| [Local Development](#local-development) | [Features](#features) | [Project Structure](#project-structure) | [Localization](#localization) |
+| [Local Development](#local-development) | [GitHub Pages](#github-pages-landing-site) | [Features](#features) | [Project Structure](#project-structure) | [Localization](#localization) |
 
 SFACSTUDIO is a PlayCanvas-based 3D Gaussian Splatting viewer. It lets you load PLY files in the browser, use the timeline and camera keyframes, selection and volume tools, **add description comments** (speech-bubble markers with camera restore), and export to video or a single HTML file. It is built on web technologies and runs in the browser, so there's nothing to download or install.
 
 A live version of this tool is available at: https://sfacstudio.vercel.app/
 
 ![SFACSTUDIO Viewer – 3D viewport, timeline, and interactive controls](static/Landingimg.gif)
+
+## GitHub Pages (landing site)
+
+This repo intentionally has **two** HTML files:
+
+| File | Role |
+|------|------|
+| **`index.html`** (repo root) | Vite entry for the **viewer app** (`npm run dev` / `npm run build`). |
+| **`docs/index.html`** | Static **project landing page** (marketing / overview). |
+
+**GitHub Pages** should use **only the `docs/` folder**: **Settings → Pages → Source: Deploy from a branch → Branch: `main`, Folder: `/docs`**. GitHub then serves `docs/index.html` at `https://<org-or-user>.github.io/sfacstudio-viewer/` and does **not** publish the root `index.html` as the site home. The interactive viewer itself is meant to run from Vercel (above) or from a local/production build (`dist/`), not from this Pages site.
 
 ## Local Development
 
