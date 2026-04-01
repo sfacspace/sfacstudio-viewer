@@ -228,7 +228,7 @@
   var videoModal = document.getElementById("video-modal");
   var videoIframe = document.getElementById("video-modal-iframe");
   var videoOpenBtn = document.getElementById("hero-video");
-  var YOUTUBE_VIDEO_ID = "cnE9lhq3IGs";
+  var YOUTUBE_VIDEO_ID = "";
 
   function buildYoutubeEmbedSrc() {
     var params = new URLSearchParams({ autoplay: "1", rel: "0" });
