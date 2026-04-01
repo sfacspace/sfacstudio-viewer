@@ -111,7 +111,7 @@ export async function serializeViewer(options = {}) {
   const loadExportOpts = async () => {
     let iconBase64 = null;
     let iconType = null;
-    for (const iconPath of ['/static/favicon.svg', './static/favicon.svg']) {
+    for (const iconPath of ['/static/logo_white.svg', './static/logo_white.svg', '/static/favicon.svg', './static/favicon.svg']) {
       try {
         const r = await fetch(iconPath, { signal: signal || undefined });
         if (r.ok) {
@@ -425,7 +425,7 @@ export async function serializeViewer(options = {}) {
       orbitDistance: viewer._orbitDistance ?? 6.4,
       sceneSettings: {
         fogType: "exp2",
-        fogDensity: 0.04,
+        fogDensity: 0.03,
         fogColor: { r: 0, g: 0, b: 0 },
         clearColor: { r: 0, g: 0, b: 0 },
       },

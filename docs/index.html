@@ -1,204 +1,582 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#050810" />
     <meta name="color-scheme" content="dark" />
-    <title>SFAC Studio — Browser 3D Gaussian Splatting Viewer</title>
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>SFACSTUDIO</title>
     <meta
+      id="meta-desc"
       name="description"
-      content="SFAC Studio is a PlayCanvas-based 3D Gaussian Splatting viewer with timeline, camera keyframes, selection tools, description markers, and export to video or single HTML."
+      content="SFACSTUDIO is a 3D Gaussian Splatting digital twin editor. Reconstruct factories and equipment as photoreal 3D from ordinary photos and video—equipment layout, path simulation, splat editing, and data layers in one workflow. No native install."
     />
-    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-    <link rel="apple-touch-icon" href="favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="static/logo_white.svg" />
+    <link rel="apple-touch-icon" href="static/logo_white.svg" />
     <link rel="stylesheet" href="css/styles.css" />
   </head>
   <body>
     <header class="site-header">
       <div class="site-header__inner">
-        <a class="site-logo" href="#">SFAC Studio</a>
-        <nav class="site-nav" aria-label="주요 링크">
-          <a href="#overview">개요</a>
-          <a href="#how">동작 방식</a>
-          <a href="#dataset">배포</a>
-          <a href="#compare">차별점</a>
-          <a href="#citation">인용</a>
-          <a href="#resources">리소스</a>
-        </nav>
+        <a
+          class="site-logo"
+          href="https://sfacstudio.vercel.app/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <img
+            class="site-logo__mark"
+            src="static/logo_white.svg"
+            alt="SFACSTUDIO"
+            width="140"
+            height="30"
+            decoding="async"
+          />
+        </a>
+        <div class="site-header__end">
+          <nav class="site-nav" aria-label="Page sections">
+            <a href="#overview"            data-i18n="nav_overview">Overview</a>
+            <a href="#rendering-compare"   data-i18n="nav_compare">Rendering</a>
+            <a href="#what-you-can-do"     data-i18n="nav_why">Why</a>
+            <a href="#feature-highlights"  data-i18n="nav_dt">Twin features</a>
+            <a href="#more-applications"   data-i18n="nav_apps">Applications</a>
+            <a href="#resources"           data-i18n="nav_resources">Resources</a>
+          </nav>
+          <div class="lang-switch" role="group" aria-label="Language">
+            <button type="button" class="lang-switch__btn is-active" data-lang="en" aria-pressed="true">EN</button>
+            <button type="button" class="lang-switch__btn"           data-lang="ko" aria-pressed="false">KO</button>
+          </div>
+        </div>
       </div>
     </header>
 
-    <main class="wrap">
-      <header class="hero">
-        <h1>SFAC Studio</h1>
-        <p class="tagline">
-          브라우저에서 동작하는 3D Gaussian Splatting 뷰어. 타임라인·카메라 키프레임·선택 도구·설명 마커까지 한 화면에서 다루고, 영상이나 단일 HTML로 보낼 수 있습니다.
-        </p>
-        <p class="authors">
-          SFAC Space
-        </p>
-        <p class="affiliation">
-          PlayCanvas · splat-transform · 웹 기술 기반
-        </p>
-        <div class="btn-row">
-          <a class="btn btn--primary" href="https://sfacstudio.vercel.app/" target="_blank" rel="noopener noreferrer">데모 열기</a>
-          <a class="btn" href="https://github.com/sfacspace/sfacstudio-viewer" target="_blank" rel="noopener noreferrer">GitHub</a>
-          <a class="btn" href="https://github.com/sfacspace/sfacstudio-viewer#readme" target="_blank" rel="noopener noreferrer">문서 (README)</a>
-        </div>
-
-        <figure class="demo-frame has-media" aria-label="SFAC Studio 데모">
+    <main>
+      <!-- ═══════════════════════════════════════════════════════════ HERO -->
+      <header id="hero" class="hero hero--shape reveal">
+        <div class="hero__bg" aria-hidden="true">
           <img
-            src="https://raw.githubusercontent.com/sfacspace/sfacstudio-viewer/main/static/Landingimg.gif"
-            alt="SFAC Studio 뷰어 — 3D 뷰포트, 타임라인, 인터랙티브 컨트롤"
-            width="1280"
-            height="720"
+            class="hero__bg-media"
+            src="static/Landingimg.gif"
+            alt=""
+            width="1920"
+            height="1080"
             loading="eager"
+            decoding="async"
+            fetchpriority="high"
           />
-        </figure>
+        </div>
+        <div class="hero__scrim" aria-hidden="true"></div>
+        <div class="hero__inner">
+          <div class="hero__grid">
+            <div class="hero__copy">
+              <h1 class="hero__title">
+                <span class="hero__title-plain">SFAC</span><span class="hero__title-accent">STUDIO</span>
+              </h1>
+              <p class="hero__position" data-i18n="hero_position" data-i18n-html>
+                A new revolution for digital twins. Ordinary photos and video turn your plant into photoreal 3D—generate,
+                simulate, and edit in the browser, no desktop toolchain.
+              </p>
+              <p class="hero__desc" data-i18n="hero_desc_a">
+                Three steps from site capture to 3D generation and editor rendering—no specialists or special equipment.
+              </p>
+              <p class="hero__desc hero__desc--tight" data-i18n="hero_desc_b">
+                No install wait—operations and engineering share the same twin.
+              </p>
+              <p class="hero__byline" data-i18n="hero_byline">Made by SFACSPACE</p>
+              <div class="hero__cta">
+                <a
+                  class="btn--hero-primary"
+                  href="https://sfacstudio.vercel.app/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-i18n="hero_demo"
+                >Open app</a>
+                <div class="hero__cta-secondary" role="group" aria-label="Additional links">
+                  <a class="btn--outline" href="https://github.com/sfacspace/sfacstudio-viewer" target="_blank" rel="noopener noreferrer">GitHub</a>
+                  <a class="btn--outline" href="#" id="hero-paper"  aria-disabled="true" data-i18n="hero_paper">Paper</a>
+                  <a class="btn--outline" href="https://youtu.be/cnE9lhq3IGs" id="hero-video" data-i18n="hero_video">Video</a>
+                </div>
+              </div>
+            </div>
+            <div class="hero__media-slot" aria-hidden="true"></div>
+          </div>
+        </div>
       </header>
 
-      <section id="overview">
-        <h2>웹 기반 스플랫 뷰잉과 제작 워크플로</h2>
-        <p>
-          SFAC Studio는 PLY를 브라우저에서 바로 불러와 Gaussian Splat을 탐색합니다. 별도 설치 없이 URL만으로 공유할 수 있어, 리뷰·발표·납품용 뷰어로 쓰기 좋습니다.
-        </p>
-        <p>
-          궤도(Orbit) 카메라와 그리드·축 기즈모로 장면을 읽고, <strong>타임라인</strong>에서 카메라 키프레임과 재생으로 움직임을 설계합니다. 사각형·브러시·박스·구 등 <strong>볼륨 선택</strong>으로 객체를 고르고, 말풍선 형태의 <strong>설명 코멘트</strong>와 카메라 복원으로 협업 피드백을 남길 수 있습니다.
-        </p>
-        <p>
-          CAD(STEP/STP, IGES/IGS)도 동일한 로드 흐름으로 열 수 있어, 스플랫과 메시를 한 작업 공간에서 다루는 확장 워크플로를 지향합니다.
-        </p>
-      </section>
+      <div class="wrap">
 
-      <section id="how">
-        <h2>동작 방식</h2>
-        <p class="lead">
-          뷰어 코어, 타임라인, UI, 보내기 모듈이 나뉘어 있으며, PlayCanvas와 splat 파이프라인 위에서 동작합니다.
-        </p>
+        <!-- ══════════════════════════════════════════════════════ OVERVIEW -->
+        <section id="overview" class="section section--overview reveal">
+          <div class="overview-split">
+            <div class="overview-split__media">
+              <div
+                class="overview-split__placeholder"
+                role="img"
+                data-i18n-aria="overview_img_aria"
+                aria-label="Overview section illustration placeholder"
+              >
+                <span class="media-placeholder__label" data-i18n="overview_img_label">Image</span>
+              </div>
+            </div>
+            <div class="overview-split__copy">
+              <h2 data-i18n="overview_title">Overview</h2>
 
-        <h3>뷰어와 로딩</h3>
-        <p>
-          파일 선택·드래그 앤 드롭으로 PLY 및 CAD를 불러오고, 세션과 시퀀스 재생으로 여러 자산을 이어서 볼 수 있습니다. 무한 그리드와 성능 설정으로 대용량 장면도 조절 가능합니다.
-        </p>
+              <p class="overview-split__lead" data-i18n="overview_p1" data-i18n-html>
+                A single video shot on a smartphone is enough. No specialty hardware, expensive scanners, or specialist
+                software required. Upload the photos and video you captured—<strong>SFACSTUDIO</strong> reconstructs the
+                site in 3D, true to the real place.
+              </p>
 
-        <h3>타임라인과 카메라</h3>
-        <p>
-          키프레임, 재생, 카메라 이동·템플릿, 핀·틱·툴팁 등 타임라인 UI가 한데 묶여 있어, “보여줄 시점”을 정밀하게 맞출 수 있습니다.
-        </p>
+              <p data-i18n="overview_p2" data-i18n-html>
+                <strong>SFACSTUDIO</strong> is a digital twin editor for industrial facilities, built on 3D Gaussian
+                Splatting. From full factory lines down to single assets—reconstruct and extract freely by space,
+                equipment, or object. Edit on the reconstructed space, change layouts, run simulations—all in one browser
+                window.
+              </p>
 
-        <h3>보내기</h3>
-        <p>
-          MP4 영상, 단일 HTML 뷰어(코멘트 오버레이·기본 Fly 모드·쿼터니언 카메라 전환), PLY 및 압축 PLY까지 보내 배포와 아카이브에 활용할 수 있습니다.
-        </p>
-
-        <div class="card-grid">
-          <article class="card">
-            <h3>선택 도구</h3>
-            <p>사각형, 브러시, 박스·구 볼륨 셀렉터로 영역을 지정하고 히스토리로 되돌립니다.</p>
-          </article>
-          <article class="card">
-            <h3>설명 마커</h3>
-            <p>말풍선 마커와 카메라 복원으로 코멘트를 장면에 고정해 협업합니다.</p>
-          </article>
-          <article class="card">
-            <h3>Fly 모드</h3>
-            <p>WASD·Q/E·마우스로 이동하고, Orbit으로 복귀할 때 롤 뒤집힘 없이 slerp 전환합니다.</p>
-          </article>
-        </div>
-      </section>
-
-      <section id="dataset">
-        <h2>배포와 로컬 개발</h2>
-        <p>
-          공개 데모는 <a href="https://sfacstudio.vercel.app/" target="_blank" rel="noopener noreferrer">sfacstudio.vercel.app</a>에서 확인할 수 있습니다. 소스는 <a href="https://github.com/sfacspace/sfacstudio-viewer" target="_blank" rel="noopener noreferrer">sfacspace/sfacstudio-viewer</a> 저장소에 있으며, Node.js 18 이상에서 <code>npm install</code> 후 <code>npm run dev</code>로 로컬 미리보기를 띄울 수 있습니다.
-        </p>
-        <p>
-          프로젝트 소개 페이지는 이 저장소의 <code>docs/</code>에 있으며, GitHub Pages에서 <strong>main 브랜치의 /docs</strong> 폴더를 소스로 지정하면 <code>https://&lt;org&gt;.github.io/sfacstudio-viewer/</code> 형태로 호스팅할 수 있습니다.
-        </p>
-        <p>
-          UI 문자열은 영어·한국어 로케일을 지원해 팀 단위 사용에 맞출 수 있습니다.
-        </p>
-      </section>
-
-      <section id="compare">
-        <h2>데스크톱 전용 뷰어와의 차이</h2>
-        <p>
-          네이티브 뷰어는 GPU·파일 시스템에 직접 붙어 최고 성능을 내는 경우가 많습니다. SFAC Studio는 <strong>설치 없이 링크로 열리고</strong>, HTML·영상 보내기로 <strong>공유와 아카이브</strong>에 강점이 있습니다. 무거운 편집보다는 리뷰·시연·가벼운 타임라인 작업에 맞춘 트레이드오프입니다.
-        </p>
-        <div class="comparison">
-          <div class="comparison__box">
-            <h3>웹 뷰어의 강점</h3>
-            <p>즉시 공유, 크로스 플랫폼, 단일 HTML 패키징, 브라우저만으로 협업 피드백(마커)까지.</p>
+              <p data-i18n="overview_p3" data-i18n-html>
+                No site visit required. No design drawings required. Just capture—and your digital twin begins.
+              </p>
+            </div>
           </div>
-          <div class="comparison__box">
-            <h3>고려할 점</h3>
-            <p>브라우저·GPU·메모리 한계에 따라 초대형 씬은 성능 패널과 에셋 분할이 필요할 수 있습니다.</p>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <section id="citation">
-        <h2>인용</h2>
-        <p>
-          연구나 문서에서 소프트웨어를 인용할 때는 아래 BibTeX를 사용할 수 있습니다. (프로젝트명·연도·URL은 저장소 정책에 맞게 수정하세요.)
-        </p>
-        <pre class="cite-block" id="bibtex">@software{sfacstudio2024viewer,
-  title = {SFAC Studio: Browser-based 3D Gaussian Splatting Viewer},
-  author = {{SFAC Space}},
-  year = {2024},
-  url = {https://github.com/sfacspace/sfacstudio-viewer},
-  note = {PlayCanvas, PLY/CAD loading, timeline, export to video and single HTML}
-}</pre>
-        <div class="copy-wrap">
-          <button type="button" class="copy-btn" id="copy-bib" aria-label="BibTeX 복사">복사</button>
-        </div>
-      </section>
+        <!-- ═══════════════════════════════════════════════ RENDERING COMPARE (v2) -->
+        <section id="rendering-compare" class="section section-render-diff reveal" aria-labelledby="compare-heading">
+          <header class="render-diff__header">
+            <img
+              class="render-diff__logo"
+              src="static/logo_white.svg"
+              alt=""
+              width="160"
+              height="34"
+              decoding="async"
+            />
+            <h2 id="compare-heading" class="render-diff__title" data-i18n="compare_title">
+              Differences from other rendering approaches
+            </h2>
+            <p class="render-diff__lede" data-i18n="compare_caption" data-i18n-html>
+              Less data burden, shorter production time, lower cost, higher expressiveness.<br />
+              That's why SFACSTUDIO is the more realistic choice.
+            </p>
+          </header>
 
-      <section id="resources">
-        <h2>리소스</h2>
-        <div class="resources">
-          <div class="resource">
-            <h3>라이브 데모</h3>
-            <p><a href="https://sfacstudio.vercel.app/" target="_blank" rel="noopener noreferrer">sfacstudio.vercel.app</a>에서 바로 사용</p>
+          <div class="render-diff__shell">
+            <div class="render-diff__columns-head">
+              <div class="render-diff__head-slot">
+                <span class="render-diff__head-chip render-diff__head-chip--legacy" data-i18n="compare_th_legacy">Conventional</span>
+              </div>
+              <div class="render-diff__head-slot">
+                <span class="render-diff__head-chip render-diff__head-chip--sfac" data-i18n="compare_th_sfac">SFACSTUDIO</span>
+              </div>
+            </div>
+
+            <div class="render-diff__matrix">
+              <article class="render-diff__block" aria-labelledby="cmp-r1">
+                <h3 class="render-diff__block-title" id="cmp-r1" data-i18n="compare_r1_label">Input data</h3>
+                <div class="render-diff__bar">
+                  <div class="render-diff__bar-cell render-diff__bar-cell--legacy">
+                    <p class="render-diff__copy" data-i18n="compare_r1_legacy">3D modeling / specialist hardware scanning</p>
+                  </div>
+                  <span class="render-diff__bar-arrow" aria-hidden="true">›</span>
+                  <div class="render-diff__bar-cell render-diff__bar-cell--sfac">
+                    <p class="render-diff__copy" data-i18n="compare_r1_sfac">Ordinary photos &amp; video</p>
+                  </div>
+                </div>
+              </article>
+
+              <article class="render-diff__block" aria-labelledby="cmp-r2">
+                <h3 class="render-diff__block-title" id="cmp-r2" data-i18n="compare_r2_label">Generation time</h3>
+                <div class="render-diff__bar">
+                  <div class="render-diff__bar-cell render-diff__bar-cell--legacy">
+                    <p class="render-diff__copy" data-i18n="compare_r2_legacy">Hours to days</p>
+                  </div>
+                  <span class="render-diff__bar-arrow" aria-hidden="true">›</span>
+                  <div class="render-diff__bar-cell render-diff__bar-cell--sfac">
+                    <div class="render-diff__copy" data-i18n="compare_r2_sfac" data-i18n-html>
+                      Within 10 minutes
+                      <small class="compare-matrix__note">* Elementary classroom scale</small>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article class="render-diff__block" aria-labelledby="cmp-r3">
+                <h3 class="render-diff__block-title" id="cmp-r3" data-i18n="compare_r3_label">Production cost</h3>
+                <div class="render-diff__bar">
+                  <div class="render-diff__bar-cell render-diff__bar-cell--legacy">
+                    <p class="render-diff__copy" data-i18n="compare_r3_legacy">Tens of millions of KRW and up</p>
+                  </div>
+                  <span class="render-diff__bar-arrow" aria-hidden="true">›</span>
+                  <div class="render-diff__bar-cell render-diff__bar-cell--sfac">
+                    <p class="render-diff__copy" data-i18n="compare_r3_sfac">Shooting costs + software license</p>
+                  </div>
+                </div>
+              </article>
+
+              <article class="render-diff__block" aria-labelledby="cmp-r4">
+                <h3 class="render-diff__block-title" id="cmp-r4" data-i18n="compare_r4_label">Expression</h3>
+                <div class="render-diff__bar">
+                  <div class="render-diff__bar-cell render-diff__bar-cell--legacy">
+                    <p class="render-diff__copy" data-i18n="compare_r4_legacy">Manual limits / unrealistic results</p>
+                  </div>
+                  <span class="render-diff__bar-arrow" aria-hidden="true">›</span>
+                  <div class="render-diff__bar-cell render-diff__bar-cell--sfac">
+                    <p class="render-diff__copy" data-i18n="compare_r4_sfac">Fact-based, photoreal output</p>
+                  </div>
+                </div>
+              </article>
+
+              <article class="render-diff__block" aria-labelledby="cmp-r5">
+                <h3 class="render-diff__block-title" id="cmp-r5" data-i18n="compare_r5_label">Updates</h3>
+                <div class="render-diff__bar">
+                  <div class="render-diff__bar-cell render-diff__bar-cell--legacy">
+                    <p class="render-diff__copy" data-i18n="compare_r5_legacy">Re-modeling required (days)</p>
+                  </div>
+                  <span class="render-diff__bar-arrow" aria-hidden="true">›</span>
+                  <div class="render-diff__bar-cell render-diff__bar-cell--sfac">
+                    <p class="render-diff__copy" data-i18n="compare_r5_sfac">Re-shoot, then regenerate (within 1 hour)</p>
+                  </div>
+                </div>
+              </article>
+
+              <article class="render-diff__block" aria-labelledby="cmp-r6">
+                <h3 class="render-diff__block-title" id="cmp-r6" data-i18n="compare_r6_label">Expertise requirements</h3>
+                <div class="render-diff__bar">
+                  <div class="render-diff__bar-cell render-diff__bar-cell--legacy">
+                    <p class="render-diff__copy" data-i18n="compare_r6_legacy">3D specialists required</p>
+                  </div>
+                  <span class="render-diff__bar-arrow" aria-hidden="true">›</span>
+                  <div class="render-diff__bar-cell render-diff__bar-cell--sfac">
+                    <p class="render-diff__copy" data-i18n="compare_r6_sfac">Ordinary photos &amp; video</p>
+                  </div>
+                </div>
+              </article>
+            </div>
           </div>
-          <div class="resource">
-            <h3>GitHub</h3>
-            <p><a href="https://github.com/sfacspace/sfacstudio-viewer" target="_blank" rel="noopener noreferrer">소스 코드와 이슈</a></p>
+
+          <p class="render-diff__outro" data-i18n="compare_foot">
+            Stronger business value through a more efficient workflow.
+          </p>
+        </section>
+
+        <!-- ══════════════════════════════════════════════ WHY SFACSTUDIO -->
+        <section id="what-you-can-do" class="section reveal">
+          <h2 data-i18n="why_title">Why SFACSTUDIO</h2>
+          <p class="lead" data-i18n="why_lead">
+            Why the product matters—and why you can trust it.
+          </p>
+          <div class="card-grid card-grid--media">
+
+            <!-- Card 1 — Problem -->
+            <article class="card card--lift">
+              <div class="media-placeholder media-placeholder--card" aria-hidden="true">
+                <span class="media-placeholder__label" data-i18n="card1_label">CAD · point cloud · panorama</span>
+              </div>
+              <h3 data-i18n="card1_title">Limits of conventional approaches</h3>
+              <p data-i18n="card1_p">
+                Hand-built 3D modeling is costly, slow, and often unrealistic. Photogrammetry lacks detail and needs
+                heavy manual cleanup. Panoramic video is not true 3D—you cannot interact with other models in the scene.
+              </p>
+            </article>
+
+            <!-- Card 2 — Proven tech -->
+            <article class="card card--lift">
+              <div class="media-placeholder media-placeholder--card" aria-hidden="true">
+                <span class="media-placeholder__label" data-i18n="card2_label">3DGS &amp; proven tech</span>
+              </div>
+              <h3 data-i18n="card2_title">Proven 3DGS engine</h3>
+              <p data-i18n="card2_p">
+                Based on research that won an Outstanding Paper Award at APIC-IST 2025: foreground and background are
+                learned separately and combined with adaptive 3D fusion for temporally consistent, photoreal rendering.
+              </p>
+            </article>
+
+            <!-- Card 3 — Simple workflow -->
+            <article class="card card--lift">
+              <div class="media-placeholder media-placeholder--card" aria-hidden="true">
+                <span class="media-placeholder__label" data-i18n="card3_label">Simple workflow</span>
+              </div>
+              <h3 data-i18n="card3_title">Three steps are enough</h3>
+              <p data-i18n="card3_p">
+                Site capture → 3D generation → editor rendering. Reconstruct in 3D right away without specialists or
+                deep technical skill—from indoor and outdoor spaces down to individual equipment.
+              </p>
+            </article>
+
           </div>
-          <div class="resource">
-            <h3>PlayCanvas</h3>
-            <p><a href="https://playcanvas.com/" target="_blank" rel="noopener noreferrer">엔진 문서</a></p>
+        </section>
+
+        <!-- ══════════════════════════════════════════════ FEATURE HIGHLIGHTS -->
+        <section id="feature-highlights" class="section reveal">
+          <h2 data-i18n="feat_title">Digital twin features</h2>
+          <p class="lead" data-i18n="feat_lead">
+            Spatial reconstruction, redesign, simulation, and information visualization—organized in one overview.
+          </p>
+          <div class="feature-showcase" data-feature-showcase>
+            <div class="feature-grid">
+
+              <article class="feature-tile" data-feature-index="0" tabindex="0">
+                <div class="feature-tile__icon" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                    <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" />
+                    <path d="m22 12-8.58 3.91a2 2 0 0 1-1.66 0L3 12" />
+                    <path d="m22 17-8.58 3.91a2 2 0 0 1-1.66 0L3 17" />
+                  </svg>
+                </div>
+                <h3 data-i18n="feat1_t">Space reconstruction</h3>
+                <p data-i18n="feat1_p">
+                  Full-space reconstruction, equipment restoration, and object-level extraction—low cost and a
+                  practical base for many digital twin workflows.
+                </p>
+              </article>
+
+              <article class="feature-tile" data-feature-index="1" tabindex="0">
+                <div class="feature-tile__icon" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                    <circle cx="5"  cy="18" r="2.25" />
+                    <circle cx="12" cy="6"  r="2.25" />
+                    <circle cx="19" cy="15" r="2.25" />
+                    <path d="M7.2 16.2 10.5 8.2M13.5 7.8l4.2 5.8" />
+                  </svg>
+                </div>
+                <h3 data-i18n="feat2_t">Space redesign</h3>
+                <p data-i18n="feat2_p">
+                  Remove existing equipment and place new objects. Separate, move, delete, or replace assets by unit to
+                  review equipment-change scenarios on the real-site twin.
+                </p>
+              </article>
+
+              <article class="feature-tile" data-feature-index="2" tabindex="0">
+                <div class="feature-tile__icon" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                    <path d="M7.5 7.5h9a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25h-9a2.25 2.25 0 0 1-2.25-2.25V9.75A2.25 2.25 0 0 1 7.5 7.5z" />
+                    <circle cx="10.25" cy="13.25" r="1.2" />
+                    <circle cx="12"    cy="12.25" r="1.2" />
+                    <circle cx="13.75" cy="13.25" r="1.2" />
+                  </svg>
+                </div>
+                <h3 data-i18n="feat3_t">Simulation</h3>
+                <p data-i18n="feat3_p">
+                  Path-based motion on 3D objects. Simulate AMR/AGV routes and logistics flow on the real-space twin.
+                </p>
+              </article>
+
+              <article class="feature-tile" data-feature-index="3" tabindex="0">
+                <div class="feature-tile__icon" aria-hidden="true">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                  </svg>
+                </div>
+                <h3 data-i18n="feat4_t">Information visualization</h3>
+                <p data-i18n="feat4_p">
+                  Memo pins, data links, and pop-up details on equipment. Manage inspection history in space; highlight
+                  risk zones and anomalies with color for quick identification.
+                </p>
+              </article>
+
+            </div>
+            <div class="feature-preview-clip" aria-hidden="true">
+              <div class="feature-preview-clip__inner">
+                <div class="feature-preview-stage">
+                  <div class="feature-preview-panel" data-feature-panel="0">
+                    <div class="feature-preview-placeholder" role="img" data-i18n-aria="feat_preview_aria_1" aria-label="Spatial reconstruction — image placeholder"></div>
+                  </div>
+                  <div class="feature-preview-panel" data-feature-panel="1">
+                    <div class="feature-preview-placeholder" role="img" data-i18n-aria="feat_preview_aria_2" aria-label="Spatial redesign — image placeholder"></div>
+                  </div>
+                  <div class="feature-preview-panel" data-feature-panel="2">
+                    <div class="feature-preview-placeholder" role="img" data-i18n-aria="feat_preview_aria_3" aria-label="Simulation — image placeholder"></div>
+                  </div>
+                  <div class="feature-preview-panel" data-feature-panel="3">
+                    <div class="feature-preview-placeholder" role="img" data-i18n-aria="feat_preview_aria_4" aria-label="Information visualization — image placeholder"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        <!-- ══════════════════════════════════════════════ MORE APPLICATIONS -->
+        <section id="more-applications" class="section reveal section--more-applications">
+          <h2 data-i18n="more_title">More applications</h2>
+          <p class="lead lead--more-tagline" data-i18n="more_tagline" data-i18n-html>
+            <span class="more-tagline__accent">Across diverse industries,</span><span class="more-tagline__rest"> broadly, easily, and quickly applicable.</span>
+          </p>
+          <p class="more-applications__hint" data-i18n="more_hint">
+            Select an industry below to explore examples.
+          </p>
+          <div id="more-application-tabs" class="tabs">
+            <div class="tabs__list" role="tablist" aria-label="Application areas">
+              <button type="button" class="tabs__tab" role="tab" id="tab-app0" aria-controls="panel-app0" aria-selected="true"  data-i18n="tab_app0">Manufacturing</button>
+              <button type="button" class="tabs__tab" role="tab" id="tab-app1" aria-controls="panel-app1" aria-selected="false" tabindex="-1" data-i18n="tab_app1">Fashion &amp; commerce</button>
+              <button type="button" class="tabs__tab" role="tab" id="tab-app2" aria-controls="panel-app2" aria-selected="false" tabindex="-1" data-i18n="tab_app2">Advertising &amp; branded content</button>
+              <button type="button" class="tabs__tab" role="tab" id="tab-app3" aria-controls="panel-app3" aria-selected="false" tabindex="-1" data-i18n="tab_app3">Film &amp; VFX</button>
+              <button type="button" class="tabs__tab" role="tab" id="tab-app4" aria-controls="panel-app4" aria-selected="false" tabindex="-1" data-i18n="tab_app4">Edutech</button>
+            </div>
+            <div class="tabs__viewport">
+              <div class="tabs__panels">
+
+                <section id="panel-app0" class="tabs__panel is-active" role="tabpanel" aria-labelledby="tab-app0" aria-hidden="false">
+                  <div class="tabs__layout">
+                    <div class="media-placeholder media-placeholder--tab" aria-hidden="true">
+                      <span class="media-placeholder__label" data-i18n="panel_app0_l">Manufacturing</span>
+                    </div>
+                    <p data-i18n="panel_app0_p">
+                      On manufacturing sites with heavy equipment and production lines, use photoreal 3D twins for
+                      layout review, training, and stakeholder walkthroughs—without waiting on a full CAD rebuild.
+                    </p>
+                  </div>
+                </section>
+
+                <section id="panel-app1" class="tabs__panel" role="tabpanel" aria-labelledby="tab-app1" aria-hidden="true">
+                  <div class="tabs__layout">
+                    <div class="media-placeholder media-placeholder--tab" aria-hidden="true">
+                      <span class="media-placeholder__label" data-i18n="panel_app1_l">Fashion</span>
+                    </div>
+                    <p data-i18n="panel_app1_p">
+                      Products, lookbooks, and virtual try-on in consistent lighting—for e-commerce, seasonal drops, and
+                      campaign previews with look and feel close to real materials.
+                    </p>
+                  </div>
+                </section>
+
+                <section id="panel-app2" class="tabs__panel" role="tabpanel" aria-labelledby="tab-app2" aria-hidden="true">
+                  <div class="tabs__layout">
+                    <div class="media-placeholder media-placeholder--tab" aria-hidden="true">
+                      <span class="media-placeholder__label" data-i18n="panel_app2_l">Advertising &amp; content</span>
+                    </div>
+                    <p data-i18n="panel_app2_p">
+                      Branded virtual sets, stage-like spaces, and experiential marketing—shape creative direction in 3D
+                      before costly physical sets or location shoots.
+                    </p>
+                  </div>
+                </section>
+
+                <section id="panel-app3" class="tabs__panel" role="tabpanel" aria-labelledby="tab-app3" aria-hidden="true">
+                  <div class="tabs__layout">
+                    <div class="media-placeholder media-placeholder--tab" aria-hidden="true">
+                      <span class="media-placeholder__label" data-i18n="panel_app3_l">VFX</span>
+                    </div>
+                    <p data-i18n="panel_app3_p">
+                      Previs, set extensions, on-set matching—lock digital assets to photographed locations so directors
+                      and VFX teams share one spatial reference.
+                    </p>
+                  </div>
+                </section>
+
+                <section id="panel-app4" class="tabs__panel" role="tabpanel" aria-labelledby="tab-app4" aria-hidden="true">
+                  <div class="tabs__layout">
+                    <div class="media-placeholder media-placeholder--tab" aria-hidden="true">
+                      <span class="media-placeholder__label" data-i18n="panel_app4_l">Edutech</span>
+                    </div>
+                    <p data-i18n="panel_app4_p">
+                      Reconstruct labs, classrooms, and hands-on training sites for remote guidance, safety education, and
+                      curriculum demos—all explorable in the browser.
+                    </p>
+                  </div>
+                </section>
+
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════ RESOURCES -->
+        <section id="resources" class="section reveal section--resources">
+          <h2 data-i18n="res_title">Resources</h2>
+          <div class="resource-actions">
+
+            <a class="resource-card resource-card--paper" href="#" id="paper-link">
+              <span class="resource-card__icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                  <line x1="10" y1="9"  x2="8" y2="9"  />
+                </svg>
+              </span>
+              <span class="resource-card__title" data-i18n="res_paper_t">Paper</span>
+              <span class="resource-card__desc"  data-i18n="res_paper_d">Coming soon</span>
+            </a>
+
+            <a class="resource-card" href="https://github.com/sfacspace/sfacstudio-viewer" target="_blank" rel="noopener noreferrer">
+              <span class="resource-card__icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                </svg>
+              </span>
+              <span class="resource-card__title">GitHub</span>
+              <span class="resource-card__desc" data-i18n="res_github_d">Source, issues, and README</span>
+            </a>
+
+            <a class="resource-card" href="https://sfacstudio.vercel.app/" target="_blank" rel="noopener noreferrer">
+              <span class="resource-card__icon" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="2" y1="12" x2="22" y2="12" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                </svg>
+              </span>
+              <span class="resource-card__title" data-i18n="res_site_t">Website</span>
+              <span class="resource-card__desc"  data-i18n="res_site_d">Product home · opens in a new tab</span>
+            </a>
+
+          </div>
+        </section>
+
+      </div><!-- /.wrap -->
     </main>
 
     <footer class="site-footer">
       <p>
-        © SFAC Space ·
+        © SFACSPACE ·
         <a href="https://github.com/sfacspace/sfacstudio-viewer" target="_blank" rel="noopener noreferrer">GitHub</a>
       </p>
     </footer>
 
+    <div
+      id="video-modal"
+      class="video-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="video-modal-title"
+      hidden
+    >
+      <div class="video-modal__backdrop" data-video-modal-close role="presentation"></div>
+      <div class="video-modal__window">
+        <h2 id="video-modal-title" class="visually-hidden" data-i18n="video_modal_title">Product video</h2>
+        <button
+          type="button"
+          class="video-modal__close"
+          data-video-modal-close
+          data-i18n-aria="video_modal_close_aria"
+          aria-label="Close video"
+        >
+          <span aria-hidden="true">×</span>
+        </button>
+        <div class="video-modal__frame">
+          <iframe
+            id="video-modal-iframe"
+            class="video-modal__iframe"
+            title="YouTube"
+            src=""
+            referrerpolicy="strict-origin-when-cross-origin"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen
+          ></iframe>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/i18n.js" defer></script>
+    <script src="js/landing.js" defer></script>
     <script>
-      document.getElementById("copy-bib").addEventListener("click", function () {
-        var el = document.getElementById("bibtex");
-        var text = el.textContent;
-        navigator.clipboard.writeText(text).then(
-          function () {
-            var btn = document.getElementById("copy-bib");
-            var prev = btn.textContent;
-            btn.textContent = "복사됨";
-            setTimeout(function () {
-              btn.textContent = prev;
-            }, 2000);
-          },
-          function () {
-            alert("복사에 실패했습니다. 브라우저에서 클립보드 권한을 확인해 주세요.");
-          }
-        );
-      });
+      document.getElementById("paper-link").addEventListener("click",  function(e){ e.preventDefault(); });
+      document.getElementById("hero-paper").addEventListener("click",   function(e){ e.preventDefault(); });
     </script>
   </body>
 </html>

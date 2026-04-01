@@ -64,9 +64,9 @@ export class TimelineController {
     this.onObjectsChange = null;
     /** @type {Function|null} */
     this.onObjectSelect = null;
-    /** @type {Function|null} - delete request (objectId, objectName) */
+    /** @type {((ids: string[], names: string[]) => void) | null} */
     this.onDeleteRequest = null;
-    /** @type {Function|null} - duplicate request (objectId) */
+    /** @type {((ids: string[]) => void) | null} */
     this.onDuplicateRequest = null;
   }
 
@@ -178,7 +178,7 @@ export class TimelineController {
     this._objects.onObjectsChange = (objs) => this.onObjectsChange?.(objs);
     this._objects.onObjectSelect = (obj) => this.onObjectSelect?.(obj);
     this._objects.onHierarchyChange = (childId) => {
-      if (this.selectedObjectId === childId) {
+      if (this._objects.isObjectSelected?.(childId)) {
         const o = this._objects.objects.find((x) => x.id === childId);
         if (o) this.onObjectSelect?.(o);
       }
@@ -374,6 +374,14 @@ export class TimelineController {
   }
 
   /**
+   * @param {string[]} ids
+   * @param {string|null} [primaryId]
+   */
+  selectObjectIds(ids, primaryId) {
+    this._objects?.selectMultiple?.(ids, primaryId);
+  }
+
+  /**
    * Return selected object.
    */
   getSelectedObject() {
@@ -392,6 +400,11 @@ export class TimelineController {
    */
   get selectedObjectId() {
     return this._objects?.selectedObjectId ?? null;
+  }
+
+  /** @returns {string[]} */
+  get selectedObjectIds() {
+    return this._objects?.getSelectedIds?.() ?? [];
   }
 
   /**

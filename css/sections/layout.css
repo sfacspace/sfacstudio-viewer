@@ -9,8 +9,8 @@ html {
   /* 패널·캔버스 상단 (뷰 도구 스트립은 오버레이만, 레이아웃에 포함 안 함) */
   --app-chrome-top: var(--header-height);
   --objects-panel-width: 288px;
-  /* 오른쪽 아이콘 열: border(2) + 패딩(8+8) + 버튼(44) = 62px, 리사이즈 없음 */
-  --right-tools-strip-width: 62px;
+  /* 오른쪽 아이콘 열: 기존 62px + 5px 여유 */
+  --right-tools-strip-width: 67px;
   /* Axis gizmo: 뷰포트 오른쪽 기준 (사이드바 유무는 gizmo.css에서 :has 로 전환) */
   --axis-gizmo-inset-from-viewport: 16px;
   --axis-gizmo-gap-from-sidebar: 12px;
@@ -163,6 +163,37 @@ body.is-resizing-objects-panel {
   box-sizing: border-box;
   overflow-x: visible;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--color-accent-rgb), 0.65) rgba(255, 255, 255, 0.06);
+}
+
+.right-tools-panel__inner::-webkit-scrollbar {
+  width: 7px;
+}
+
+.right-tools-panel__inner::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  margin: 6px 0;
+}
+
+.right-tools-panel__inner::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(var(--color-accent-rgb), 0.85),
+    rgba(var(--color-accent-rgb), 0.4)
+  );
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  box-shadow: 0 0 6px rgba(var(--color-accent-rgb), 0.25);
+}
+
+.right-tools-panel__inner::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    rgb(var(--color-accent-rgb)),
+    rgba(var(--color-accent-rgb), 0.55)
+  );
 }
 
 .objects-panel__inner {

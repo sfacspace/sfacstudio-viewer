@@ -26,7 +26,7 @@ export function getInspectorDragBounds(panel) {
     : cssPx("--objects-panel-width", 288) + cssPx("--inspector-gap-from-sidebar", 12);
   const rightInset = rightHidden
     ? cssPx("--inspector-inset-from-viewport", 16)
-    : cssPx("--right-tools-strip-width", 62) + cssPx("--inspector-gap-from-sidebar", 12);
+    : cssPx("--right-tools-strip-width", 67) + cssPx("--inspector-gap-from-sidebar", 12);
 
   const minLeft = leftInset;
   let maxLeft = iw - w - rightInset;
@@ -50,6 +50,31 @@ export function getInspectorDragBounds(panel) {
   }
 
   return { minLeft, maxLeft, minTop, maxTop };
+}
+
+/**
+ * 플로팅 인스펙터 기본 위치: 허용 영역 안에서 오른쪽 위(드래그 클램프와 동일한 minTop / maxLeft).
+ * @param {HTMLElement} panel
+ * @param {number} [maxRetries]
+ */
+export function applyInspectorDefaultTopRight(panel, maxRetries = 8) {
+  if (!panel) return;
+  let attempts = 0;
+  const run = () => {
+    attempts += 1;
+    const rect = panel.getBoundingClientRect();
+    if (rect.width < 8 && attempts < maxRetries) {
+      requestAnimationFrame(run);
+      return;
+    }
+    const b = getInspectorDragBounds(panel);
+    panel.style.left = `${b.maxLeft}px`;
+    panel.style.top = `${b.minTop}px`;
+    panel.style.right = "auto";
+    panel.style.bottom = "auto";
+    panel.style.transform = "none";
+  };
+  requestAnimationFrame(run);
 }
 
 /**

@@ -1,3 +1,5 @@
+import { applyInspectorDefaultTopRight } from "./draggablePanel.js";
+
 /** Object inspector: transform (position/rotation/scale) display and edit; uniform scale with gizmo sync. */
 export class InspectorController {
   constructor() {
@@ -20,6 +22,8 @@ export class InspectorController {
     this._uniformScaleRatio = { x: 1, y: 1, z: 1 };
     this._gizmoController = null;
     this._isExternalUpdate = false;
+    /** 첫 표시 시에만 플로팅 기본 위치(오른쪽 상단) 적용 */
+    this._appliedDefaultFloatPosition = false;
   }
 
   init(gizmoController = null) {
@@ -105,6 +109,13 @@ export class InspectorController {
     if (this._containerEl) {
       this._containerEl.classList.remove("is-hidden");
       this._containerEl.setAttribute("aria-hidden", "false");
+      if (
+        !this._appliedDefaultFloatPosition &&
+        this._containerEl.classList.contains("object-inspector--viewport-float")
+      ) {
+        this._appliedDefaultFloatPosition = true;
+        applyInspectorDefaultTopRight(this._containerEl);
+      }
     }
     if (this._nameEl) {
       this._nameEl.textContent = obj.name || "Unknown";

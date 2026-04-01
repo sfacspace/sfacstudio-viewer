@@ -38,9 +38,14 @@ export class ObjectsManager {
     this._onGlobalDragEnd = this._onGlobalDragEnd.bind(this);
     document.addEventListener('dragend', this._onGlobalDragEnd);
     this._attachObjectListDnDDelegation();
-    
-    /** @type {string|null} */
+    this._attachMarqueeSelect();
+
+    /** @type {string|null} primary selection (gizmo / inspector / viewer) */
     this.selectedObjectId = null;
+    /** @type {Set<string>} hierarchy multi-select */
+    this._selectedIds = new Set();
+    /** @type {string|null} anchor for Shift+click range */
+    this._rangeAnchorId = null;
     
     /** @type {string|null} - object ID being name-edited */
     this._editingNameId = null;
@@ -53,9 +58,9 @@ export class ObjectsManager {
     this.onObjectsChange = null;
     /** @type {Function|null} */
     this.onObjectSelect = null;
-    /** @type {Function|null} - delete request callback */
+    /** @type {((ids: string[], names: string[]) => void) | null} */
     this.onDeleteRequest = null;
-    /** @type {Function|null} - duplicate request callback (objectId) */
+    /** @type {((ids: string[]) => void) | null} */
     this.onDuplicateRequest = null;
     /** @type {((childId: string) => void) | null} */
     this.onHierarchyChange = null;
@@ -151,22 +156,36 @@ export class ObjectsManager {
     const idx = this.objects.findIndex(o => o.id === id);
     if (idx === -1) return;
 
+    const wasInSelection = this._selectedIds.has(id);
+
     for (const o of this.objects) {
       if (o.parentId === id) o.parentId = null;
     }
 
     this.objects.splice(idx, 1);
-    
-    if (this.selectedObjectId === id) {
+
+    this._selectedIds.delete(id);
+    if (this._selectedIds.size === 0) {
       this.selectedObjectId = null;
+    } else if (this.selectedObjectId === id) {
+      this.selectedObjectId = this._firstIdInVisibleSelection();
     }
-    
+
     this.render();
     this.onObjectsChange?.(this.objects);
     try {
       this._syncEntityOrder?.();
     } catch (e) {
       /* ignore */
+    }
+
+    if (wasInSelection) {
+      if (this._selectedIds.size === 0) {
+        this._rangeAnchorId = null;
+        this.onObjectSelect?.(null);
+      } else {
+        this.onObjectSelect?.(this.getSelected());
+      }
     }
   }
 
@@ -239,7 +258,9 @@ export class ObjectsManager {
   /** Remove all objects. */
   clear() {
     this.objects = [];
+    this._selectedIds.clear();
     this.selectedObjectId = null;
+    this._rangeAnchorId = null;
     this.render();
     this.onObjectsChange?.(this.objects);
     try {
@@ -277,22 +298,316 @@ export class ObjectsManager {
   }
 
   /**
-   * Select object.
+   * Select object (single; clears multi-select).
    * @param {string} id
    */
   select(id) {
-    this.selectedObjectId = id;
-    this.render();
-    
-    const obj = this.objects.find(o => o.id === id);
-    this.onObjectSelect?.(obj || null);
+    this._selectSingle(id);
   }
 
   /** Clear selection. */
   clearSelection() {
+    this._selectedIds.clear();
     this.selectedObjectId = null;
+    this._rangeAnchorId = null;
     this.render();
     this.onObjectSelect?.(null);
+  }
+
+  /** @returns {string[]} visible list order ids that are selected */
+  getSelectedIds() {
+    return this._getVisibleObjectIdsInOrder().filter((oid) => this._selectedIds.has(oid));
+  }
+
+  /**
+   * 다중 선택 상태로 전환 (복제 후 등).
+   * @param {string[]} ids
+   * @param {string|null} [primaryId]
+   */
+  selectMultiple(ids, primaryId) {
+    const set = new Set((ids || []).filter(Boolean));
+    this._selectedIds.clear();
+    set.forEach((id) => this._selectedIds.add(id));
+    let prim =
+      primaryId && set.has(primaryId)
+        ? primaryId
+        : this._lastIdInVisibleSet(set);
+    if (!prim && set.size) prim = [...set][0];
+    this.selectedObjectId = prim || null;
+    this._rangeAnchorId = this.selectedObjectId;
+    if (this._selectedIds.size === 0) {
+      this.clearSelection();
+      return;
+    }
+    this.render();
+    this.onObjectSelect?.(this.getSelected());
+  }
+
+  /**
+   * 우클릭한 행이 현재 선택에 포함되면 전체 선택, 아니면 해당 행만.
+   * @private
+   * @param {string|null} clickedRowObjectId
+   * @returns {{ ids: string[], names: string[] }}
+   */
+  _idsAndNamesForBulkRowAction(clickedRowObjectId) {
+    const selectedOrdered = this.getSelectedIds();
+    if (
+      clickedRowObjectId &&
+      this._selectedIds.has(clickedRowObjectId) &&
+      selectedOrdered.length > 0
+    ) {
+      const names = selectedOrdered.map(
+        (id) => this.objects.find((o) => o.id === id)?.name ?? id
+      );
+      return { ids: selectedOrdered, names };
+    }
+    if (clickedRowObjectId) {
+      const obj = this.objects.find((o) => o.id === clickedRowObjectId);
+      if (obj) {
+        return {
+          ids: [clickedRowObjectId],
+          names: [obj.name ?? clickedRowObjectId],
+        };
+      }
+    }
+    const names = selectedOrdered.map(
+      (id) => this.objects.find((o) => o.id === id)?.name ?? id
+    );
+    return { ids: selectedOrdered, names };
+  }
+
+  /** @param {string} id */
+  isObjectSelected(id) {
+    return this._selectedIds.has(id);
+  }
+
+  /**
+   * Visible hierarchy row order (matches render).
+   * @private
+   * @returns {string[]}
+   */
+  _getVisibleObjectIdsInOrder() {
+    const ids = [];
+    for (const obj of this.objects) {
+      if (obj.loadedWithGlb) continue;
+      if (this._isHiddenUnderCollapsedParent(obj)) continue;
+      ids.push(obj.id);
+    }
+    return ids;
+  }
+
+  /**
+   * @private
+   * @returns {string|null}
+   */
+  _firstIdInVisibleSelection() {
+    for (const oid of this._getVisibleObjectIdsInOrder()) {
+      if (this._selectedIds.has(oid)) return oid;
+    }
+    return null;
+  }
+
+  /**
+   * @private
+   * @param {string} id
+   */
+  _selectSingle(id) {
+    this._selectedIds.clear();
+    this._selectedIds.add(id);
+    this.selectedObjectId = id;
+    this._rangeAnchorId = id;
+    this.render();
+    const obj = this.objects.find((o) => o.id === id);
+    this.onObjectSelect?.(obj || null);
+  }
+
+  /**
+   * @private
+   * @param {string} id
+   */
+  _toggleSelect(id) {
+    if (this._selectedIds.has(id)) {
+      this._selectedIds.delete(id);
+      if (this._selectedIds.size === 0) {
+        this.clearSelection();
+        return;
+      }
+      if (this.selectedObjectId === id) {
+        this.selectedObjectId = this._firstIdInVisibleSelection();
+      }
+    } else {
+      this._selectedIds.add(id);
+      this.selectedObjectId = id;
+    }
+    this.render();
+    this.onObjectSelect?.(this.getSelected());
+  }
+
+  /**
+   * @private
+   * @param {string} anchorId
+   * @param {string} endId
+   */
+  _selectRangeFromTo(anchorId, endId) {
+    const order = this._getVisibleObjectIdsInOrder();
+    let ia = order.indexOf(anchorId);
+    const ib = order.indexOf(endId);
+    if (ib === -1) return;
+    if (ia === -1) ia = ib;
+    const lo = Math.min(ia, ib);
+    const hi = Math.max(ia, ib);
+    this._selectedIds.clear();
+    for (let i = lo; i <= hi; i++) {
+      this._selectedIds.add(order[i]);
+    }
+    this.selectedObjectId = endId;
+    this.render();
+    this.onObjectSelect?.(this.getSelected());
+  }
+
+  /**
+   * 계층 리스트 빈 영역에서 드래그해 사각형(마퀴)으로 다중 선택.
+   * @private
+   */
+  _attachMarqueeSelect() {
+    const listEl = this._objectsListEl;
+    if (!listEl || listEl._marqueeAttached) return;
+    listEl._marqueeAttached = true;
+
+    const MARQUEE_MIN = 4;
+
+    const rectsIntersect = (a, b) =>
+      !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+
+    let active = false;
+    let startX = 0;
+    let startY = 0;
+    /** @type {HTMLElement|null} */
+    let marqueeEl = null;
+
+    const removeMarquee = () => {
+      if (marqueeEl) {
+        marqueeEl.remove();
+        marqueeEl = null;
+      }
+    };
+
+    const syncMarqueeDom = (clientX, clientY) => {
+      const left = Math.min(startX, clientX);
+      const top = Math.min(startY, clientY);
+      const w = Math.abs(clientX - startX);
+      const h = Math.abs(clientY - startY);
+      if (w < MARQUEE_MIN && h < MARQUEE_MIN) {
+        removeMarquee();
+        return;
+      }
+      if (!marqueeEl) {
+        marqueeEl = document.createElement("div");
+        marqueeEl.className = "timeline__hierarchy-marquee";
+        marqueeEl.setAttribute("aria-hidden", "true");
+        document.body.appendChild(marqueeEl);
+      }
+      marqueeEl.style.left = `${left}px`;
+      marqueeEl.style.top = `${top}px`;
+      marqueeEl.style.width = `${w}px`;
+      marqueeEl.style.height = `${h}px`;
+    };
+
+    const collectIdsInClientRect = (left, top, w, h) => {
+      const sel = { left, top, right: left + w, bottom: top + h };
+      const band = new Set();
+      listEl.querySelectorAll(".timeline__obj-row").forEach((row) => {
+        const id = row.dataset.objectId;
+        if (!id) return;
+        const r = row.getBoundingClientRect();
+        if (rectsIntersect(sel, r)) band.add(id);
+      });
+      return band;
+    };
+
+    const onMouseMove = (e) => {
+      if (!active) return;
+      e.preventDefault();
+      syncMarqueeDom(e.clientX, e.clientY);
+    };
+
+    const onMouseUp = (e) => {
+      if (!active) return;
+      active = false;
+      listEl.classList.remove("is-marquee-dragging");
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+
+      const x1 = e.clientX;
+      const y1 = e.clientY;
+      const w = Math.abs(x1 - startX);
+      const h = Math.abs(y1 - startY);
+
+      removeMarquee();
+
+      if (w < MARQUEE_MIN && h < MARQUEE_MIN) {
+        if (!e.shiftKey) this.clearSelection();
+        return;
+      }
+
+      const left = Math.min(startX, x1);
+      const top = Math.min(startY, y1);
+      const band = collectIdsInClientRect(left, top, w, h);
+      this._applyRectSelectionBand(band, e.shiftKey);
+      const prim = this.selectedObjectId;
+      if (prim) this._rangeAnchorId = prim;
+    };
+
+    listEl.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest(".timeline__obj-row")) return;
+      e.preventDefault();
+      active = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      listEl.classList.add("is-marquee-dragging");
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    });
+  }
+
+  /**
+   * 마퀴(또는 동일 규칙)으로 모인 id 집합을 선택 상태에 반영.
+   * @private
+   * @param {Set<string>} band
+   * @param {boolean} shiftUnion
+   */
+  _applyRectSelectionBand(band, shiftUnion) {
+    if (shiftUnion) {
+      band.forEach((id) => this._selectedIds.add(id));
+      const lip = this._lastIdInVisibleSet(band);
+      if (lip) this.selectedObjectId = lip;
+    } else {
+      this._selectedIds.clear();
+      band.forEach((id) => this._selectedIds.add(id));
+      this.selectedObjectId =
+        this._lastIdInVisibleSet(band) || (band.size ? [...band][0] : null);
+    }
+
+    if (this._selectedIds.size === 0) {
+      this.clearSelection();
+      return;
+    }
+    this.render();
+    this.onObjectSelect?.(this.getSelected());
+  }
+
+  /**
+   * @private
+   * @param {Set<string>} idSet
+   * @returns {string|null}
+   */
+  _lastIdInVisibleSet(idSet) {
+    const order = this._getVisibleObjectIdsInOrder();
+    for (let i = order.length - 1; i >= 0; i--) {
+      if (idSet.has(order[i])) return order[i];
+    }
+    return null;
   }
 
   /**
@@ -642,8 +957,11 @@ export class ObjectsManager {
       row.style.paddingLeft = `${depth * 14}px`;
     }
 
-    if (this.selectedObjectId === obj.id) {
+    if (this._selectedIds.has(obj.id)) {
       row.classList.add("is-selected");
+    }
+    if (this.selectedObjectId === obj.id) {
+      row.classList.add("is-primary-selected");
     }
     if (obj.isMultiFile) {
       row.classList.add("is-multi-file");
@@ -745,6 +1063,22 @@ export class ObjectsManager {
       if (e.target.closest(".timeline__obj-btn-actions")) return;
       if (e.target.closest(".timeline__obj-row__expand")) return;
       if (this._editingNameId) return;
+
+      const additive = e.metaKey || e.ctrlKey;
+      const range = e.shiftKey;
+
+      if (additive || range) {
+        e.preventDefault();
+        if (range) {
+          const anchor = this._rangeAnchorId ?? this.selectedObjectId ?? obj.id;
+          this._selectRangeFromTo(anchor, obj.id);
+        } else {
+          this._toggleSelect(obj.id);
+          this._rangeAnchorId = obj.id;
+        }
+        return;
+      }
+
       if (clickTimer) {
         clearTimeout(clickTimer);
         clickTimer = null;
@@ -752,10 +1086,10 @@ export class ObjectsManager {
       }
       clickTimer = setTimeout(() => {
         clickTimer = null;
-        if (this.selectedObjectId === obj.id) {
+        if (this._selectedIds.size === 1 && this._selectedIds.has(obj.id)) {
           this.clearSelection();
         } else {
-          this.select(obj.id);
+          this._selectSingle(obj.id);
         }
       }, DOUBLE_CLICK_DELAY);
     });
@@ -769,9 +1103,7 @@ export class ObjectsManager {
       }
       e.preventDefault();
       e.stopPropagation();
-      if (this.selectedObjectId !== obj.id) {
-        this.select(obj.id);
-      }
+      this._selectSingle(obj.id);
       this._startNameEdit(obj.id, nameEl);
     });
 
@@ -891,7 +1223,8 @@ export class ObjectsManager {
         
         const action = item.dataset.action;
         if (action === "duplicate" && this._contextMenuTargetId) {
-          this.onDuplicateRequest?.(this._contextMenuTargetId);
+          const { ids } = this._idsAndNamesForBulkRowAction(this._contextMenuTargetId);
+          if (ids.length) this.onDuplicateRequest?.(ids);
           this._hideMultiFileContextMenu();
           return;
         }
@@ -901,10 +1234,10 @@ export class ObjectsManager {
           return;
         }
         if (action === "delete" && this._contextMenuTargetId) {
-          const targetObj = this.objects.find((o) => o.id === this._contextMenuTargetId);
+          const { ids, names } = this._idsAndNamesForBulkRowAction(this._contextMenuTargetId);
           this._hideMultiFileContextMenu();
-          if (targetObj && this.onDeleteRequest) {
-            this.onDeleteRequest(targetObj.id, targetObj.name);
+          if (ids.length && this.onDeleteRequest) {
+            this.onDeleteRequest(ids, names);
           }
           return;
         }
@@ -979,7 +1312,8 @@ export class ObjectsManager {
         if (!id) return;
         if (action === "duplicate") {
           this._hideTimelineObjectContextMenu();
-          this.onDuplicateRequest?.(id);
+          const { ids } = this._idsAndNamesForBulkRowAction(id);
+          if (ids.length) this.onDuplicateRequest?.(ids);
           return;
         }
         if (action === "parentFromSelection") {
@@ -996,10 +1330,10 @@ export class ObjectsManager {
           return;
         }
         if (action === "delete") {
-          const target = this.objects.find((o) => o.id === id);
+          const { ids, names } = this._idsAndNamesForBulkRowAction(id);
           this._hideTimelineObjectContextMenu();
-          if (target && this.onDeleteRequest) {
-            this.onDeleteRequest(target.id, target.name);
+          if (ids.length && this.onDeleteRequest) {
+            this.onDeleteRequest(ids, names);
           }
           return;
         }

@@ -26,6 +26,10 @@
   background: rgba(60, 120, 200, 0.22);
 }
 
+.timeline__obj-row.is-primary-selected {
+  box-shadow: inset 2px 0 0 0 rgba(120, 190, 255, 0.95);
+}
+
 .timeline__obj-row.is-multi-file {
   border-left: 2px solid rgba(var(--color-sequence-rgb), 0.45);
   padding-left: 2px;
@@ -229,4 +233,19 @@
 .timeline__obj-btn-name-input:focus {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb), 0.25);
+}
+
+/* Hierarchy: empty-area marquee selection (fixed to viewport) */
+.timeline__hierarchy-marquee {
+  position: fixed;
+  z-index: 50000;
+  box-sizing: border-box;
+  border: 1px solid rgba(120, 190, 255, 0.85);
+  background: rgba(120, 190, 255, 0.12);
+  pointer-events: none;
+}
+
+.objects-panel__list.is-marquee-dragging {
+  user-select: none;
+  cursor: crosshair;
 }

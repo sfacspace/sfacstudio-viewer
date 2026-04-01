@@ -52,7 +52,7 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
   if (sceneSettings.fogColor) {
     app.scene.fog.type = pc.FOG_EXP2;
     app.scene.fog.color.set(sceneSettings.fogColor.r || 0, sceneSettings.fogColor.g || 0, sceneSettings.fogColor.b || 0);
-    app.scene.fog.density = sceneSettings.fogDensity ?? 0.04;
+    app.scene.fog.density = sceneSettings.fogDensity ?? 0.03;
   }
   const clear = sceneSettings.clearColor || { r: 0.08, g: 0.08, b: 0.12 };
   const cameraEntity = new pc.Entity("Camera");

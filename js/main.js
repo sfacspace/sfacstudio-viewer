@@ -83,7 +83,7 @@ function closeAuxGizmoPopovers(except) {
 function getRightToolsStripPx() {
   const raw = getComputedStyle(document.documentElement).getPropertyValue("--right-tools-strip-width").trim();
   const n = parseInt(raw, 10);
-  return Number.isFinite(n) ? n : 62;
+  return Number.isFinite(n) ? n : 67;
 }
 
 function positionAuxFloatingPopover(popoverEl, anchorBtn) {
@@ -1212,17 +1212,30 @@ function initTimeline() {
   };
   
   // Delete request callback → show delete confirm modal
-  timeline.onDeleteRequest = (objectId, objectName) => {
-    showDeleteModal(objectId, objectName);
+  timeline.onDeleteRequest = (objectIds, objectNames) => {
+    showDeleteModal(objectIds, objectNames);
   };
 
-  timeline.onDuplicateRequest = (objectId) => {
-    const obj = timeline.objects.find((o) => o.id === objectId);
-    if (!obj) return;
+  timeline.onDuplicateRequest = async (objectIds) => {
+    const ids = Array.isArray(objectIds)
+      ? objectIds
+      : objectIds != null
+        ? [objectIds]
+        : [];
+    if (ids.length === 0) return;
     const sel = window.__selectionTool ?? selectionTool;
-    runDuplicateObject(obj, { viewer, timeline, selectionTool: sel }).then((added) => {
-      if (added && timeline.selectObject) timeline.selectObject(added.id);
-    });
+    const newIds = [];
+    for (const objectId of ids) {
+      const obj = timeline.objects.find((o) => o.id === objectId);
+      if (!obj) continue;
+      const added = await runDuplicateObject(obj, { viewer, timeline, selectionTool: sel });
+      if (added?.id) newIds.push(added.id);
+    }
+    if (newIds.length === 1 && timeline.selectObject) {
+      timeline.selectObject(newIds[0]);
+    } else if (newIds.length > 1) {
+      timeline.selectObjectIds?.(newIds, newIds[newIds.length - 1]);
+    }
   };
 
   // Init camera template manager (frame-based playback)
@@ -1930,29 +1943,64 @@ const deleteModalConfirm = document.getElementById("deleteModalConfirm");
 const deleteModalTitle = document.getElementById("deleteModalTitle");
 const deleteModalText = document.querySelector(".delete-modal__text");
 
-let pendingDeleteObjectId = null;
+/** @type {string[]|null} */
+let pendingDeleteObjectIds = null;
 let pendingDeleteType = null; // 'object' | 'keyframes'
 
+function escapeHtmlForDeleteModal(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 /**
- * Show delete confirm modal (object delete)
+ * Show delete confirm modal (object delete; 단일 또는 다중)
+ * @param {string|string[]} objectIds
+ * @param {string|string[]} [objectNames]
  */
-function showDeleteModal(objectId, objectName) {
+function showDeleteModal(objectIds, objectNames) {
   if (!deleteModalOverlay) return;
-  
-  pendingDeleteObjectId = objectId;
-  pendingDeleteType = 'object';
-  
+
+  const idsRaw =
+    objectIds != null
+      ? Array.isArray(objectIds)
+        ? objectIds
+        : [objectIds]
+      : [];
+  const ids = idsRaw.filter(Boolean);
+  const namesRaw =
+    objectNames != null
+      ? Array.isArray(objectNames)
+        ? objectNames
+        : [objectNames]
+      : [];
+  const names = ids.map((id, i) => namesRaw[i] ?? id);
+
+  if (ids.length === 0) return;
+
+  pendingDeleteObjectIds = [...ids];
+  pendingDeleteType = "object";
+
   if (deleteModalTitle) {
     deleteModalTitle.textContent = "삭제";
   }
   if (deleteModalText) {
-    deleteModalText.innerHTML = `"<span id="deleteModalFilename" class="delete-modal__filename">${objectName}</span>"을(를) 정말 삭제하시겠습니까?`;
+    if (ids.length <= 1) {
+      const label = escapeHtmlForDeleteModal(names[0] ?? ids[0] ?? "");
+      deleteModalText.innerHTML = `"<span id="deleteModalFilename" class="delete-modal__filename">${label}</span>"을(를) 정말 삭제하시겠습니까?`;
+    } else {
+      const list = names
+        .map((n) => `<span class="delete-modal__filename">${escapeHtmlForDeleteModal(n)}</span>`)
+        .join(", ");
+      deleteModalText.innerHTML = `선택한 ${ids.length}개 오브젝트를 삭제하시겠습니까?<br>${list}`;
+    }
   }
-  
+
   deleteModalOverlay.classList.add("is-visible");
   deleteModalOverlay.setAttribute("aria-hidden", "false");
-  
-  // Focus confirm button
+
   setTimeout(() => deleteModalConfirm?.focus(), 100);
 }
 
@@ -1962,7 +2010,7 @@ function showDeleteModal(objectId, objectName) {
 function showKeyframeDeleteAllModal() {
   if (!deleteModalOverlay) return;
   
-  pendingDeleteObjectId = null;
+  pendingDeleteObjectIds = null;
   pendingDeleteType = 'keyframes';
   
   if (deleteModalTitle) {
@@ -1991,7 +2039,7 @@ function hideDeleteModal() {
   }
   deleteModalOverlay.classList.remove("is-visible");
   deleteModalOverlay.setAttribute("aria-hidden", "true");
-  pendingDeleteObjectId = null;
+  pendingDeleteObjectIds = null;
   pendingDeleteType = null;
 }
 
@@ -2012,7 +2060,7 @@ function showConfirmModal(title, message, confirmButtonText) {
       resolve(false);
       return;
     }
-    pendingDeleteObjectId = null;
+    pendingDeleteObjectIds = null;
     pendingDeleteType = 'confirm';
     pendingConfirmResolve = resolve;
     if (deleteModalTitle) deleteModalTitle.textContent = title;
@@ -2040,11 +2088,6 @@ async function executeObjectDelete(objectId) {
   if (!obj) return;
 
   detachChildrenBeforeParentDelete(timeline.objects, objectId, viewer);
-
-  // If delete target is selected, deselect first then remove
-  if (timeline.selectedObjectId === objectId) {
-    timeline.clearSelection();
-  }
 
   const lsm = window.__loadSessionManager;
 
@@ -2212,8 +2255,11 @@ if (deleteModalCancel) {
 }
 if (deleteModalConfirm) {
   deleteModalConfirm.addEventListener("click", async () => {
-    if (pendingDeleteType === 'object' && pendingDeleteObjectId) {
-      await executeObjectDelete(pendingDeleteObjectId);
+    if (pendingDeleteType === "object" && pendingDeleteObjectIds?.length) {
+      const batch = [...pendingDeleteObjectIds];
+      for (const objectId of batch) {
+        await executeObjectDelete(objectId);
+      }
     } else if (pendingDeleteType === 'keyframes') {
       timeline?.clearKeyframes();
     } else if (pendingDeleteType === 'confirm' && pendingConfirmResolve) {
@@ -2393,15 +2439,20 @@ window.addEventListener("keydown", (e) => {
     }
   }
   
-  // Delete/Backspace: delete selected object (confirm modal)
+  // Delete/Backspace: delete selected object(s) (confirm modal)
   if (e.code === "Delete" || e.code === "Backspace") {
-    if (timeline?.selectedObjectId) {
+    const selIds = timeline?.selectedObjectIds ?? [];
+    if (selIds.length > 0) {
+      e.preventDefault();
+      const names = selIds.map(
+        (id) => timeline.objects.find((o) => o.id === id)?.name ?? id
+      );
+      showDeleteModal(selIds, names);
+    } else if (timeline?.selectedObjectId) {
       e.preventDefault();
       const id = timeline.selectedObjectId;
-      const obj = timeline.objects.find(o => o.id === id);
-      if (obj) {
-        showDeleteModal(id, obj.name);
-      }
+      const obj = timeline.objects.find((o) => o.id === id);
+      if (obj) showDeleteModal([id], [obj.name]);
     }
   }
 });

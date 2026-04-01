@@ -12,11 +12,13 @@
   box-sizing: border-box;
 }
 
-/* 뷰포트 왼쪽 하단: LiamViewer2 글래스 카드 스타일 + 왼쪽 패널 너비에 맞춘 left */
+/* 뷰포트 오른쪽 상단(기본). 정확한 top/left는 첫 표시 시 JS가 getInspectorDragBounds로 맞춤 */
 .object-inspector--viewport-float {
   position: fixed;
-  left: calc(var(--objects-panel-width) + var(--inspector-gap-from-sidebar));
-  bottom: 16px;
+  left: auto;
+  right: calc(var(--right-tools-strip-width) + var(--inspector-gap-from-sidebar));
+  top: calc(var(--app-chrome-top, var(--header-height, 48px)) + 72px);
+  bottom: auto;
   width: min(300px, calc(100vw - var(--objects-panel-width) - var(--inspector-gap-from-sidebar) - var(--right-tools-strip-width) - var(--inspector-gap-from-sidebar) - 8px));
   max-width: calc(100vw - 24px);
   min-width: 220px;
@@ -31,12 +33,16 @@
   -webkit-backdrop-filter: blur(8px);
   transition:
     left var(--panel-slide-duration) var(--panel-slide-easing),
+    top var(--panel-slide-duration) var(--panel-slide-easing),
     opacity var(--panel-slide-duration) var(--panel-slide-easing);
 }
 
 body:has(#objectsPanel.is-hidden) .object-inspector--viewport-float {
-  left: var(--inspector-inset-from-viewport);
   width: min(300px, calc(100vw - var(--right-tools-strip-width) - var(--inspector-gap-from-sidebar) - var(--inspector-inset-from-viewport) - 16px));
+}
+
+body:has(#rightToolsPanel.is-hidden) .object-inspector--viewport-float {
+  right: var(--inspector-inset-from-viewport);
 }
 
 .object-inspector--viewport-float .object-inspector__title {

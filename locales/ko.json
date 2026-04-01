@@ -2,7 +2,7 @@
   "panel": {
     "hierarchy": "계층",
     "inspector": "인스펙터",
-    "dragToReorder": "행 드래그: 위·아래 가장자리는 순서, 가운데는 자식으로. 맨 위/아래·하단 빈 곳에 놓으면 부모에서 빠짐",
+    "dragToReorder": "행 드래그: 위·아래 가장자리는 순서, 가운데는 자식으로. 맨 위/아래·하단 빈 곳에 놓으면 부모에서 빠짐. 다중 선택: ⌘ 또는 Ctrl+클릭(토글), Shift+클릭(범위), 목록 빈 곳에서 드래그해 사각형으로 선택(Shift 누르면 추가).",
     "hierarchyExpand": "자식 표시",
     "hierarchyCollapse": "자식 숨기기",
     "resizeHandle": "패널 너비 조절",

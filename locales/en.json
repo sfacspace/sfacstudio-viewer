@@ -2,7 +2,7 @@
   "panel": {
     "hierarchy": "Hierarchy",
     "inspector": "Inspector",
-    "dragToReorder": "Drag row: top/bottom edge reorders; center nests as child. Drop at top/bottom edge or list bottom to detach from parent",
+    "dragToReorder": "Drag row: top/bottom edge reorders; center nests as child. Drop at top/bottom edge or list bottom to detach from parent. Multi-select: ⌘/Ctrl+click toggle, Shift+click range; drag on empty list area to box-select (hold Shift to add).",
     "hierarchyExpand": "Expand children",
     "hierarchyCollapse": "Collapse children",
     "resizeHandle": "Resize panel width",

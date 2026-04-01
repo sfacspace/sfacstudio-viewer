@@ -512,12 +512,13 @@ export class PlayCanvasViewer {
     try {
       this.app.scene.fog.type = pc.FOG_EXP2;
       this.app.scene.fog.color.set(0, 0, 0);
-      this.app.scene.fog.density = 0.08;
+      // Exp2 안개: 낮을수록 멀리까지 선명 (이전 0.08 → 시야 짧음)
+      this.app.scene.fog.density = 0.03;
 
+      // 타일 한 장의 월드 넓이(tileSize)를 키워 한 번에 그리는 메시 범위를 넓힘. (2r+1)*tileSize ≈ 기존 17*10.
       this._infiniteGrid = new InfiniteGrid(this.app, {
-        tileSize: 10,
-        divisionsPerTile: 10,
-        radius: 8,
+        tileSize: 34,
+        radius: 2,
       });
 
       // 카메라 연결
