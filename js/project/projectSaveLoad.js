@@ -407,5 +407,5 @@ export async function loadProjectFromFile(deps, opts = {}) {
   onProgress?.('완료');
   return { success: true, fileHandle: projectFileHandle };
 }
-
 export { LIAM_EXT, LIAM_VERSION };
+

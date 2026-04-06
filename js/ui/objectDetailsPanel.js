@@ -58,7 +58,49 @@ export class ObjectDetailsPanel {
 
     this.boxSetBtn = document.getElementById('boxSetBtn');
     this.boxAddBtn = document.getElementById('boxAddBtn');
+
+    /** 입체 툴팁을 body로 옮긴 뒤 복귀용 (우측 패널 stacking보다 위에 그리기) */
+    /** @type {ParentNode|null} */
+    this._volumeTooltipRestoreParent = null;
+    /** @type {ChildNode|null} */
+    this._volumeTooltipRestoreNext = null;
+
     this.init();
+  }
+
+  /** @private */
+  _ensureVolumeTooltipInBody() {
+    const el = this.volumeTooltip;
+    if (!el || el.parentNode === document.body) return;
+    this._volumeTooltipRestoreParent = el.parentNode;
+    this._volumeTooltipRestoreNext = el.nextSibling;
+    document.body.appendChild(el);
+  }
+
+  /** @private */
+  _restoreVolumeTooltipToPanel() {
+    const el = this.volumeTooltip;
+    if (!el || el.parentNode !== document.body || !this._volumeTooltipRestoreParent) return;
+    const p = this._volumeTooltipRestoreParent;
+    const n = this._volumeTooltipRestoreNext;
+    try {
+      if (n && n.parentNode === p) {
+        p.insertBefore(el, n);
+      } else {
+        const btn = this.buttons[3];
+        if (btn?.parentNode) {
+          btn.parentNode.insertBefore(el, btn.nextSibling);
+        } else {
+          p.appendChild(el);
+        }
+      }
+    } catch {
+      try {
+        p.appendChild(el);
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   positionTooltipOverButton(tooltipEl, buttonEl) {
@@ -66,18 +108,42 @@ export class ObjectDetailsPanel {
     const btnRect = buttonEl.getBoundingClientRect();
     const centerX = btnRect.left + btnRect.width / 2;
     const inGizmo = this.panel?.classList?.contains('gizmo-controls__selection-tools');
+    const margin = 8;
+    const gap = 12;
+    const isVolume = tooltipEl.id === 'volumeTooltip';
+    /** 오른쪽 패널보다 위(축 기즈모 110·고정 툴팁 100200보다 높게) */
+    const VOLUME_TOOLTIP_Z = 100250;
+    const VOLUME_TOOLTIP_TOP_OFFSET_PX = 100;
 
     if (inGizmo) {
+      tooltipEl.classList.add('object-details-panel__tooltip--dock-left');
       tooltipEl.style.position = 'fixed';
-      tooltipEl.style.left = `${centerX}px`;
-      tooltipEl.style.top = `${btnRect.top}px`;
-      tooltipEl.style.right = 'auto';
+      tooltipEl.style.right = `${Math.round(window.innerWidth - btnRect.left + gap)}px`;
+      tooltipEl.style.left = 'auto';
+      if (isVolume) {
+        this._ensureVolumeTooltipInBody();
+        tooltipEl.style.top = `${Math.round(
+          btnRect.top + btnRect.height / 2 - VOLUME_TOOLTIP_TOP_OFFSET_PX
+        )}px`;
+        tooltipEl.style.zIndex = String(VOLUME_TOOLTIP_Z);
+      } else {
+        tooltipEl.style.top = `${Math.round(btnRect.top + btnRect.height / 2)}px`;
+        tooltipEl.style.zIndex = '10060';
+      }
       tooltipEl.style.bottom = 'auto';
-      tooltipEl.style.transform = 'translate(-50%, calc(-100% - 12px))';
-      tooltipEl.style.zIndex = '500';
+      tooltipEl.style.transform = 'translateY(-50%)';
+      const clamp = () => {
+        const tr = tooltipEl.getBoundingClientRect();
+        if (tr.left < margin) {
+          tooltipEl.style.right = 'auto';
+          tooltipEl.style.left = `${margin}px`;
+        }
+      };
+      requestAnimationFrame(() => requestAnimationFrame(clamp));
       return;
     }
 
+    tooltipEl.classList.remove('object-details-panel__tooltip--dock-left');
     if (!this.panel) return;
     const panelRect = this.panel.getBoundingClientRect();
     const leftInPanel = centerX - panelRect.left;
@@ -131,6 +197,13 @@ export class ObjectDetailsPanel {
       if (toggleBox) toggleBox.classList.toggle('is-active', isBox);
       if (toggleSphere) toggleSphere.classList.toggle('is-active', !isBox);
     }
+    if (
+      this.volumeTooltip?.style.display !== 'none' &&
+      this.activeButtonIndex === 3 &&
+      btn4
+    ) {
+      this.positionTooltipOverButton(this.volumeTooltip, btn4);
+    }
   }
 
   /** 객체 내보내기: 선택된 점만 PLY 저장 → 지우기 → 저장한 PLY 로드 (createObjectFromSelection.js) */
@@ -149,13 +222,16 @@ export class ObjectDetailsPanel {
       this.panelWrap.setAttribute('aria-hidden', 'false');
     }
 
-    this._onWinResizeVolume = () => {
-      if (this.volumeTooltip?.style.display === 'none') return;
-      if (this.activeButtonIndex !== 3 || !this.buttons[3]) return;
-      this.positionTooltipOverButton(this.volumeTooltip, this.buttons[3]);
+    this._onWinResizeGizmoTooltips = () => {
+      if (this.activeButtonIndex === 1 && this.brushTooltip?.style.display !== 'none' && this.buttons[1]) {
+        this.positionTooltipOverButton(this.brushTooltip, this.buttons[1]);
+      }
+      if (this.activeButtonIndex === 3 && this.volumeTooltip?.style.display !== 'none' && this.buttons[3]) {
+        this.positionTooltipOverButton(this.volumeTooltip, this.buttons[3]);
+      }
     };
     if (typeof window !== 'undefined') {
-      window.addEventListener('resize', this._onWinResizeVolume, { passive: true });
+      window.addEventListener('resize', this._onWinResizeGizmoTooltips, { passive: true });
     }
     this.buttons.forEach((btn, index) => {
       if (btn) {
@@ -605,7 +681,10 @@ export class ObjectDetailsPanel {
   hideAllTooltips() {
     if (this.brushTooltip) this.brushTooltip.style.display = 'none';
     if (this.floodTooltip) this.floodTooltip.style.display = 'none';
-    if (this.volumeTooltip) this.volumeTooltip.style.display = 'none';
+    if (this.volumeTooltip) {
+      this.volumeTooltip.style.display = 'none';
+      this._restoreVolumeTooltipToPanel();
+    }
   }
 
   showTooltipForButton(index) {
@@ -614,11 +693,17 @@ export class ObjectDetailsPanel {
       if (this.selectionTool) {
         this.updateBrushRadius(this.selectionTool.brushRadius);
       }
+      if (this.buttons[1]) {
+        this.positionTooltipOverButton(this.brushTooltip, this.buttons[1]);
+      }
     }
     else if (index === 2 && this.floodTooltip) {
       this.floodTooltip.style.display = 'block';
       if (this.selectionTool) {
         this.updateFloodThreshold(this.selectionTool.floodThreshold);
+      }
+      if (this.buttons[2]) {
+        this.positionTooltipOverButton(this.floodTooltip, this.buttons[2]);
       }
     }
     else if (index === 3 && this.volumeTooltip) {

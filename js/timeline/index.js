@@ -159,12 +159,9 @@ export class TimelineController {
     // Objects manager init
     this._objects = new ObjectsManager({
       objectsListEl: this._objectsListEl,
-      getMaxSeconds: () => this.getMaxSeconds(),
       getCurrentTime: () => this._playback?.currentTime ?? 0,
       getFps: () => this.fps,
       getTotalFrames: () => this.totalFrames,
-      showTooltip: (s, x, y) => this._tooltip.show(s, x, y),
-      hideTooltip: () => this._tooltip.hide(),
       syncEntityOrder: () => {
         try {
           if (this.viewer && this._objects?.objects) {
@@ -412,6 +409,11 @@ export class TimelineController {
    */
   renderObjects() {
     this._objects?.render();
+  }
+
+  /** 계층에서 선택된 오브젝트 이름 인라인 편집 시작 (더블클릭·인스펙터 제목 등). */
+  startEditingSelectedObjectName() {
+    this._objects?.startEditingSelectedName?.();
   }
 
   // ========================================================================

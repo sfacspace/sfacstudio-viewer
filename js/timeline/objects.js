@@ -1,6 +1,4 @@
-/**
- * Timeline object list (left panel). Visibility: eye toggle; multi-file cycles by global frame index.
- */
+/** Left-panel hierarchy: selection, DnD, visibility, multi-file by frame. */
 
 import { t } from '../i18n.js';
 import {
@@ -11,23 +9,20 @@ import {
 
 const DND_MIME = 'application/x-sfacstudio-object-id';
 
+function escapeSelectorAttr(value) {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+    return CSS.escape(String(value));
+  }
+  return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
 export class ObjectsManager {
-  /**
-   * @param {Object} options
-   * @param {HTMLElement} options.objectsListEl - object list
-   * @param {Function} options.getMaxSeconds - max time getter
-   * @param {Function} options.getCurrentTime - current time getter
-   * @param {Function} options.showTooltip - show tooltip
-   * @param {Function} options.hideTooltip - hide tooltip
-   */
+  /** @param {{ objectsListEl: HTMLElement, getCurrentTime: Function, getFps?: Function, getTotalFrames?: Function|null, syncEntityOrder?: (() => void)|null }} options */
   constructor(options) {
     this._objectsListEl = options.objectsListEl;
-    this._getMaxSeconds = options.getMaxSeconds;
     this._getCurrentTime = options.getCurrentTime;
     this._getFps = options.getFps || (() => 30);
     this._getTotalFrames = options.getTotalFrames || null;
-    this._showTooltip = options.showTooltip;
-    this._hideTooltip = options.hideTooltip;
     /** @type {(() => void) | null} */
     this._syncEntityOrder = options.syncEntityOrder || null;
 
@@ -40,20 +35,12 @@ export class ObjectsManager {
     this._attachObjectListDnDDelegation();
     this._attachMarqueeSelect();
 
-    /** @type {string|null} primary selection (gizmo / inspector / viewer) */
     this.selectedObjectId = null;
-    /** @type {Set<string>} hierarchy multi-select */
     this._selectedIds = new Set();
-    /** @type {string|null} anchor for Shift+click range */
     this._rangeAnchorId = null;
-    
-    /** @type {string|null} - object ID being name-edited */
     this._editingNameId = null;
-
-    /** 접힌 부모 id — 자식 행은 렌더에서 숨김 */
     this._collapsedParentIds = new Set();
-    
-    // Callbacks
+
     /** @type {Function|null} */
     this.onObjectsChange = null;
     /** @type {Function|null} */
@@ -66,14 +53,7 @@ export class ObjectsManager {
     this.onHierarchyChange = null;
   }
 
-  /**
-   * Add single-file object.
-   * @param {string} name
-   * @param {Object} entity
-   * @param {string|null} splatId
-   * @param {Object} [options] - sourcePath: 경로로 로드 시 저장할 경로 (프로젝트 저장/불러오기용)
-   * @returns {import('./types').TimelineObject}
-   */
+  /** @param {Object} [options] sourcePath, duplicatedFromSourcePath, objectType */
   add(name, entity, splatId = null, options = {}) {
     const obj = {
       id: `obj_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
@@ -87,11 +67,8 @@ export class ObjectsManager {
       pairedGlbObjectId: null,
       isMultiFile: false,
       files: null,
-      /** @type {string|null} 부모 타임라인 오브젝트 id (단일 PLY만) */
       parentId: null,
-      /** @type {string|null} 경로로 로드 시 사용한 경로 (프로젝트 저장용) */
       sourcePath: options?.sourcePath ?? null,
-      /** @type {string|null} 복제된 오브젝트의 원본 PLY 경로 (프로젝트 저장/로드용) */
       duplicatedFromSourcePath: options?.duplicatedFromSourcePath ?? null,
     };
 
@@ -107,18 +84,13 @@ export class ObjectsManager {
     return obj;
   }
 
-  /**
-   * Add multi-file object.
-   * @param {Array<{entity: Object, splatId: string, fileName: string}>} files - sorted
-   * @returns {import('./types').TimelineObject}
-   */
+  /** @param {Array<{entity: Object, splatId: string, fileName: string}>} files */
   addMultiFile(files) {
     if (!files || files.length === 0) return null;
     
     const firstName = files[0].fileName.replace(/\.[^/.]+$/, "");
     const name = `${firstName}_set`;
     
-    // Hide all entities initially (show first only)
     files.forEach((f, idx) => {
       if (f.entity) {
         f.entity.enabled = (idx === 0);
@@ -129,7 +101,7 @@ export class ObjectsManager {
       id: `obj_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
       name,
       visible: true,
-      entity: null, // multi-file uses files, not entity
+      entity: null,
       splatId: null,
       isMultiFile: true,
       files: files,
@@ -148,10 +120,6 @@ export class ObjectsManager {
     return obj;
   }
 
-  /**
-   * Remove object.
-   * @param {string} id
-   */
   remove(id) {
     const idx = this.objects.findIndex(o => o.id === id);
     if (idx === -1) return;
@@ -189,12 +157,7 @@ export class ObjectsManager {
     }
   }
 
-  /**
-   * 리스트에서 child를 parent 바로 아래로 옮김 (시각적 그룹).
-   * @private
-   * @param {string} childId
-   * @param {string} parentId
-   */
+  /** Move child to sit directly under parent in the array. */
   _moveObjectNextToParentInArray(childId, parentId) {
     const objs = this.objects;
     const cIdx = objs.findIndex((o) => o.id === childId);
@@ -209,13 +172,7 @@ export class ObjectsManager {
     objs.splice(insertAfter + 1, 0, item);
   }
 
-  /**
-   * 부모 설정 (단일 PLY만). null 이면 루트.
-   * @param {string} childId
-   * @param {string|null} parentId
-   * @param {{ nestAfterParent?: boolean }} [opts]
-   * @returns {boolean}
-   */
+  /** Set parent (single PLY); null = root. @returns {boolean} */
   setObjectParent(childId, parentId, opts = {}) {
     const err = validateParentAssignment(this.objects, childId, parentId);
     if (err) return false;
@@ -236,26 +193,16 @@ export class ObjectsManager {
     return true;
   }
 
-  /**
-   * 우클릭 대상을 현재 선택 오브젝트의 자식으로 연결.
-   * @param {string} targetObjectId
-   * @returns {boolean}
-   */
   attachSelectionAsParentOf(targetObjectId) {
     const sel = this.selectedObjectId;
     if (!sel || sel === targetObjectId) return false;
     return this.setObjectParent(targetObjectId, sel);
   }
 
-  /**
-   * @param {string} objectId
-   * @returns {boolean}
-   */
   clearObjectParent(objectId) {
     return this.setObjectParent(objectId, null);
   }
 
-  /** Remove all objects. */
   clear() {
     this.objects = [];
     this._selectedIds.clear();
@@ -270,11 +217,7 @@ export class ObjectsManager {
     }
   }
 
-  /**
-   * Toggle object visibility.
-   * @param {string} id
-   * @returns {boolean} new visibility
-   */
+  /** @returns {boolean} new visible state */
   toggleVisibility(id) {
     const obj = this.objects.find(o => o.id === id);
     if (!obj) return false;
@@ -297,15 +240,10 @@ export class ObjectsManager {
     return obj.visible;
   }
 
-  /**
-   * Select object (single; clears multi-select).
-   * @param {string} id
-   */
   select(id) {
     this._selectSingle(id);
   }
 
-  /** Clear selection. */
   clearSelection() {
     this._selectedIds.clear();
     this.selectedObjectId = null;
@@ -314,16 +252,10 @@ export class ObjectsManager {
     this.onObjectSelect?.(null);
   }
 
-  /** @returns {string[]} visible list order ids that are selected */
   getSelectedIds() {
     return this._getVisibleObjectIdsInOrder().filter((oid) => this._selectedIds.has(oid));
   }
 
-  /**
-   * 다중 선택 상태로 전환 (복제 후 등).
-   * @param {string[]} ids
-   * @param {string|null} [primaryId]
-   */
   selectMultiple(ids, primaryId) {
     const set = new Set((ids || []).filter(Boolean));
     this._selectedIds.clear();
@@ -343,12 +275,7 @@ export class ObjectsManager {
     this.onObjectSelect?.(this.getSelected());
   }
 
-  /**
-   * 우클릭한 행이 현재 선택에 포함되면 전체 선택, 아니면 해당 행만.
-   * @private
-   * @param {string|null} clickedRowObjectId
-   * @returns {{ ids: string[], names: string[] }}
-   */
+  /** Bulk delete/duplicate: full selection if row in selection, else that row only. */
   _idsAndNamesForBulkRowAction(clickedRowObjectId) {
     const selectedOrdered = this.getSelectedIds();
     if (
@@ -376,16 +303,10 @@ export class ObjectsManager {
     return { ids: selectedOrdered, names };
   }
 
-  /** @param {string} id */
   isObjectSelected(id) {
     return this._selectedIds.has(id);
   }
 
-  /**
-   * Visible hierarchy row order (matches render).
-   * @private
-   * @returns {string[]}
-   */
   _getVisibleObjectIdsInOrder() {
     const ids = [];
     for (const obj of this.objects) {
@@ -396,10 +317,6 @@ export class ObjectsManager {
     return ids;
   }
 
-  /**
-   * @private
-   * @returns {string|null}
-   */
   _firstIdInVisibleSelection() {
     for (const oid of this._getVisibleObjectIdsInOrder()) {
       if (this._selectedIds.has(oid)) return oid;
@@ -407,10 +324,6 @@ export class ObjectsManager {
     return null;
   }
 
-  /**
-   * @private
-   * @param {string} id
-   */
   _selectSingle(id) {
     this._selectedIds.clear();
     this._selectedIds.add(id);
@@ -421,10 +334,6 @@ export class ObjectsManager {
     this.onObjectSelect?.(obj || null);
   }
 
-  /**
-   * @private
-   * @param {string} id
-   */
   _toggleSelect(id) {
     if (this._selectedIds.has(id)) {
       this._selectedIds.delete(id);
@@ -443,11 +352,6 @@ export class ObjectsManager {
     this.onObjectSelect?.(this.getSelected());
   }
 
-  /**
-   * @private
-   * @param {string} anchorId
-   * @param {string} endId
-   */
   _selectRangeFromTo(anchorId, endId) {
     const order = this._getVisibleObjectIdsInOrder();
     let ia = order.indexOf(anchorId);
@@ -465,10 +369,6 @@ export class ObjectsManager {
     this.onObjectSelect?.(this.getSelected());
   }
 
-  /**
-   * 계층 리스트 빈 영역에서 드래그해 사각형(마퀴)으로 다중 선택.
-   * @private
-   */
   _attachMarqueeSelect() {
     const listEl = this._objectsListEl;
     if (!listEl || listEl._marqueeAttached) return;
@@ -571,12 +471,6 @@ export class ObjectsManager {
     });
   }
 
-  /**
-   * 마퀴(또는 동일 규칙)으로 모인 id 집합을 선택 상태에 반영.
-   * @private
-   * @param {Set<string>} band
-   * @param {boolean} shiftUnion
-   */
   _applyRectSelectionBand(band, shiftUnion) {
     if (shiftUnion) {
       band.forEach((id) => this._selectedIds.add(id));
@@ -597,11 +491,6 @@ export class ObjectsManager {
     this.onObjectSelect?.(this.getSelected());
   }
 
-  /**
-   * @private
-   * @param {Set<string>} idSet
-   * @returns {string|null}
-   */
   _lastIdInVisibleSet(idSet) {
     const order = this._getVisibleObjectIdsInOrder();
     for (let i = order.length - 1; i >= 0; i--) {
@@ -610,20 +499,12 @@ export class ObjectsManager {
     return null;
   }
 
-  /**
-   * Return selected object.
-   * @returns {import('./types').TimelineObject|null}
-   */
   getSelected() {
     if (!this.selectedObjectId) return null;
     return this.objects.find(o => o.id === this.selectedObjectId) || null;
   }
 
-  /**
-   * Apply visibility: single-file uses `visible` only; multi-file picks one splat by global frame.
-   * @param {number} t - time (seconds)
-   * @param {{ isPlaying?: boolean, frameIndex?: number }|null} [opts]
-   */
+  /** Multi-file: one file active per frame index. */
   updateVisibilityByTime(t, opts = null) {
     const fps = Math.max(1, Math.min(60, parseInt(this._getFps?.() || 30) || 30));
     const frameIndex = opts?.frameIndex ?? Math.floor((Number(t) || 0) * fps);
@@ -639,16 +520,11 @@ export class ObjectsManager {
     }
   }
 
-  /** Pin scrub end: refresh visibility at current time. */
   commitScrub() {
     const t = this._getCurrentTime?.() || 0;
     this.updateVisibilityByTime(t, { isPlaying: false });
   }
 
-  /**
-   * Multi-file: one active file from frame index over full timeline length.
-   * @private
-   */
   _updateMultiFileVisibility(obj, opts, totalFrames) {
     if (!obj.files?.length) return;
     if (!obj.visible) {
@@ -667,9 +543,6 @@ export class ObjectsManager {
     });
   }
 
-  /**
-   * @private
-   */
   _refreshObjectVisibility(obj) {
     if (!this._getCurrentTime) return;
     const t = this._getCurrentTime();
@@ -683,9 +556,6 @@ export class ObjectsManager {
     }
   }
 
-  /**
-   * Render object list (left panel only).
-   */
   render() {
     if (!this._objectsListEl) return;
 
@@ -711,18 +581,10 @@ export class ObjectsManager {
     }
   }
 
-  /**
-   * @private
-   * @param {import('./types').TimelineObject} obj
-   */
   _hasHierarchyChildren(obj) {
     return this.objects.some((c) => !c.loadedWithGlb && c.parentId === obj.id);
   }
 
-  /**
-   * @private
-   * @param {import('./types').TimelineObject} obj
-   */
   _isHiddenUnderCollapsedParent(obj) {
     let pid = obj.parentId;
     while (pid) {
@@ -733,11 +595,6 @@ export class ObjectsManager {
     return false;
   }
 
-  /**
-   * 드롭 직전에도 `.is-dragging`이 남아 있을 수 있어 id로 제외한다.
-   * @private
-   * @param {string} excludeObjectId
-   */
   _getFirstVisibleRowIdExcluding(excludeObjectId) {
     const el = this._objectsListEl;
     if (!el) return null;
@@ -750,10 +607,6 @@ export class ObjectsManager {
     return null;
   }
 
-  /**
-   * @private
-   * @param {string} excludeObjectId
-   */
   _getLastVisibleRowIdExcluding(excludeObjectId) {
     const el = this._objectsListEl;
     if (!el) return null;
@@ -764,11 +617,6 @@ export class ObjectsManager {
     return rows[rows.length - 1].dataset.objectId || null;
   }
 
-  /**
-   * 리스트 맨 아래(빈 영역) 드롭: 루트로 빼고 배열 끝으로 이동.
-   * @private
-   * @param {string} dragId
-   */
   _moveObjectToEndDetached(dragId) {
     const objs = this.objects;
     const from = objs.findIndex((o) => o.id === dragId);
@@ -788,9 +636,6 @@ export class ObjectsManager {
     if (hadParent) this.onHierarchyChange?.(dragId);
   }
 
-  /**
-   * @private
-   */
   _onGlobalDragEnd() {
     this._draggingObjectId = null;
     this._clearDropIndicators();
@@ -799,9 +644,6 @@ export class ObjectsManager {
     });
   }
 
-  /**
-   * @private
-   */
   _clearDropIndicators() {
     this._objectsListEl
       ?.querySelectorAll(
@@ -813,11 +655,6 @@ export class ObjectsManager {
     this._objectsListEl?.querySelector(".timeline__obj-list-end-drop.is-drop-end-active")?.classList.remove("is-drop-end-active");
   }
 
-  /**
-   * @private
-   * @param {HTMLElement} row
-   * @param {'before'|'after'|'child'|null} zone
-   */
   _updateDropIndicator(row, zone) {
     if (!this._objectsListEl) return;
     this._clearDropIndicators();
@@ -827,12 +664,6 @@ export class ObjectsManager {
     else if (zone === "child") row.classList.add("is-drop-child");
   }
 
-  /**
-   * @private
-   * @param {HTMLElement} row
-   * @param {number} clientY
-   * @returns {'before'|'after'|'child'}
-   */
   _getDropZone(row, clientY) {
     const rect = row.getBoundingClientRect();
     const h = rect.height;
@@ -843,9 +674,6 @@ export class ObjectsManager {
     return "child";
   }
 
-  /**
-   * @private
-   */
   _attachObjectListDnDDelegation() {
     const el = this._objectsListEl;
     if (!el || el._objListDndDelegation) return;
@@ -915,12 +743,6 @@ export class ObjectsManager {
     });
   }
 
-  /**
-   * @private
-   * @param {string} draggedId
-   * @param {string} targetId
-   * @param {boolean} placeBefore
-   */
   _reorderObject(draggedId, targetId, placeBefore) {
     const objs = this.objects;
     const from = objs.findIndex((o) => o.id === draggedId);
@@ -942,10 +764,6 @@ export class ObjectsManager {
     }
   }
 
-  /**
-   * Create hierarchy row (접기/펼치기 + 행 드래그).
-   * @private
-   */
   _createObjectButton(obj) {
     const row = document.createElement("div");
     row.className = "timeline__obj-row";
@@ -1028,7 +846,7 @@ export class ObjectsManager {
     row.appendChild(main);
     row.appendChild(actionsEl);
 
-    row.title = t("panel.dragToReorder");
+    row.title = `${t("panel.dragToReorder")} ${t("panel.objectDoubleClickRename")}`;
 
     row.draggable = true;
     row.addEventListener("dragstart", (e) => {
@@ -1062,6 +880,26 @@ export class ObjectsManager {
     row.addEventListener("click", (e) => {
       if (e.target.closest(".timeline__obj-btn-actions")) return;
       if (e.target.closest(".timeline__obj-row__expand")) return;
+
+      if (e.detail === 2) {
+        if (clickTimer) {
+          clearTimeout(clickTimer);
+          clickTimer = null;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        const renameId = obj.id;
+        this._selectSingle(renameId);
+        requestAnimationFrame(() => {
+          const rowAfter = this._objectsListEl?.querySelector(
+            `.timeline__obj-row[data-object-id="${escapeSelectorAttr(renameId)}"]`
+          );
+          const freshNameEl = rowAfter?.querySelector('.timeline__obj-btn-name');
+          if (freshNameEl) this._startNameEdit(renameId, freshNameEl);
+        });
+        return;
+      }
+
       if (this._editingNameId) return;
 
       const additive = e.metaKey || e.ctrlKey;
@@ -1094,19 +932,6 @@ export class ObjectsManager {
       }, DOUBLE_CLICK_DELAY);
     });
 
-    row.addEventListener("dblclick", (e) => {
-      if (e.target.closest(".timeline__obj-btn-actions")) return;
-      if (e.target.closest(".timeline__obj-row__expand")) return;
-      if (clickTimer) {
-        clearTimeout(clickTimer);
-        clickTimer = null;
-      }
-      e.preventDefault();
-      e.stopPropagation();
-      this._selectSingle(obj.id);
-      this._startNameEdit(obj.id, nameEl);
-    });
-
     visBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       const newVisible = this.toggleVisibility(obj.id);
@@ -1117,19 +942,26 @@ export class ObjectsManager {
     return row;
   }
   
-  /**
-   * Start name edit mode.
-   * @private
-   */
+  _applyObjectNameToEntities(obj, name) {
+    if (!obj || !name) return;
+    try {
+      if (obj.entity) obj.entity.name = name;
+      if (obj.isMultiFile && Array.isArray(obj.files)) {
+        obj.files.forEach((f) => {
+          if (f?.entity) f.entity.name = name;
+        });
+      }
+    } catch (_) {}
+  }
+
   _startNameEdit(objectId, nameEl) {
-    if (this._editingNameId) return;  // already editing
-    
+    if (this._editingNameId) return;
+
     const obj = this.objects.find(o => o.id === objectId);
     if (!obj) return;
-    
+
     this._editingNameId = objectId;
-    
-    // Replace span with input
+
     const input = document.createElement("input");
     input.type = "text";
     input.className = "timeline__obj-btn-name-input";
@@ -1144,15 +976,26 @@ export class ObjectsManager {
     
     const finishEdit = (save) => {
       if (this._editingNameId !== objectId) return;
-      
+
       const newName = input.value.trim();
-      
-      if (save && newName && newName !== originalName) {
-        obj.name = newName;
-        nameEl.textContent = newName;
-        this.onObjectsChange?.(this.objects);
+
+      if (save) {
+        if (newName && newName !== originalName) {
+          obj.name = newName;
+          nameEl.textContent = newName;
+          this._applyObjectNameToEntities(obj, newName);
+          try {
+            window.__inspector?.syncSelectedObjectName?.(obj);
+          } catch (_) {}
+          try {
+            window.__objectDescription?.updateFromSelection?.();
+          } catch (_) {}
+          this.onObjectsChange?.(this.objects);
+        } else if (!newName) {
+          nameEl.textContent = originalName;
+        }
       }
-      
+
       input.remove();
       nameEl.style.display = "";
       this._editingNameId = null;
@@ -1170,14 +1013,12 @@ export class ObjectsManager {
     });
   }
   
-  /**
-   * Start editing selected object name (external).
-   */
   startEditingSelectedName() {
     if (!this.selectedObjectId) return;
-    
+
+    const sid = escapeSelectorAttr(this.selectedObjectId);
     const btn = this._objectsListEl?.querySelector(
-      `.timeline__obj-row[data-object-id="${this.selectedObjectId}"]`
+      `.timeline__obj-row[data-object-id="${sid}"]`
     );
     if (!btn) return;
     
@@ -1187,17 +1028,8 @@ export class ObjectsManager {
     }
   }
   
-  // ========================================================================
-  // Multi-file context menu
-  // ========================================================================
-  
-  /** @type {string|null} - context menu target object ID */
   _contextMenuTargetId = null;
-  
-  /**
-   * Show multi-file context menu.
-   * @private
-   */
+
   _showMultiFileContextMenu(x, y, objectId) {
     const menu = document.getElementById("multiFileContextMenu");
     if (!menu) return;
@@ -1214,7 +1046,6 @@ export class ObjectsManager {
     menu.classList.add("is-visible");
     menu.setAttribute("aria-hidden", "false");
     
-    // Menu item click (register once)
     if (!menu._hasClickHandler) {
       menu._hasClickHandler = true;
       menu.addEventListener("click", (e) => {
@@ -1246,7 +1077,6 @@ export class ObjectsManager {
       });
     }
     
-    // Close menu on outside click (once)
     if (!this._contextMenuCloseHandler) {
       this._contextMenuCloseHandler = (e) => {
         if (!menu.contains(e.target)) {
@@ -1257,10 +1087,6 @@ export class ObjectsManager {
     }
   }
   
-  /**
-   * Hide multi-file context menu.
-   * @private
-   */
   _hideMultiFileContextMenu() {
     const menu = document.getElementById("multiFileContextMenu");
     if (!menu) return;
@@ -1360,24 +1186,13 @@ export class ObjectsManager {
     }
   }
 
-  /**
-   * Reverse multi-file order (reverse play).
-   * @param {string} objectId
-   */
   reverseMultiFileOrder(objectId) {
     const obj = this.objects.find(o => o.id === objectId);
     if (!obj || !obj.isMultiFile || !obj.files) return;
     
-    // Reverse files array
     obj.files.reverse();
-    
-    // Notify change
     this.onObjectsChange?.();
-    
-    // Update visibility by current time
     const currentTime = this._getCurrentTime();
     this.updateVisibilityByTime(currentTime);
   }
 }
-
-export default ObjectsManager;

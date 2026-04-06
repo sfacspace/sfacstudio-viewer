@@ -247,6 +247,38 @@
   pointer-events: none;
 }
 
+/* 오른쪽 도구 열: 툴팁을 버튼 왼쪽(뷰포트 쪽)으로 — 세로로 긴 좁은 패널 */
+.object-details-panel__tooltip.object-details-panel__tooltip--dock-left {
+  white-space: normal;
+  max-width: min(300px, calc(100vw - 24px));
+}
+
+/* 입체 셀렉터 메뉴: body 포털 시 축 기즈모(110)·우측 패널(90) 위 */
+#volumeTooltip.object-details-panel__tooltip--dock-left {
+  z-index: 100250;
+}
+
+/* 브러시 등(볼륨 제외): 세로 스택 */
+.object-details-panel__tooltip--in-gizmo:not(.object-details-panel__tooltip--volume) .object-details-panel__tooltip-content {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+/* 브러시 슬라이더는 .object-details-panel__range-vertical-wrap 안에서 세로 배치 */
+
+.object-details-panel__tooltip.object-details-panel__tooltip--dock-left::after {
+  top: 50%;
+  left: 100%;
+  right: auto;
+  bottom: auto;
+  transform: translateY(-50%);
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-left: 8px solid rgba(0, 0, 0, 0.45);
+  border-right: none;
+}
+
 .object-details-panel__tooltip-content {
   color: var(--color-text-primary);
   font-size: 13px;
@@ -254,6 +286,71 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* range: 가로 트랙을 -90° 회전해 위·아래 드래그로 조절 (브러시·박스·구) */
+.object-details-panel__range-vertical-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 108px;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.object-details-panel__range-vertical-wrap input[type="range"],
+.object-details-panel__range-vertical-wrap .tooltip-slider {
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
+  height: 4px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  transform: rotate(-90deg);
+  transform-origin: center center;
+  cursor: ns-resize;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.object-details-panel__range-vertical-wrap input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-border-strong);
+  border: none;
+}
+
+.object-details-panel__range-vertical-wrap input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  cursor: ns-resize;
+  box-shadow: 0 2px 4px var(--color-shadow);
+}
+
+.object-details-panel__range-vertical-wrap input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-border-strong);
+  border: none;
+}
+
+.object-details-panel__range-vertical-wrap input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  cursor: ns-resize;
+  border: none;
+  box-shadow: 0 2px 4px var(--color-shadow);
 }
 
 /* 3D shape button: box/sphere icon (scale·rotate) */
@@ -284,11 +381,21 @@
   transform: translate(-50%, -50%) scale(1) rotate(0deg);
 }
 
-/* Volume tooltip: left toggle + balloon */
+/* Volume tooltip: 위에서 아래로 — 토글/삭제 → Set·Add·슬라이더 (전부 세로) */
+.object-details-panel__volume-actions-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  align-self: center;
+}
+
 .object-details-panel__tooltip-volume-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
 }
 .object-details-panel__volume-toggle {
   position: relative;
@@ -370,34 +477,53 @@
   transform: scale(1) rotate(0deg);
 }
 .object-details-panel__volume-tooltip-content-wrap {
-  overflow: hidden;
-  transition: width 0.28s ease;
+  overflow: visible;
+  width: 100%;
+  max-width: 260px;
+  min-width: 0;
+  align-self: center;
   flex-shrink: 0;
 }
-.object-details-panel__tooltip--volume.volume-tooltip--box .object-details-panel__volume-tooltip-content-wrap {
-  width: 630px;
-}
-.object-details-panel__tooltip--volume.volume-tooltip--sphere .object-details-panel__volume-tooltip-content-wrap {
-  width: 305px;
-}
+
 .volume-tooltip-content {
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
 }
 
-/* Box gauge label/slider */
+/* Box: Set/Add → W/H/D → 초기화 (세로) */
 #volumeTooltipContentBox {
-  min-width: 630px;
-  flex-direction: row;
-  gap: 8px;
+  min-width: 0;
+  width: 100%;
+  flex-direction: column;
+  gap: 10px;
 }
-#volumeTooltipContentBox label {
+
+#volumeTooltipContentBox .object-details-panel__volume-action-btn {
+  align-self: center;
+}
+
+/* W/H/D: 라벨+숫자 한 줄, 아래 세로 슬라이더 */
+#volumeTooltipContentBox .object-details-panel__gauge-row {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  width: 100%;
+  margin: 0;
 }
+
+#volumeTooltipContentBox .object-details-panel__gauge-row__head {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
 #volumeTooltipContentBox input[type="number"] {
   width: 36px;
   padding: 4px 6px;
@@ -414,38 +540,30 @@
   outline: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(var(--color-accent-rgb), 0.25);
 }
-#volumeTooltipContentBox input[type="range"] {
-  width: 80px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--color-border-strong);
-  outline: none;
-  -webkit-appearance: none;
-  appearance: none;
-  cursor: pointer;
+#volumeTooltipContentSphere {
+  min-width: 0;
+  width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
 }
-#volumeTooltipContentBox input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  cursor: pointer;
-  box-shadow: 0 2px 4px var(--color-shadow);
+
+#volumeTooltipContentSphere .object-details-panel__volume-action-btn {
+  align-self: center;
 }
-#volumeTooltipContentBox input[type="range"]::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  cursor: pointer;
-  border: none;
-  box-shadow: 0 2px 4px var(--color-shadow);
+
+#volumeTooltipContentSphere .object-details-panel__gauge-row__head {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
+
 #boxSizeResetBtn {
-  margin-right: 8px;
-  padding: 4px 10px;
+  margin: 0;
+  align-self: stretch;
+  padding: 6px 10px;
   border-radius: 5px;
   border: none;
   background: var(--color-accent-dim);

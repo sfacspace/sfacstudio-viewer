@@ -65,6 +65,8 @@ export class SelectionTool {
     if (!ctx?.key) return;
     if (type !== 'box' && type !== 'sphere') return;
     this._clearAccumulatedVolumes(ctx.key, type);
+    this.refreshSelectionFromAllAccumulatedVolumes();
+    this._requestRenderAfterColorChange();
   }
 
   clearAllAccumulatedVolumesForCurrentSelection() {
@@ -72,6 +74,8 @@ export class SelectionTool {
     if (!ctx?.key) return;
     this._clearAccumulatedVolumes(ctx.key, 'sphere');
     this._clearAccumulatedVolumes(ctx.key, 'box');
+    this.refreshSelectionFromAllAccumulatedVolumes();
+    this._requestRenderAfterColorChange();
   }
 
   /** 모든 오브젝트 컨텍스트에 대해 누적된 파란 볼륨(스피어/박스) 제거 */
@@ -80,6 +84,8 @@ export class SelectionTool {
       this._clearAccumulatedVolumes(ctxKey, 'sphere');
       this._clearAccumulatedVolumes(ctxKey, 'box');
     }
+    this.refreshSelectionFromAllAccumulatedVolumes();
+    this._requestRenderAfterColorChange();
   }
 
   _getAccumulatedVolumeBucket(ctxKey) {
@@ -154,7 +160,11 @@ export class SelectionTool {
     for (const e of list) {
       try {
         e.enabled = false;
-        e.destroy?.();
+        if (typeof e.destroy === 'function') {
+          e.destroy();
+        } else if (e.parent && typeof e.parent.removeChild === 'function') {
+          e.parent.removeChild(e);
+        }
       } catch (err) {}
     }
     if (type === 'sphere') bucket.sphere = [];
@@ -783,7 +793,7 @@ export class SelectionTool {
 
   _getSelectionContext() {
     const selectedObject = this.viewer?.getSelectedObject?.();
-    if (selectedObject?.isSequence && selectedObject?.id) {
+    if (selectedObject?.isSequence && selectedObject.id != null) {
       const key = selectedObject.id;
       const entities = selectedObject.entity ? [selectedObject.entity] : [];
       if (this._activeSelectionContextKey !== key) {
@@ -794,7 +804,7 @@ export class SelectionTool {
       }
       return { key, isMultiFile: false, isSequence: true, entities, selectedObject };
     }
-    if (selectedObject?.isMultiFile && selectedObject?.id && Array.isArray(selectedObject.files)) {
+    if (selectedObject?.isMultiFile && selectedObject.id != null && Array.isArray(selectedObject.files)) {
       const entities = selectedObject.files.map(f => f?.entity).filter(Boolean);
       const key = selectedObject.id;
       if (this._activeSelectionContextKey !== key) {

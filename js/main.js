@@ -187,7 +187,8 @@ const wireBoxObjectsByKey = new Map();
 
 function _getGsplatKeyFromSelectedObject(obj) {
   if (!obj) return '__no_selection__';
-  if (obj.isMultiFile && obj.id) return obj.id;
+  if (obj.isSequence && obj.id != null) return obj.id;
+  if (obj.isMultiFile && obj.id != null) return obj.id;
   const entity = obj?.entity || obj;
   if (!entity) return '__no_selection__';
   return entity.getGuid?.() || entity._guid || entity.name || String(entity);
@@ -2433,12 +2434,24 @@ window.addEventListener("keydown", (e) => {
   
   // Enter: edit selected object name
   if (e.code === "Enter") {
-    if (timeline?.selectedObjectId && timeline._objects) {
+    if (timeline?.selectedObjectId) {
       e.preventDefault();
-      timeline._objects.startEditingSelectedName();
+      timeline.startEditingSelectedObjectName?.();
     }
   }
   
+  // Delete/Backspace: 스플랫 점 선택이 있으면 지우개 버튼과 동일 연산
+  if (e.code === "Delete" || e.code === "Backspace") {
+    const st = window.__selectionTool ?? selectionTool;
+    if (st?.hasSelectedPoints?.()) {
+      e.preventDefault();
+      detailsPanel?.onEraserClick?.();
+      st.eraseSelection();
+      detailsPanel?.updateEraserComplementDisabledState?.();
+      return;
+    }
+  }
+
   // Delete/Backspace: delete selected object(s) (confirm modal)
   if (e.code === "Delete" || e.code === "Backspace") {
     const selIds = timeline?.selectedObjectIds ?? [];
@@ -2746,6 +2759,7 @@ async function bootstrap() {
       gizmo.init();
       inspector.init(gizmo);
       inspector.setGizmoController(gizmo);
+      inspector.setOnRequestRename(() => timeline?.startEditingSelectedObjectName?.());
       window.__inspector = inspector;
       const objectInspectorEl = document.getElementById("objectInspector");
       if (objectInspectorEl) {
@@ -2825,6 +2839,7 @@ async function bootstrap() {
       objectDescription = new ObjectDescription({
         viewer,
         timeline,
+        onRequestRename: () => timeline?.startEditingSelectedObjectName?.(),
         getSelection: () => {
           const id = timeline?.selectedObjectId;
           if (id == null) return null;

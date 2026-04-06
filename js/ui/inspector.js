@@ -1,4 +1,5 @@
 import { applyInspectorDefaultTopRight } from "./draggablePanel.js";
+import { t } from "../i18n.js";
 
 /** Object inspector: transform (position/rotation/scale) display and edit; uniform scale with gizmo sync. */
 export class InspectorController {
@@ -21,6 +22,8 @@ export class InspectorController {
     this._previousScaleValues = { x: 1, y: 1, z: 1 };
     this._uniformScaleRatio = { x: 1, y: 1, z: 1 };
     this._gizmoController = null;
+    /** @type {(() => void) | null} */
+    this._onRequestRename = null;
     this._isExternalUpdate = false;
     /** 첫 표시 시에만 플로팅 기본 위치(오른쪽 상단) 적용 */
     this._appliedDefaultFloatPosition = false;
@@ -67,6 +70,27 @@ export class InspectorController {
     this.hide();
     this._setupInputEvents();
     this._syncUniformScaleToGizmo();
+
+    if (this._nameEl) {
+      this._nameEl.style.cursor = "text";
+      this._nameEl.title = t("panel.objectDoubleClickRename");
+      this._nameEl.addEventListener("dblclick", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof this._onRequestRename === "function") this._onRequestRename();
+      });
+    }
+  }
+
+  /** 계층에서 이름 편집 시작 (더블클릭 제목). */
+  setOnRequestRename(fn) {
+    this._onRequestRename = typeof fn === "function" ? fn : null;
+  }
+
+  /** 타임라인에서 이름 변경 후 제목 줄만 맞춤. */
+  syncSelectedObjectName(obj) {
+    if (!obj || this._currentObject !== obj || !this._nameEl) return;
+    this._nameEl.textContent = obj.name || "Unknown";
   }
 
   _syncUniformScaleToGizmo() {

@@ -4,6 +4,8 @@
  * 월드: 2D 말풍선 버튼 항상 맨 위 렌더, 클릭 시 카메라 복원 + 오른쪽 설명 창
  */
 
+import { t } from '../i18n.js';
+
 const _nextId = (() => { let n = 0; return () => `comment-${Date.now()}-${++n}`; })();
 
 const CAMERA_TRANSITION_DURATION_MS = 700;
@@ -13,6 +15,8 @@ export class ObjectDescription {
     this.getSelection = options.getSelection ?? (() => null);
     this.viewer = options.viewer ?? null;
     this.timeline = options.timeline ?? null;
+    /** @type {(() => void) | null} */
+    this.onRequestRename = typeof options.onRequestRename === "function" ? options.onRequestRename : null;
 
     this.btn = document.getElementById('gizmoDescriptionBtn');
     this.tooltip = document.getElementById('gizmoDescriptionTooltip');
@@ -51,6 +55,16 @@ export class ObjectDescription {
     this._createDescriptionPanel();
     this._startUpdateLoop();
     this.updateFromSelection();
+
+    if (this.objectNameEl && this.onRequestRename) {
+      this.objectNameEl.style.cursor = "text";
+      this.objectNameEl.title = t("panel.objectDoubleClickRename");
+      this.objectNameEl.addEventListener("dblclick", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.onRequestRename?.();
+      });
+    }
   }
 
   _createOverlay() {

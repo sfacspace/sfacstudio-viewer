@@ -23,7 +23,8 @@
     "commentAddBtn": "Add",
     "colorTint": "Color",
     "colorTintTitle": "Tint",
-    "viewToolsBar": "View tools"
+    "viewToolsBar": "View tools",
+    "objectDoubleClickRename": "Double-click to rename."
   },
   "settings": {
     "title": "Settings",

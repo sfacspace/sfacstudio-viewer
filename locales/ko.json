@@ -23,7 +23,8 @@
     "commentAddBtn": "추가",
     "colorTint": "컬러",
     "colorTintTitle": "색 지정",
-    "viewToolsBar": "뷰 도구"
+    "viewToolsBar": "뷰 도구",
+    "objectDoubleClickRename": "더블클릭하여 이름을 변경합니다."
   },
   "settings": {
     "title": "설정",

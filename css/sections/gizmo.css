@@ -303,8 +303,11 @@ body:has(#rightToolsPanel.is-hidden) .axis-gizmo {
 .gizmo-controls__tint-row {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  width: 100%;
+  gap: 0;
 }
 
 .gizmo-controls__tint-popover {
@@ -316,9 +319,20 @@ body:has(#rightToolsPanel.is-hidden) .axis-gizmo {
 
 .gizmo-tint-swatches {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+}
+
+/* 색지정 팝오버: 스와치 세로 열 (창을 세로로 길게) */
+.gizmo-controls__tint-popover .gizmo-tint-swatches {
+  width: 100%;
+  align-items: stretch;
+}
+
+.gizmo-controls__tint-popover .gizmo-tint-swatch {
+  align-self: center;
 }
 
 .gizmo-tint-swatch {

@@ -115,42 +115,47 @@ export function createWireBoxMeshAndMaterial(app, size = { x: 1, y: 1, z: 1 }, o
         [0,4],[1,5],[2,6],[3,7]
     ];
     const clampInt = (v, lo, hi) => Math.max(lo, Math.min(hi, v | 0));
-    const maxSize = Math.max(Math.abs(size.x), Math.abs(size.y), Math.abs(size.z));
-    const gridDiv = clampInt(Math.round(maxSize * 2), 1, 16);
+    /** 면 안에서 각 축 방향으로 몇 칸으로 나눌지 (W/H/D 각각에 맞춤; 예전엔 max 한 값으로 모든 면이 같이 변함) */
+    const divX = clampInt(Math.round(Math.abs(size.x) * 2), 1, 16);
+    const divY = clampInt(Math.round(Math.abs(size.y) * 2), 1, 16);
+    const divZ = clampInt(Math.round(Math.abs(size.z) * 2), 1, 16);
 
     const addLine = (a, b) => {
         addThickSegment(positions, colors, indices, a, b, width, color);
     };
 
+    /** Y=const 면 (XZ 평면): X방향 선은 Z위치마다 divZ-1개, Z방향 선은 X위치마다 divX-1개 */
     const addFaceGridXZ = (y) => {
-        for (let i = 1; i < gridDiv; i++) {
-            const z = -hz + (2 * hz * i) / gridDiv;
+        for (let i = 1; i < divZ; i++) {
+            const z = -hz + (2 * hz * i) / divZ;
             addLine([-hx, y, z], [hx, y, z]);
         }
-        for (let i = 1; i < gridDiv; i++) {
-            const x = -hx + (2 * hx * i) / gridDiv;
+        for (let i = 1; i < divX; i++) {
+            const x = -hx + (2 * hx * i) / divX;
             addLine([x, y, -hz], [x, y, hz]);
         }
     };
 
+    /** X=const 면 (YZ 평면): Y방향 선은 Z마다 divZ-1개, Z방향 선은 Y마다 divY-1개 — W(=X)만 키우면 이 면의 선 개수만 늘어남 */
     const addFaceGridYZ = (x) => {
-        for (let i = 1; i < gridDiv; i++) {
-            const z = -hz + (2 * hz * i) / gridDiv;
+        for (let i = 1; i < divZ; i++) {
+            const z = -hz + (2 * hz * i) / divZ;
             addLine([x, -hy, z], [x, hy, z]);
         }
-        for (let i = 1; i < gridDiv; i++) {
-            const y = -hy + (2 * hy * i) / gridDiv;
+        for (let i = 1; i < divY; i++) {
+            const y = -hy + (2 * hy * i) / divY;
             addLine([x, y, -hz], [x, y, hz]);
         }
     };
 
+    /** Z=const 면 (XY 평면): X방향 선은 Y마다 divY-1개, Y방향 선은 X마다 divX-1개 */
     const addFaceGridXY = (z) => {
-        for (let i = 1; i < gridDiv; i++) {
-            const y = -hy + (2 * hy * i) / gridDiv;
+        for (let i = 1; i < divY; i++) {
+            const y = -hy + (2 * hy * i) / divY;
             addLine([-hx, y, z], [hx, y, z]);
         }
-        for (let i = 1; i < gridDiv; i++) {
-            const x = -hx + (2 * hx * i) / gridDiv;
+        for (let i = 1; i < divX; i++) {
+            const x = -hx + (2 * hx * i) / divX;
             addLine([x, -hy, z], [x, hy, z]);
         }
     };

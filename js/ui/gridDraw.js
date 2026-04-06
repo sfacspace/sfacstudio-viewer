@@ -347,7 +347,7 @@ export class InfiniteGrid {
     return entity;
   }
 }
-
 export function createInfiniteGrid(app, options) {
   return new InfiniteGrid(app, options);
 }
+
