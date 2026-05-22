@@ -165,6 +165,7 @@ header::after {
 }
 
 header .header-panel-toggle,
+header .play-mode-button,
 header .settings-button {
   height: 30px;
   min-width: 34px;
@@ -173,6 +174,7 @@ header .settings-button {
 }
 
 header .header-panel-toggle__icon,
+header .play-mode-button__icon,
 header .settings-button__icon {
   width: 16px;
   height: 16px;

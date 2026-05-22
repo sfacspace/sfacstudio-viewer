@@ -8,6 +8,7 @@ import { TimelineController } from "./timeline/index.js";
 import { InspectorController } from "./ui/inspector.js";
 import { GizmoController } from "./ui/gizmo.js";
 import { FlyMode } from "./camera/flyMode.js";
+import { PlayMode } from "./game/playMode.js";
 import { exportSingleHTML } from "./export/index.js";
 import { exportVideo } from "./export/exportVideo.js";
 import { CameraTemplatesManager } from "./timeline/cameraTemplates.js";
@@ -30,6 +31,9 @@ import {
   setBothSidePanelsFromSettings,
   areBothSidePanelsVisible,
   isRightSidebarVisible,
+  isTimelineUiVisible,
+  getPanelVisibilityState,
+  setPanelVisibilityState,
 } from "./ui/panelToggles.js";
 import MemoryMonitor from './services/memoryMonitor.js';
 import LoadSessionManager from './core/loadSessionManager.js';
@@ -62,6 +66,9 @@ let inspector = null;
 
 /** @type {GizmoController|null} */
 let gizmo = null;
+
+/** @type {PlayMode|null} */
+let playMode = null;
 
 /** @type {import("./ui/objectDescription.js").ObjectDescription|null} */
 let objectDescription = null;
@@ -250,6 +257,7 @@ const cameraModeSwitch = document.getElementById("cameraMode");
 const gridToggleEl = document.getElementById("gridToggle");
 const orbitCenterToggleEl = document.getElementById("orbitCenterToggle");
 const fullscreenToggleEl = document.getElementById("fullscreenToggle");
+const playModeButton = document.getElementById("playModeButton");
 const axisGizmoCanvas = document.getElementById("axisGizmo");
 const gizmoTransformBtn = document.getElementById("gizmoTransform");
 const fpsCounterEl = document.getElementById("fpsCounter");
@@ -802,6 +810,18 @@ if (settingsButton) {
   settingsButton.addEventListener("click", openSettingsModal);
 }
 
+function updatePlayModeButton(active) {
+  if (!playModeButton) return;
+  playModeButton.classList.toggle("is-active", !!active);
+  playModeButton.setAttribute("aria-pressed", active ? "true" : "false");
+}
+
+if (playModeButton) {
+  playModeButton.addEventListener("click", () => {
+    playMode?.toggle?.();
+  });
+}
+
 if (settingsCloseBtn) {
   settingsCloseBtn.addEventListener("click", closeSettingsModal);
 }
@@ -959,6 +979,11 @@ let isFlyMode = false;
  * @param {boolean} enableFlyMode - true: Fly, false: Orbit
  */
 function switchCameraMode(enableFlyMode) {
+  if (playMode?.isEnabled?.()) {
+    if (cameraModeSwitch) cameraModeSwitch.checked = !!isFlyMode;
+    return;
+  }
+
   isFlyMode = enableFlyMode;
 
   if (!window.__viewerReady || !viewer) {
@@ -982,12 +1007,20 @@ function switchCameraMode(enableFlyMode) {
 
 if (cameraModeSwitch) {
   cameraModeSwitch.addEventListener("change", (e) => {
+    if (playMode?.isEnabled?.()) {
+      e.target.checked = !!isFlyMode;
+      return;
+    }
     switchCameraMode(e.target.checked);
   });
 }
 
 // Expose global functions
 window.setCameraMode = (enableFlyMode) => {
+  if (playMode?.isEnabled?.()) {
+    if (cameraModeSwitch) cameraModeSwitch.checked = !!isFlyMode;
+    return;
+  }
   if (cameraModeSwitch) cameraModeSwitch.checked = !!enableFlyMode;
   switchCameraMode(!!enableFlyMode);
 };
@@ -1065,14 +1098,27 @@ function setupHierarchyAddMenu() {
   });
 
   menu.addEventListener("click", (e) => {
-    const item = e.target.closest('[data-action="empty-object"]');
+    const item = e.target.closest('[data-action]');
     if (!item) return;
     closeMenu();
     if (!window.__viewerReady) return;
-    const ent = viewer.createEmptyObjectEntity?.();
+    const action = item.getAttribute("data-action");
+    let ent = null;
+    let name = "";
+    let objectType = "";
+    if (action === "empty-object") {
+      ent = viewer.createEmptyObjectEntity?.();
+      name = t("panel.emptyObjectDefaultName");
+      objectType = "empty";
+    } else if (action === "cube-object") {
+      ent = viewer.createCubeObjectEntity?.();
+      name = t("panel.cubeObjectDefaultName");
+      objectType = "cube";
+    } else {
+      return;
+    }
     if (!ent) return;
-    const name = t("panel.emptyObjectDefaultName");
-    const added = timeline.addObject(name, ent, null, { objectType: "empty" });
+    const added = timeline.addObject(name, ent, null, { objectType });
     if (added && timeline.selectObject) timeline.selectObject(added.id);
   });
 
@@ -2205,7 +2251,7 @@ async function executeObjectDelete(objectId) {
         fileLoader?.removeFileData?.(f.splatId);
       }
     }
-  } else if (obj.objectType === 'empty' && obj.entity) {
+  } else if ((obj.objectType === 'empty' || obj.objectType === 'cube') && obj.entity) {
     try {
       obj.entity.destroy();
     } catch (e) {
@@ -2363,6 +2409,7 @@ window.addEventListener("keydown", (e) => {
   // F: Orbit/Fly toggle (e.code)
   if (e.code === "KeyF") {
     e.preventDefault();
+    if (playMode?.isEnabled?.()) return;
     if (cameraModeSwitch && !cameraModeSwitch.disabled) {
       cameraModeSwitch.checked = !cameraModeSwitch.checked;
       switchCameraMode(cameraModeSwitch.checked);
@@ -2378,6 +2425,7 @@ window.addEventListener("keydown", (e) => {
   // Space: play/pause toggle
   if (e.code === "Space") {
     e.preventDefault();
+    if (playMode?.isEnabled?.() || !isTimelineUiVisible()) return;
     timeline?.togglePlay();
   }
   
@@ -2397,6 +2445,12 @@ window.addEventListener("keydown", (e) => {
   if (e.code === "KeyO") {
     e.preventDefault();
     toggleOrbitMarker();
+  }
+
+  // I: show/hide Play Position flag for first-person play mode
+  if (e.code === "KeyI") {
+    e.preventDefault();
+    playMode?.togglePlayPositionFlag?.();
   }
 
   // T: GLB visibility toggle (selected or all in scene)
@@ -2783,6 +2837,17 @@ async function bootstrap() {
       // Init FlyMode
       flyMode = new FlyMode(viewer);
       window.__flyMode = flyMode;
+
+      playMode = new PlayMode({
+        viewer,
+        gizmo,
+        flyMode,
+        getCubeObjects: () => timeline?.objects?.filter((obj) => obj.objectType === "cube") ?? [],
+        getPanelVisibilityState,
+        setPanelVisibilityState,
+        onStateChange: (active) => updatePlayModeButton(active),
+      });
+      window.__playMode = playMode;
       
       // Init Object Details Panel
       detailsPanel = new ObjectDetailsPanel();

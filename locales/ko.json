@@ -12,6 +12,8 @@
     "hierarchyAddMenuTitle": "추가",
     "emptyObject": "빈 오브젝트",
     "emptyObjectDefaultName": "빈 오브젝트",
+    "cubeObject": "큐브",
+    "cubeObjectDefaultName": "큐브",
     "gizmoTools": "기즈모",
     "comments": "코멘트",
     "commentAdd": "설명 추가",
@@ -90,6 +92,7 @@
   },
   "tooltip": {
     "settings": "설정",
+    "playMode": "플레이 모드",
     "panelTogglesToolbar": "패널 표시",
     "toggleLeftSidebar": "왼쪽 패널 (계층)",
     "toggleTopTimeline": "상단 타임라인",

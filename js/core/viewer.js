@@ -7,6 +7,7 @@
 import { InfiniteGrid } from "../ui/gridDraw.js";
 import { convexHull2D, concaveOutlines2D } from "./selectionSilhouette.js";
 import { loadGSplatDataWithMorton, loadGSplatDataFromUrl } from "./splatLoader.js";
+import { createWireBoxMeshAndMaterial } from "../tools/selectors/BoxSelector.js";
 
 /** R/Y/B/G — js/main.js EDITOR_TINT_PRESETS(색 값)와 동기화 */
 const EDITOR_MULTI_TINT_PRESETS = [
@@ -464,6 +465,58 @@ export class PlayCanvasViewer {
     this.ensureScene();
     if (!this.splatRoot) return null;
     const ent = new pc.Entity("EmptyObject");
+    this.splatRoot.addChild(ent);
+    return ent;
+  }
+
+  /**
+   * 계층용 기본 큐브 엔티티 (1x1x1, 원점, 회색 머티리얼).
+   * @returns {object|null}
+   */
+  createCubeObjectEntity() {
+    const pc = window.pc;
+    if (!pc || !this.app) return null;
+    this.ensureScene();
+    if (!this.splatRoot) return null;
+
+    const ent = new pc.Entity("CubeObject");
+    const material = new pc.StandardMaterial();
+    material.diffuse = new pc.Color(0.5, 0.5, 0.5, 1);
+    material.useLighting = false;
+    material.emissive = new pc.Color(0.5, 0.5, 0.5, 1);
+    material.emissiveIntensity = 1;
+    material.update();
+
+    ent.addComponent("render", {
+      type: "box",
+      material,
+    });
+
+    const outline = new pc.Entity("CubeObjectOutline");
+    outline.addComponent("render");
+    const wire = createWireBoxMeshAndMaterial(this.app, { x: 1, y: 1, z: 1 }, {
+      outlineOnly: true,
+      edgeColor: [0.08, 0.08, 0.08, 1],
+    });
+    if (wire.mesh && wire.material) {
+      outline.render.meshInstances = [new pc.MeshInstance(wire.mesh, wire.material)];
+      outline.on("destroy", () => {
+        try {
+          wire.mesh.destroy();
+        } catch (e) {
+        }
+        try {
+          wire.material.destroy();
+        } catch (e) {
+        }
+      });
+      ent.addChild(outline);
+    }
+
+    ent.setLocalPosition(0, 0, 0);
+    ent.setLocalEulerAngles(0, 0, 0);
+    ent.setLocalScale(1, 1, 1);
+    ent._objectType = "cube";
     this.splatRoot.addChild(ent);
     return ent;
   }

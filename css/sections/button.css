@@ -39,6 +39,7 @@ button:focus-visible,
 .orbit-toggle,
 .fullscreen-toggle,
 .header-panel-toggle,
+.play-mode-button,
 .settings-button {
   height: 34px;
   min-width: 40px;
@@ -60,6 +61,7 @@ button:focus-visible,
 .orbit-toggle:hover,
 .fullscreen-toggle:hover,
 .header-panel-toggle:hover,
+.play-mode-button:hover,
 .settings-button:hover {
   opacity: 0.9;
 }
@@ -69,6 +71,7 @@ button:focus-visible,
 .orbit-toggle:active,
 .fullscreen-toggle:active,
 .header-panel-toggle:active,
+.play-mode-button:active,
 .settings-button:active {
   transform: translateY(1px);
 }
@@ -78,6 +81,7 @@ button:focus-visible,
 .orbit-toggle.is-off,
 .fullscreen-toggle.is-off,
 .header-panel-toggle.is-off,
+.play-mode-button.is-off,
 .settings-button.is-off {
   color: var(--color-text-muted);
   opacity: 0.85;
@@ -88,9 +92,15 @@ button:focus-visible,
 .orbit-toggle.is-off:hover,
 .fullscreen-toggle.is-off:hover,
 .header-panel-toggle.is-off:hover,
+.play-mode-button.is-off:hover,
 .settings-button.is-off:hover {
   color: var(--color-text-secondary);
   opacity: 0.95;
+}
+
+.play-mode-button.is-active {
+  color: #89ffb0;
+  opacity: 1;
 }
 
 .export-button {

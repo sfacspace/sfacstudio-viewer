@@ -12,6 +12,8 @@
     "hierarchyAddMenuTitle": "Add",
     "emptyObject": "Empty Object",
     "emptyObjectDefaultName": "Empty Object",
+    "cubeObject": "Cube",
+    "cubeObjectDefaultName": "Cube",
     "gizmoTools": "Gizmo",
     "comments": "Comments",
     "commentAdd": "Add description",
@@ -90,6 +92,7 @@
   },
   "tooltip": {
     "settings": "Settings",
+    "playMode": "Play mode",
     "panelTogglesToolbar": "Panel visibility",
     "toggleLeftSidebar": "Left panel (hierarchy)",
     "toggleTopTimeline": "Top timeline",

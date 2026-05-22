@@ -112,6 +112,9 @@ export async function buildProjectData(deps) {
     };
     if (obj.objectType === 'empty') {
       entry.isEmpty = true;
+      entry.objectType = 'empty';
+    } else if (obj.objectType === 'cube') {
+      entry.objectType = 'cube';
     }
     if (base64) {
       entry.base64 = base64;
@@ -276,14 +279,16 @@ export async function loadProjectFromFile(deps, opts = {}) {
     const base64 = ob.base64 ?? null;
     const loadPath = path ?? ob.duplicatedFromSourcePath ?? null;
 
-    if (ob.isEmpty === true || ob.objectType === 'empty') {
-      onProgress?.(`로드 중: ${ob.name ?? 'Empty'} (${loadedCount + 1}/${objects.length})`);
-      const ent = viewer.createEmptyObjectEntity?.();
+    if (ob.isEmpty === true || ob.objectType === 'empty' || ob.objectType === 'cube') {
+      const isCube = ob.objectType === 'cube';
+      const fallbackName = isCube ? 'Cube' : 'Empty';
+      onProgress?.(`로드 중: ${ob.name ?? fallbackName} (${loadedCount + 1}/${objects.length})`);
+      const ent = isCube ? viewer.createCubeObjectEntity?.() : viewer.createEmptyObjectEntity?.();
       if (!ent) {
-        onProgress?.(`"${ob.name ?? ''}" 빈 오브젝트 생성 실패 – 건너뜀`);
+        onProgress?.(`"${ob.name ?? ''}" ${isCube ? '큐브' : '빈 오브젝트'} 생성 실패 – 건너뜀`);
         continue;
       }
-      const added = timeline.addObject(ob.name || 'Empty Object', ent, null, { objectType: 'empty' });
+      const added = timeline.addObject(ob.name || fallbackName, ent, null, { objectType: isCube ? 'cube' : 'empty' });
       if (added) {
         idMap[ob.id] = added.id;
         const t = ob.transform;
@@ -408,4 +413,3 @@ export async function loadProjectFromFile(deps, opts = {}) {
   return { success: true, fileHandle: projectFileHandle };
 }
 export { LIAM_EXT, LIAM_VERSION };
-

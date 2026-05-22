@@ -75,6 +75,36 @@ async function duplicateEmpty(viewer, timeline, obj) {
 }
 
 /**
+ * 기본 큐브 오브젝트 복제
+ */
+async function duplicateCube(viewer, timeline, obj) {
+  const entity = getPrimaryEntity(obj);
+  if (!entity) {
+    alert('복제할 엔티티가 없습니다.');
+    return null;
+  }
+  viewer.ensureScene?.();
+  const cloneEnt = viewer.createCubeObjectEntity?.();
+  if (!cloneEnt) {
+    alert('큐브 오브젝트를 만들 수 없습니다.');
+    return null;
+  }
+  copyTransform(entity, cloneEnt);
+  const baseName = (obj.name || 'Cube').trim();
+  const newName = `${baseName} (복제)`;
+  const addFn = timeline.addObject || timeline.add;
+  const added = addFn.call(timeline, newName, cloneEnt, null, { objectType: 'cube' });
+  if (!added) return null;
+  added.visible = obj.visible !== false;
+  cloneEnt.enabled = added.visible;
+  if (typeof timeline.renderObjects === 'function') timeline.renderObjects();
+  else if (typeof timeline.render === 'function') timeline.render();
+  const objs = timeline.objects ?? timeline._objects?.objects;
+  (timeline.onObjectsChange || timeline._objects?.onObjectsChange)?.(objs ?? timeline.objects);
+  return added;
+}
+
+/**
  * 단일 오브젝트 복제
  */
 async function duplicateSingle(viewer, timeline, selectionTool, obj) {
@@ -204,6 +234,9 @@ export async function runDuplicateObject(obj, deps) {
   }
   if (obj.objectType === 'empty') {
     return duplicateEmpty(viewer, timeline, obj);
+  }
+  if (obj.objectType === 'cube') {
+    return duplicateCube(viewer, timeline, obj);
   }
   return duplicateSingle(viewer, timeline, selectionTool, obj);
 }

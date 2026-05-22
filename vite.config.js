@@ -11,7 +11,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
   },
-  assetsInclude: ['**/*.wasm'],
+  assetsInclude: ['**/*.wasm', '**/*.ply'],
   resolve: {
     alias: {
       // dev/build 시 수정한 public 쪽 PlayCanvas 사용 (로그 등)

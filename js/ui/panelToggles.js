@@ -46,6 +46,25 @@ export function isRightSidebarVisible() {
   return rightSidebarVisible;
 }
 
+export function isTimelineUiVisible() {
+  return timelineUiVisible;
+}
+
+export function getPanelVisibilityState() {
+  return {
+    leftSidebarVisible,
+    timelineUiVisible,
+    rightSidebarVisible,
+  };
+}
+
+export function setPanelVisibilityState(state = {}) {
+  if (typeof state.leftSidebarVisible === 'boolean') leftSidebarVisible = state.leftSidebarVisible;
+  if (typeof state.timelineUiVisible === 'boolean') timelineUiVisible = state.timelineUiVisible;
+  if (typeof state.rightSidebarVisible === 'boolean') rightSidebarVisible = state.rightSidebarVisible;
+  applyPanelChromeVisibility();
+}
+
 /**
  * 설정 모달에서 양쪽 사이드바만 동시에 켜거나 끔.
  * @param {boolean} want
