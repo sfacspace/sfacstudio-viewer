@@ -2452,22 +2452,6 @@ window.addEventListener("keydown", (e) => {
     }
   }
 
-  // Delete/Backspace: delete selected object(s) (confirm modal)
-  if (e.code === "Delete" || e.code === "Backspace") {
-    const selIds = timeline?.selectedObjectIds ?? [];
-    if (selIds.length > 0) {
-      e.preventDefault();
-      const names = selIds.map(
-        (id) => timeline.objects.find((o) => o.id === id)?.name ?? id
-      );
-      showDeleteModal(selIds, names);
-    } else if (timeline?.selectedObjectId) {
-      e.preventDefault();
-      const id = timeline.selectedObjectId;
-      const obj = timeline.objects.find((o) => o.id === id);
-      if (obj) showDeleteModal([id], [obj.name]);
-    }
-  }
 });
 
 window.addEventListener("keyup", (e) => {
