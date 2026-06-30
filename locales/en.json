@@ -112,9 +112,6 @@
     "project": "Project",
     "loadPly": "Load PLY",
     "loadByPath": "Load by path",
-    "saveProject": "Save",
-    "saveProjectAs": "Save As",
-    "loadProject": "Load Project",
     "exportViewer": "Export App Viewer",
     "exportVideo": "Export video",
     "startProject": "Start Project"
@@ -131,20 +128,6 @@
     "serverChecking": "Checking…",
     "serverOk": "Local server connected",
     "serverError": "Local server not connected"
-  },
-  "loadProject": {
-    "title": "Load Project",
-    "confirmTitle": "Load Project",
-    "confirmMessage": "All current editor content will be cleared, then the selected project will be loaded. Continue?",
-    "confirmButton": "Load",
-    "indexedDBTitle": "IndexedDB cache management",
-    "refresh": "Refresh",
-    "lastUpdated": "Last updated",
-    "cancel": "Cancel",
-    "confirm": "Load",
-    "noProjects": "No projects to display.",
-    "loadDetailsError": "Failed to load project details: {{message}}",
-    "importPlyTooltip": "Import PLY (local files)"
   },
   "deleteSelected": {
     "title": "Remove the selected projects?",

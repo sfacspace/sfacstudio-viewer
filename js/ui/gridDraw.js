@@ -93,6 +93,33 @@ export class InfiniteGrid {
     return this._visible;
   }
 
+  /** @param {'black' | 'white' | 'green'} theme */
+  setBackgroundTheme(theme) {
+    const palettes = {
+      black: {
+        smallGridColor: [0.3, 0.3, 0.3, 0.5],
+        largeGridColor: [0.5, 0.5, 0.5, 0.8],
+      },
+      white: {
+        smallGridColor: [0.55, 0.55, 0.55, 0.55],
+        largeGridColor: [0.35, 0.35, 0.35, 0.75],
+      },
+      green: {
+        smallGridColor: [0.85, 0.95, 0.85, 0.45],
+        largeGridColor: [0.75, 0.9, 0.75, 0.65],
+      },
+    };
+    const palette = palettes[theme] ?? palettes.black;
+    this.config.smallGridColor = palette.smallGridColor.slice();
+    this.config.largeGridColor = palette.largeGridColor.slice();
+    this._tiles.forEach((t) => t.destroy());
+    this._tiles.clear();
+    this._pool.forEach((t) => t.destroy());
+    this._pool.length = 0;
+    this._lastCx = null;
+    this._lastCz = null;
+  }
+
   _createMaterials() {
     const pc = this.pc;
     this._material = new pc.StandardMaterial();

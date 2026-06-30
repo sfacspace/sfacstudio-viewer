@@ -1,5 +1,5 @@
 /**
- * Export module: serializeViewer (single HTML), exportSingleHTML alias, PLY/compressed PLY helpers.
+ * Export module: serializeViewer (single HTML), playing HTML, PLY/compressed PLY helpers.
  */
 export { serializeViewer } from './exportSingleHTML.js';
 export { serializeViewer as exportSingleHTML } from './exportSingleHTML.js';

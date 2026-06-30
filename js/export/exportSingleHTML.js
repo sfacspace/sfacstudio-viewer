@@ -1,7 +1,6 @@
 /**
  * Serialize viewer to single HTML (frame-based: totalFrames, keyframes[].frame; objects span full timeline).
  * When PLY has baked world transform → JSON transform = null; otherwise keep baseTransform.
- * Viewer: getCameraState(), _orbitTarget, _orbitDistance 사용.
  *
  * @param {Object} options
  * @param {Object} options.fileLoader - FileLoader
@@ -12,489 +11,15 @@
  * @param {() => void} [options.onCancel] - Cancel callback
  */
 import { getEmbeddedViewerScript } from './embeddedViewerScript.js';
-import { writePlyBinary, getExportOptionsFromWorldMat4, getGsplatResourceFromEntity } from './exportPly.js';
+import {
+  loadBrandingExportOpts,
+  streamTimelineObjectsJson,
+  writeHtmlDocumentWithObjects,
+  DEFAULT_SCENE_SETTINGS,
+} from './exportHtmlShared.js';
 import { t } from '../i18n.js';
 
-export async function serializeViewer(options = {}) {
-  const { fileLoader, timeline, viewer, selectionTool, signal, onCancel } = options;
-  const selTool = selectionTool ?? (typeof window !== 'undefined' && window.__selectionTool ? window.__selectionTool : null);
-
-  if (!fileLoader || !timeline || !viewer) {
-    console.error("[serializeViewer] fileLoader, timeline, viewer required.");
-    return;
-  }
-
-  const throwIfAborted = () => {
-    if (signal?.aborted) {
-      throw new DOMException('Aborted', 'AbortError');
-    }
-  };
-
-  throwIfAborted();
-
-  // Base64 streaming util
-
-  const base64Alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-
-  const streamBlobToBase64 = async (blob, onChunk) => {
-    if (!blob) return;
-    const reader = blob.stream?.().getReader?.();
-    if (!reader) {
-      const buf = await blob.arrayBuffer();
-      const u8 = new Uint8Array(buf);
-      let binary = "";
-      const chunkSize = 0x8000;
-      for (let i = 0; i < u8.length; i += chunkSize) {
-        binary += String.fromCharCode.apply(null, u8.subarray(i, i + chunkSize));
-      }
-      await onChunk(btoa(binary));
-      return;
-    }
-
-    let carry = new Uint8Array(0);
-    while (true) {
-      throwIfAborted();
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (!value || value.length === 0) continue;
-
-      let input;
-      if (carry.length) {
-        input = new Uint8Array(carry.length + value.length);
-        input.set(carry, 0);
-        input.set(value, carry.length);
-      } else {
-        input = value;
-      }
-
-      const usable = input.length - (input.length % 3);
-      const outLen = (usable / 3) * 4;
-      const chars = new Array(outLen);
-      let o = 0;
-      for (let i = 0; i < usable; i += 3) {
-        const n = (input[i] << 16) | (input[i + 1] << 8) | input[i + 2];
-        chars[o++] = base64Alphabet[(n >> 18) & 63];
-        chars[o++] = base64Alphabet[(n >> 12) & 63];
-        chars[o++] = base64Alphabet[(n >> 6) & 63];
-        chars[o++] = base64Alphabet[n & 63];
-      }
-      if (outLen) {
-        await onChunk(chars.join(''));
-      }
-
-      const rem = input.length - usable;
-      carry = rem ? input.slice(usable) : new Uint8Array(0);
-    }
-
-    if (carry.length) {
-      const a = carry[0];
-      const b = carry.length > 1 ? carry[1] : 0;
-      const n = (a << 16) | (b << 8);
-      const c1 = base64Alphabet[(n >> 18) & 63];
-      const c2 = base64Alphabet[(n >> 12) & 63];
-      const c3 = carry.length > 1 ? base64Alphabet[(n >> 6) & 63] : '=';
-      const c4 = '=';
-      await onChunk(c1 + c2 + c3 + c4);
-    }
-  };
-
-  const uint8ToBase64 = (u8) => {
-    if (!u8 || !u8.length) return "";
-    let binary = "";
-    const chunkSize = 0x8000;
-    for (let i = 0; i < u8.length; i += chunkSize) {
-      binary += String.fromCharCode.apply(null, u8.subarray(i, i + chunkSize));
-    }
-    return btoa(binary);
-  };
-
-  const loadExportOpts = async () => {
-    let iconBase64 = null;
-    let iconType = null;
-    for (const iconPath of ['/static/logo_white.svg', './static/logo_white.svg', '/static/favicon.svg', './static/favicon.svg']) {
-      try {
-        const r = await fetch(iconPath, { signal: signal || undefined });
-        if (r.ok) {
-          const text = await r.text();
-          iconBase64 = btoa(unescape(encodeURIComponent(text)));
-          iconType = 'svg';
-          break;
-        }
-      } catch (e) {}
-    }
-    if (!iconBase64) {
-      for (const iconPath of ['/static/symbol.png', './static/symbol.png']) {
-        try {
-          const r = await fetch(iconPath, { signal: signal || undefined });
-          if (r.ok) {
-            const buf = await r.arrayBuffer();
-            const u8 = new Uint8Array(buf);
-            let binary = '';
-            const chunk = 0x8000;
-            for (let i = 0; i < u8.length; i += chunk) binary += String.fromCharCode.apply(null, u8.subarray(i, i + chunk));
-            iconBase64 = btoa(binary);
-            iconType = 'png';
-            break;
-          }
-        } catch (e) {}
-      }
-    }
-    let logoBase64 = null;
-    for (const logoPath of ['/static/logo_white.svg', './static/logo_white.svg', '/static/logo.svg', './static/logo.svg']) {
-      try {
-        const r = await fetch(logoPath, { signal: signal || undefined });
-        if (r.ok) {
-          const text = await r.text();
-          logoBase64 = btoa(unescape(encodeURIComponent(text)));
-          break;
-        }
-      } catch (e) {}
-    }
-    return {
-      iconBase64,
-      iconType,
-      logoBase64,
-      playcanvasPath: 'https://cdn.jsdelivr.net/npm/playcanvas@2.15.1/build/playcanvas.mjs',
-    };
-  };
-
-  /** Extract local transform; only include in JSON when PLY is not baked. */
-  const extractLocalTransform = (entity) => {
-    if (!entity) return null;
-    const q = entity.getLocalRotation();
-    return {
-      position: {
-        x: entity.getLocalPosition().x,
-        y: entity.getLocalPosition().y,
-        z: entity.getLocalPosition().z,
-      },
-      rotation: { x: q.x, y: q.y, z: q.z, w: q.w },
-      scale: entity.getLocalScale().x,
-    };
-  };
-
-  /** Export transform: position/scale from _sequenceTransform; rotation from entity (avoids RotZ lock). */
-  const getExportTransform = (obj) => {
-    const entityTransform = obj?.entity ? extractLocalTransform(obj.entity) : null;
-    const seq = obj?._sequenceTransform;
-    const pos = (seq?.position && (seq.position.x !== undefined || seq.position.y !== undefined || seq.position.z !== undefined))
-      ? { x: seq.position.x ?? 0, y: seq.position.y ?? 0, z: seq.position.z ?? 0 }
-      : (entityTransform?.position ?? null);
-    const scaleVal = (seq?.scale !== undefined)
-      ? (typeof seq.scale === 'number' ? seq.scale : (seq.scale?.x ?? 1))
-      : (entityTransform?.scale ?? 1);
-    const rotation = entityTransform?.rotation ?? (obj?.transform?.rotation ?? null);
-    if (pos && rotation) {
-      const scaleOut = typeof scaleVal === 'number' ? scaleVal : (scaleVal?.x ?? 1);
-      return {
-        position: { x: pos.x ?? 0, y: pos.y ?? 0, z: pos.z ?? 0 },
-        rotation: { x: rotation.x, y: rotation.y, z: rotation.z, w: rotation.w },
-        scale: scaleOut,
-      };
-    }
-    if (entityTransform) return entityTransform;
-    return obj?.transform ?? null;
-  };
-
-  /**
-   * Extract PLY bytes and whether world transform was baked (baked → JSON transform = null).
-   * @returns {{ bytes: Uint8Array|null, transformBaked: boolean }}
-   */
-  const extractPlyBytes = (entity) => {
-    try {
-      if (!entity?.gsplat) return { bytes: null, transformBaked: false };
-      const resource = getGsplatResourceFromEntity(entity, selTool);
-      const gsplatData = resource?.gsplatData;
-      if (!gsplatData?.elements?.length) return { bytes: null, transformBaked: false };
-
-      const keepMask = selTool
-        ? (() => {
-            const erasedSet = selTool._getErasedIndicesForEntity?.(entity);
-            return (i) => !(erasedSet instanceof Set && erasedSet.has(i));
-          })()
-        : () => true;
-
-      const world = typeof entity.getWorldTransform === 'function' ? entity.getWorldTransform() : null;
-      const opts = getExportOptionsFromWorldMat4(world, { useFullWorldMatrix: true });
-
-      // writePlyBinary bakes world when opts.worldMat4 is set
-      const transformBaked = !!opts.worldMat4;
-
-      const bytes = writePlyBinary(gsplatData, keepMask, opts);
-      if (!bytes) return { bytes: null, transformBaked: false };
-
-      return {
-        bytes: bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes),
-        transformBaked,
-      };
-    } catch (e) {
-      return { bytes: null, transformBaked: false };
-    }
-  };
-
-  const writeExportHTMLStreamed = async (writable, {
-    maxSeconds,
-    fps,
-    totalFrames,
-    cameraSpeedProfileStart,
-    cameraSpeedProfileEnd,
-    initialCameraState,
-    initialCamera,
-    orbitTarget,
-    orbitDistance,
-    sceneSettings,
-  }, exportOpts = {}) => {
-    const initialCam = initialCameraState ?? initialCamera;
-    const payloadTotalCount = window.__exportAppViewerTotalCount;
-    let payloadDoneCount = 0;
-
-    const placeholder = '__OBJECTS_PLACEHOLDER__';
-    const streamTotalFrames = Math.max(1, Math.min(18000, parseInt(totalFrames) || 1));
-    const htmlBase = generateHTML({
-      maxSeconds,
-      fps,
-      totalFrames,
-      cameraSpeedProfileStart: cameraSpeedProfileStart ?? 0,
-      cameraSpeedProfileEnd: cameraSpeedProfileEnd ?? 0,
-      objects: placeholder,
-      keyframes: (timeline.keyframes || []).map(kf => ({
-        id: kf.id,
-        frame: (typeof kf.frame === 'number')
-          ? Math.max(0, Math.min(streamTotalFrames - 1, kf.frame))
-          : Math.max(0, Math.min(streamTotalFrames - 1, Math.round((Number(kf.t) || 0) * (parseInt(fps) || 30)))),
-        state: kf.state,
-      })),
-      initialCamera: initialCam,
-      orbitTarget,
-      orbitDistance,
-      sceneSettings,
-      comments: (typeof window !== 'undefined' && window.__objectDescription?.comments)
-        ? window.__objectDescription.comments
-        : [],
-    }, exportOpts);
-
-    const marker = JSON.stringify(placeholder);
-    const idx = htmlBase.indexOf(marker);
-    if (idx < 0) throw new Error('objects placeholder not found');
-    await writable.write(htmlBase.slice(0, idx));
-    await writable.write('[');
-
-    const objects = timeline.objects || [];
-    let needCommaBeforeNext = false;
-    for (let oi = 0; oi < objects.length; oi++) {
-      throwIfAborted();
-      const obj = objects[oi];
-      if (needCommaBeforeNext) await writable.write(',');
-      needCommaBeforeNext = true;
-
-      const baseTransform = getExportTransform(obj) ?? extractLocalTransform(obj.entity);
-
-      // Multi-file object
-      if (obj.isMultiFile && obj.files) {
-        const startFrame = 0;
-        const endFrame = streamTotalFrames;
-
-        await writable.write('{"id":' + JSON.stringify(obj.id) + ',"name":' + JSON.stringify(obj.name) + ',"startFrame":' + startFrame + ',"endFrame":' + endFrame + ',"isMultiFile":true,"files":[');
-
-        const totalF = obj.files.length;
-        for (let fi = 0; fi < totalF; fi++) {
-          throwIfAborted();
-          if (fi > 0) await writable.write(',');
-          const f = obj.files[fi];
-          const fileData = fileLoader.getFileDataBySplatId(f.splatId);
-          const fileTransform = extractLocalTransform(f.entity) || baseTransform;
-
-          const { bytes, transformBaked } = extractPlyBytes(f.entity);
-          const exportTransform = transformBaked ? null : fileTransform;
-
-          const fileHeader = {
-            fileName: f.fileName || `file_${fi}.ply`,
-            splatId: f.splatId || '',
-            base64: '__B64__',
-            transform: exportTransform,
-          };
-          const fileJson = JSON.stringify(fileHeader);
-          const b64Marker = '__B64__';
-          const bIdx = fileJson.indexOf(b64Marker);
-
-          if (bIdx < 0) {
-            await writable.write(JSON.stringify({ ...fileHeader, base64: '' }));
-          } else {
-            await writable.write(fileJson.slice(0, bIdx));
-            if (bytes?.length) {
-              await streamBlobToBase64(new Blob([bytes]), async (chunk) => {
-                throwIfAborted();
-                await writable.write(chunk);
-              });
-            } else {
-              // Fallback when bytes extraction fails (exportTransform = fileTransform)
-              const b64 = fileData?.base64 || '';
-              for (let j = 0; j < b64.length; j += 0x8000) {
-                await writable.write(b64.slice(j, j + 0x8000));
-              }
-            }
-            await writable.write(fileJson.slice(bIdx + b64Marker.length));
-          }
-        }
-
-        // Object-level transform null (handled per file)
-        await writable.write('],"transform":null}');
-        if (typeof payloadTotalCount === 'number') payloadDoneCount += 1;
-        continue;
-      }
-
-      // (C) Single-file object
-      const startFrame = 0;
-      const endFrame = streamTotalFrames;
-
-      const { bytes, transformBaked } = extractPlyBytes(obj.entity);
-      const exportTransform = transformBaked ? null : (baseTransform || obj.transform || null);
-
-      const singleHeader = {
-        id: obj.id, name: obj.name, startFrame, endFrame,
-        isMultiFile: false,
-        base64: '__B64__',
-        transform: exportTransform,
-      };
-      const singleJson = JSON.stringify(singleHeader);
-      const singleB64Marker = '__B64__';
-      const singleBIdx = singleJson.indexOf(singleB64Marker);
-
-      if (singleBIdx < 0) {
-        await writable.write(JSON.stringify({ ...singleHeader, base64: '' }));
-      } else {
-        await writable.write(singleJson.slice(0, singleBIdx));
-        if (bytes?.length) {
-          await streamBlobToBase64(new Blob([bytes]), async (chunk) => {
-            throwIfAborted();
-            await writable.write(chunk);
-          });
-        } else {
-          // Fallback: no bake, exportTransform is original transform
-          const b64 = '';
-          for (let j = 0; j < b64.length; j += 0x8000) {
-            await writable.write(b64.slice(j, j + 0x8000));
-          }
-        }
-        await writable.write(singleJson.slice(singleBIdx + singleB64Marker.length));
-      }
-
-      if (typeof payloadTotalCount === 'number') payloadDoneCount += 1;
-    }
-
-    await writable.write(']');
-    await writable.write(htmlBase.slice(idx + marker.length));
-    await writable.close();
-  };
-
-  const objects = timeline.objects || [];
-  const loadedFiles = fileLoader.getLoadedFiles() || [];
-  if (!objects.length) {
-    if (loadedFiles.length === 0) {
-      alert("내보낼 파일이 없습니다. PLY 파일을 먼저 로드해주세요.");
-    } else {
-      alert("내보낼 오브젝트가 없습니다.");
-    }
-    return;
-  }
-  throwIfAborted();
-
-  const defaultName = (timeline.objects || [])[0]?.name?.replace(/\.[^/.]+$/, "") || "scene";
-  const fileName = `with_${defaultName}.html`;
-
-  // Build common export params (frame-based: totalFrames + fps).
-  // Viewer API 사용: getCameraState(), _orbitTarget, _orbitDistance (requestRenderAfterSelectionChange/forceWorkBufferColorUpdate는 export에서 미사용)
-  const buildStreamExportOpts = () => {
-    const maxSeconds = (typeof timeline?.getMaxSeconds === 'function' ? timeline.getMaxSeconds() : (timeline.maxSeconds || 30));
-    const exportFps = Math.max(1, Math.min(60, parseInt(timeline?.fps) || 30));
-    const exportTotalFrames = Math.max(1, Math.min(18000, parseInt(timeline?.totalFrames) || Math.round(maxSeconds * exportFps) || 1));
-    const keyframesSorted = [...(timeline.keyframes || [])].sort((a, b) => (a.t ?? 0) - (b.t ?? 0));
-    const initialCameraState = keyframesSorted.length > 0
-      ? keyframesSorted[0].state
-      : (viewer?.getCameraState?.() ?? null);
-
-    return {
-      fileName,
-      maxSeconds,
-      fps: exportFps,
-      totalFrames: exportTotalFrames,
-      cameraSpeedProfileStart: timeline._playback?._speedProfileStart ?? 0,
-      cameraSpeedProfileEnd: timeline._playback?._speedProfileEnd ?? 0,
-      initialCameraState,
-      orbitTarget: viewer._orbitTarget ? { ...viewer._orbitTarget } : { x: 0, y: 0, z: 0 },
-      orbitDistance: viewer._orbitDistance ?? 6.4,
-      sceneSettings: {
-        fogType: "exp2",
-        fogDensity: 0.03,
-        fogColor: { r: 0, g: 0, b: 0 },
-        clearColor: { r: 0, g: 0, b: 0 },
-      },
-    };
-  };
-
-  // File System Access API
-  if (window.showSaveFilePicker) {
-    try {
-      throwIfAborted();
-      const fileHandle = await window.showSaveFilePicker({
-        suggestedName: fileName,
-        types: [{
-          description: "HTML files",
-          accept: { "text/html": [".html"] },
-        }],
-      });
-
-      window.__showGlobalLoadingOverlay?.(t('loading.exportingAppViewer'), 0, {
-        useSpinner: true,
-        showCancel: true,
-        cancelLabel: t('loading.cancel'),
-        onCancel: typeof onCancel === 'function' ? onCancel : undefined,
-      });
-
-      const exportOpts = await loadExportOpts();
-      throwIfAborted();
-
-      const streamExportOpts = buildStreamExportOpts();
-      const writable = await fileHandle.createWritable({ keepExistingData: false });
-      await writeExportHTMLStreamed(writable, streamExportOpts, exportOpts);
-      await writable.close();
-      return;
-    } catch (err) {
-      if (err?.name === 'AbortError') return;
-      console.warn("Streaming export failed:", err);
-      return;
-    }
-  }
-
-  // Fallback: Blob download
-  window.__showGlobalLoadingOverlay?.(t('loading.exportingAppViewer'), 0, {
-    useSpinner: true,
-    showCancel: true,
-    cancelLabel: t('loading.cancel'),
-    onCancel: typeof onCancel === 'function' ? onCancel : undefined,
-  });
-
-  const exportOpts = await loadExportOpts();
-  throwIfAborted();
-
-  const streamExportOpts = buildStreamExportOpts();
-  const chunks = [];
-  const collectorWritable = {
-    write(chunk) {
-      chunks.push(typeof chunk === 'string' ? chunk : new Uint8Array(chunk));
-    },
-    close() {},
-  };
-  await writeExportHTMLStreamed(collectorWritable, streamExportOpts, exportOpts);
-  const blob = new Blob(chunks, { type: "text/html" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+const OBJECTS_PLACEHOLDER = '__OBJECTS_PLACEHOLDER__';
 
 function generateHTML(viewerSettingsJson, opts = {}) {
   const metaJson = JSON.stringify(viewerSettingsJson);
@@ -504,9 +29,9 @@ function generateHTML(viewerSettingsJson, opts = {}) {
   const hasCameraMarkers = (viewerSettingsJson.keyframes || []).length > 0;
   const scriptBody = getEmbeddedViewerScript(playcanvasPath, { hasCameraMarkers, hasComments });
   const faviconTag = opts.iconBase64
-    ? (opts.iconType === 'svg'
-        ? `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,${opts.iconBase64}">`
-        : `<link rel="icon" type="image/png" href="data:image/png;base64,${opts.iconBase64}">`)
+    ? opts.iconType === 'svg'
+      ? `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,${opts.iconBase64}">`
+      : `<link rel="icon" type="image/png" href="data:image/png;base64,${opts.iconBase64}">`
     : '';
   const headerLogoHtml = opts.logoBase64
     ? `<a class="header-brand-link" href="https://sfacspace.com/" target="_blank" rel="noopener noreferrer" aria-label="스팩스페이스 (새 창)"><img src="data:image/svg+xml;base64,${opts.logoBase64}" alt="SFACSTUDIO" class="header-logo-img" width="120" height="26" decoding="async" /></a>`
@@ -605,4 +130,146 @@ function generateHTML(viewerSettingsJson, opts = {}) {
 </html>`;
 }
 
+export async function serializeViewer(options = {}) {
+  const { fileLoader, timeline, viewer, selectionTool, signal, onCancel } = options;
+  const selTool =
+    selectionTool ?? (typeof window !== 'undefined' && window.__selectionTool ? window.__selectionTool : null);
+
+  if (!fileLoader || !timeline || !viewer) {
+    console.error('[serializeViewer] fileLoader, timeline, viewer required.');
+    return;
+  }
+
+  const throwIfAborted = () => {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+  };
+
+  throwIfAborted();
+
+  const objects = timeline.objects || [];
+  const loadedFiles = fileLoader.getLoadedFiles() || [];
+  if (!objects.length) {
+    if (loadedFiles.length === 0) {
+      alert('보낼 파일이 없습니다. PLY 파일을 먼저 로드해주세요.');
+    } else {
+      alert('보낼 오브젝트가 없습니다.');
+    }
+    return;
+  }
+  throwIfAborted();
+
+  const defaultName = objects[0]?.name?.replace(/\.[^/.]+$/, '') || 'scene';
+  const fileName = `with_${defaultName}.html`;
+
+  const maxSeconds =
+    typeof timeline?.getMaxSeconds === 'function' ? timeline.getMaxSeconds() : timeline.maxSeconds || 30;
+  const exportFps = Math.max(1, Math.min(60, parseInt(timeline?.fps) || 30));
+  const exportTotalFrames = Math.max(
+    1,
+    Math.min(18000, parseInt(timeline?.totalFrames) || Math.round(maxSeconds * exportFps) || 1)
+  );
+  const streamTotalFrames = exportTotalFrames;
+  const keyframesSorted = [...(timeline.keyframes || [])].sort((a, b) => (a.t ?? 0) - (b.t ?? 0));
+  const initialCameraState =
+    keyframesSorted.length > 0 ? keyframesSorted[0].state : (viewer?.getCameraState?.() ?? null);
+
+  const buildHtmlShell = (exportOpts) =>
+    generateHTML(
+      {
+        maxSeconds,
+        fps: exportFps,
+        totalFrames: exportTotalFrames,
+        cameraSpeedProfileStart: timeline._playback?._speedProfileStart ?? 0,
+        cameraSpeedProfileEnd: timeline._playback?._speedProfileEnd ?? 0,
+        objects: OBJECTS_PLACEHOLDER,
+        keyframes: (timeline.keyframes || []).map((kf) => ({
+          id: kf.id,
+          frame:
+            typeof kf.frame === 'number'
+              ? Math.max(0, Math.min(streamTotalFrames - 1, kf.frame))
+              : Math.max(
+                  0,
+                  Math.min(
+                    streamTotalFrames - 1,
+                    Math.round((Number(kf.t) || 0) * (parseInt(exportFps) || 30))
+                  )
+                ),
+          state: kf.state,
+        })),
+        initialCamera: initialCameraState,
+        orbitTarget: viewer._orbitTarget ? { ...viewer._orbitTarget } : { x: 0, y: 0, z: 0 },
+        orbitDistance: viewer._orbitDistance ?? 6.4,
+        sceneSettings: DEFAULT_SCENE_SETTINGS,
+        comments:
+          typeof window !== 'undefined' && window.__objectDescription?.comments
+            ? window.__objectDescription.comments
+            : [],
+      },
+      exportOpts
+    );
+
+  const runStream = async (writable, exportOpts) => {
+    const htmlBase = buildHtmlShell(exportOpts);
+    await writeHtmlDocumentWithObjects(writable, htmlBase, OBJECTS_PLACEHOLDER, async () => {
+      await streamTimelineObjectsJson(writable, {
+        timeline,
+        fileLoader,
+        selectionTool: selTool,
+        signal,
+        streamTotalFrames,
+      });
+    });
+  };
+
+  const showOverlay = () => {
+    window.__showGlobalLoadingOverlay?.(t('loading.exportingAppViewer'), 0, {
+      useSpinner: true,
+      showCancel: true,
+      cancelLabel: t('loading.cancel'),
+      onCancel: typeof onCancel === 'function' ? onCancel : undefined,
+    });
+  };
+
+  if (window.showSaveFilePicker) {
+    try {
+      throwIfAborted();
+      const fileHandle = await window.showSaveFilePicker({
+        suggestedName: fileName,
+        types: [{ description: 'HTML files', accept: { 'text/html': ['.html'] } }],
+      });
+      showOverlay();
+      const exportOpts = await loadBrandingExportOpts(signal);
+      throwIfAborted();
+      const writable = await fileHandle.createWritable({ keepExistingData: false });
+      await runStream(writable, exportOpts);
+      await writable.close();
+      return;
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+      console.warn('[serializeViewer] save failed', err);
+      return;
+    }
+  }
+
+  showOverlay();
+  const exportOpts = await loadBrandingExportOpts(signal);
+  throwIfAborted();
+
+  const chunks = [];
+  const collector = {
+    write(chunk) {
+      chunks.push(typeof chunk === 'string' ? chunk : new Uint8Array(chunk));
+    },
+    close() {},
+  };
+  await runStream(collector, exportOpts);
+  const blob = new Blob(chunks, { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }

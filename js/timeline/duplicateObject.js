@@ -75,6 +75,50 @@ async function duplicateEmpty(viewer, timeline, obj) {
 }
 
 /**
+ * OBJ / GLB 충돌 블로커 복제 (meshBase64 재사용)
+ */
+async function duplicateMeshBlocker(viewer, timeline, obj) {
+  const entity = getPrimaryEntity(obj);
+  if (!entity) {
+    alert('복제할 엔티티가 없습니다.');
+    return null;
+  }
+  if (!obj.meshBase64) {
+    alert('메시 데이터가 없어 복제할 수 없습니다. 파일을 다시 불러오세요.');
+    return null;
+  }
+  const meshFormat = obj.meshFormat || obj.objectType || 'glb';
+  const ext = meshFormat === 'obj' ? 'obj' : 'glb';
+  const mime = ext === 'obj' ? 'model/obj' : 'model/gltf-binary';
+  const bin = atob(obj.meshBase64);
+  const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  const baseName = (obj.name || 'Mesh').replace(/\.[^/.]+$/, '');
+  const file = new File([u8], `${baseName}_copy.${ext}`, { type: mime });
+  const loaded = await viewer.loadMeshModelFromFile?.(file, { append: true });
+  if (!loaded?.entity) {
+    alert('메시 복제에 실패했습니다.');
+    return null;
+  }
+  copyTransform(entity, loaded.entity);
+  const addFn = timeline.addObject || timeline.add;
+  const added = addFn.call(timeline, `${baseName} (복제)`, loaded.entity, loaded.meshId, {
+    objectType: obj.objectType === 'obj' ? 'obj' : 'glb',
+    isCollisionBlocker: true,
+    meshFormat: loaded.meshFormat || meshFormat,
+    meshBase64: loaded.meshBase64 || obj.meshBase64,
+  });
+  if (!added) return null;
+  added.visible = obj.visible !== false;
+  loaded.entity.enabled = added.visible;
+  if (typeof timeline.renderObjects === 'function') timeline.renderObjects();
+  else if (typeof timeline.render === 'function') timeline.render();
+  const objs = timeline.objects ?? timeline._objects?.objects;
+  (timeline.onObjectsChange || timeline._objects?.onObjectsChange)?.(objs ?? timeline.objects);
+  return added;
+}
+
+/**
  * 기본 큐브 오브젝트 복제
  */
 async function duplicateCube(viewer, timeline, obj) {
@@ -142,6 +186,7 @@ async function duplicateSingle(viewer, timeline, selectionTool, obj) {
   const added = addFn.call(timeline, newName, result.entity, result.splatId, {
     sourcePath: null,
     duplicatedFromSourcePath: sourcePathForDuplicate,
+    sourceFileName: obj.sourceFileName || null,
   });
 
   added.visible = obj.visible !== false;
@@ -180,10 +225,13 @@ async function duplicateMultiFile(viewer, timeline, selectionTool, obj) {
     });
     if (result?.entity && result?.splatId) {
       copyTransform(entity, result.entity);
+      const src = (f.sourcePath || f.duplicatedFromSourcePath || '').trim() || null;
       results.push({
         entity: result.entity,
         splatId: result.splatId,
         fileName: f.fileName || f.name || `frame_${i}.ply`,
+        sourcePath: src,
+        sourceFileName: f.sourceFileName || f.fileName || f.name || null,
       });
     }
   }
@@ -237,6 +285,9 @@ export async function runDuplicateObject(obj, deps) {
   }
   if (obj.objectType === 'cube') {
     return duplicateCube(viewer, timeline, obj);
+  }
+  if (obj.objectType === 'obj' || obj.objectType === 'glb') {
+    return duplicateMeshBlocker(viewer, timeline, obj);
   }
   return duplicateSingle(viewer, timeline, selectionTool, obj);
 }

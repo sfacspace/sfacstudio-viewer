@@ -112,9 +112,6 @@
     "project": "프로젝트",
     "loadPly": "PLY 불러오기",
     "loadByPath": "경로로 로드",
-    "saveProject": "저장",
-    "saveProjectAs": "다른 이름으로 저장",
-    "loadProject": "프로젝트 불러오기",
     "exportViewer": "앱 뷰어 내보내기",
     "exportVideo": "동영상 내보내기",
     "startProject": "프로젝트 생성"
@@ -131,20 +128,6 @@
     "serverChecking": "확인 중…",
     "serverOk": "로컬 서버 연결됨",
     "serverError": "로컬 서버 연결 안 됨"
-  },
-  "loadProject": {
-    "title": "프로젝트 불러오기",
-    "confirmTitle": "프로젝트 불러오기",
-    "confirmMessage": "현재 에디터의 모든 내용이 초기화된 뒤, 선택한 프로젝트가 불러와집니다. 계속하시겠습니까?",
-    "confirmButton": "불러오기",
-    "indexedDBTitle": "IndexedDB 캐시 관리",
-    "refresh": "새로고침",
-    "lastUpdated": "마지막 업데이트",
-    "cancel": "취소",
-    "confirm": "불러오기",
-    "noProjects": "표시할 프로젝트가 없습니다.",
-    "loadDetailsError": "프로젝트 정보를 불러올 수 없습니다: {{message}}",
-    "importPlyTooltip": "Import PLY (로컬 파일)"
   },
   "deleteSelected": {
     "title": "선택된 프로젝트를 제거하시겠습니까?",

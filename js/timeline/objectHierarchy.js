@@ -115,6 +115,37 @@ export function syncSceneHierarchy(viewer, objects) {
  * @param {string} deletedParentId
  * @param {object} viewer
  */
+/**
+ * 부모가 배열에서 자식보다 앞에 오도록 깊이 우선 순서로 재배열한다.
+ * @param {object[]} objects
+ */
+export function reorderObjectsDepthFirst(objects) {
+  if (!Array.isArray(objects) || objects.length < 2) return;
+  const byId = new Map(objects.map((o) => [o.id, o]));
+  const visited = new Set();
+  const ordered = [];
+
+  const visit = (id) => {
+    if (!id || visited.has(id)) return;
+    const obj = byId.get(id);
+    if (!obj) return;
+    visited.add(id);
+    ordered.push(obj);
+    for (const o of objects) {
+      if (o.parentId === id) visit(o.id);
+    }
+  };
+
+  for (const o of objects) {
+    if (!o.parentId || !byId.has(o.parentId)) visit(o.id);
+  }
+  for (const o of objects) {
+    if (!visited.has(o.id)) ordered.push(o);
+  }
+  if (ordered.length !== objects.length) return;
+  objects.splice(0, objects.length, ...ordered);
+}
+
 export function detachChildrenBeforeParentDelete(objects, deletedParentId, viewer) {
   if (!viewer?.splatRoot || !Array.isArray(objects) || !deletedParentId) return;
   const root = viewer.splatRoot;

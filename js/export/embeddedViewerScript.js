@@ -241,6 +241,13 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
     }
   }
 
+  const commentAnchorEntityByObjectId = new Map();
+  for (const s of splats) {
+    if (s.objectId != null && s.entity && !commentAnchorEntityByObjectId.has(s.objectId)) {
+      commentAnchorEntityByObjectId.set(s.objectId, s.entity);
+    }
+  }
+
   let selectedObjectId = null;
   let selectionMaskLayerId = null;
   let selectionMaskCameraEntity = null;
@@ -864,8 +871,21 @@ export function getEmbeddedViewerScript(playcanvasPath = 'https://cdn.jsdelivr.n
     const worldPos = new pc.Vec3();
     const screenPos = new pc.Vec3();
     commentMarkers.forEach(({ comment, el }) => {
-      const p = comment.worldPosition || {};
-      worldPos.set(p.x ?? 0, p.y ?? 0, p.z ?? 0);
+      const oid = comment.objectId;
+      const ent = oid != null ? commentAnchorEntityByObjectId.get(oid) : null;
+      const off = comment.markerOffsetLocal;
+      if (ent && off && typeof off.x === "number" && typeof off.y === "number" && typeof off.z === "number") {
+        try {
+          const localPt = new pc.Vec3(off.x, off.y, off.z);
+          ent.getWorldTransform().transformPoint(localPt, worldPos);
+        } catch {
+          const p = comment.worldPosition || {};
+          worldPos.set(p.x ?? 0, p.y ?? 0, p.z ?? 0);
+        }
+      } else {
+        const p = comment.worldPosition || {};
+        worldPos.set(p.x ?? 0, p.y ?? 0, p.z ?? 0);
+      }
       cam.worldToScreen(worldPos, screenPos);
       if (screenPos.z < 0) { el.style.display = "none"; return; }
       const size = 40;

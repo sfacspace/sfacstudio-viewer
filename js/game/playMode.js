@@ -1,6 +1,15 @@
+import {
+  isMeshBlockerObject,
+} from '../core/collisionBlockers.js';
+import {
+  buildBlockerCollisionCache,
+  queryBlockerCollision,
+} from '../core/meshCollision.js';
+import { syncSceneHierarchy } from '../timeline/objectHierarchy.js';
+
 /**
- * First-person play mode for quick collision checks against editor Cube objects.
- * Cubes are hidden while play mode is active but remain collision blockers.
+ * First-person play mode for quick collision checks against cube / OBJ / GLB blockers.
+ * Blocker meshes are hidden while play mode is active but remain colliders.
  *
  * Camera/character coupling (Minecraft F5 style):
  *   - Mouse X → this._yaw → camera AND player visual rotate together.
@@ -21,7 +30,7 @@ const GRAVITY = -9.8;
 const MAX_FALL_SPEED = -35;
 const JUMP_SPEED = 4.8;
 const CAMERA_TRANSITION_MS = 320;
-const COLLISION_EPSILON = 1e-4;
+const DEFAULT_SURFACE_SNAP_THRESHOLD = 0.06;
 const PLAYER_THIRD_PERSON_DISTANCE = 3.2;
 const PLAYER_VISUAL_SCALE = 1;
 const PLAYER_VISUAL_ROLL = 180; // splat 모델 자체가 거꾸로 → 자식 entity에 1회만 적용 후 고정
@@ -31,14 +40,18 @@ const VIEW_THIRD_BACK = 1;
 const VIEW_THIRD_FRONT = 2;
 
 export class PlayMode {
-  constructor({ viewer, gizmo, getCubeObjects, flyMode, getPanelVisibilityState, setPanelVisibilityState, onStateChange } = {}) {
+  constructor({ viewer, gizmo, getCubeObjects, getTimelineObjects, flyMode, onSwitchToOrbit, getPanelVisibilityState, setPanelVisibilityState, getSurfaceSnapThreshold, onStateChange, onPersistableChange } = {}) {
     this.viewer = viewer;
     this.gizmo = gizmo;
     this.getCubeObjects = typeof getCubeObjects === 'function' ? getCubeObjects : () => [];
+    this.getTimelineObjects = typeof getTimelineObjects === 'function' ? getTimelineObjects : () => [];
     this.flyMode = flyMode || null;
+    this.onSwitchToOrbit = typeof onSwitchToOrbit === 'function' ? onSwitchToOrbit : null;
     this.getPanelVisibilityState = typeof getPanelVisibilityState === 'function' ? getPanelVisibilityState : null;
     this.setPanelVisibilityState = typeof setPanelVisibilityState === 'function' ? setPanelVisibilityState : null;
+    this.getSurfaceSnapThreshold = typeof getSurfaceSnapThreshold === 'function' ? getSurfaceSnapThreshold : null;
     this.onStateChange = typeof onStateChange === 'function' ? onStateChange : null;
+    this.onPersistableChange = typeof onPersistableChange === 'function' ? onPersistableChange : null;
 
     this.enabled = false;
     this._exiting = false;
@@ -54,15 +67,23 @@ export class PlayMode {
     this._savedOrbitEnabled = true;
     this._savedPanelState = null;
     this._hiddenCubeRenders = [];
+    /** @type {object[]} */
+    this._meshBlockerEntities = [];
+    this._meshRendersVisible = false;
+    /** @type {{ boxes: object[], meshes: object[] }} */
+    this._blockerCollision = { boxes: [], meshes: [] };
     this._cameraTransition = null;
     this._viewMode = VIEW_FIRST_PERSON;
-    this._playerEntity = null;       // wrapper (위치 + yaw 전담)
-    this._playerSplatEntity = null;  // 실제 splat (roll fix만 1회 적용 후 고정)
-    this._playerSplatId = null;
-    this._playerLoadPromise = null;
-
-    this._flagEntity = null;
-    this._flagObject = null;
+    /** @type {object|null} splatRoot 자식 — 에디터 미리보기 + 플레이 중 캐릭터 */
+    this._spawnEntity = null;
+    this._spawnSplatEntity = null;
+    this._spawnObject = null;
+    this._spawnSplatId = null;
+    this._spawnLoadPromise = null;
+    /** @type {{ localPos: object, localEuler: object, localScale: object, enabled: boolean }|null} */
+    this._spawnEditorSnapshot = null;
+    this._colliderScale = 1;
+    this._groundFloorY = null;
 
     this._onKeyDown = this._onKeyDown.bind(this);
     this._onKeyUp = this._onKeyUp.bind(this);
@@ -77,15 +98,18 @@ export class PlayMode {
 
   toggle() {
     if (this.enabled) this.disable();
-    else this.enable();
+    else void this.enable();
   }
 
-  enable() {
+  async enable() {
     if (this.enabled || !this.viewer?.cameraEntity) return;
     const pc = window.pc;
     if (!pc) return;
 
-    this.flyMode?.disable?.();
+    if (this.flyMode?.getEnabled?.()) {
+      this.flyMode.disableImmediate?.();
+    }
+    this.onSwitchToOrbit?.();
     this.enabled = true;
     this._exiting = false;
     this._keys.clear();
@@ -102,16 +126,30 @@ export class PlayMode {
 
     this._viewMode = VIEW_FIRST_PERSON;
     this._setPlayerVisible(false);
+    const timelineObjs = this.getTimelineObjects();
+    if (timelineObjs?.length && this.viewer) {
+      try {
+        syncSceneHierarchy(this.viewer, timelineObjs);
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    this._blockerCollision = buildBlockerCollisionCache(() => this.getCubeObjects());
     this._hideCubeRenders();
-    this._ensurePlayerVisual();
+    await this._ensureSpawnPreview();
+    this._captureSpawnEditorSnapshot();
 
     const start = this._getSpawnPosition();
     this._position = new pc.Vec3(start.x, start.y, start.z);
     this._verticalVelocity = 0;
     this._grounded = false;
+    this._groundFloorY = null;
+    this._colliderScale = this._getColliderScaleFactor();
     this._resolveInitialPenetration();
-    this._yaw = 0;
+    this._yaw = this._getSpawnYaw();
     this._pitch = 0;
+    this._syncPlayerVisual();
+    this._setPlayerVisible(false);
     this._startCameraTransitionToPlayer();
 
     window.addEventListener('keydown', this._onKeyDown, true);
@@ -156,6 +194,7 @@ export class PlayMode {
 
     this._restoreCubeRenders();
     this._setPlayerVisible(false);
+    this._restoreSpawnEditorSnapshot();
     if (this._savedPanelState) {
       this.setPanelVisibilityState?.(this._savedPanelState);
     }
@@ -163,74 +202,269 @@ export class PlayMode {
     this.onStateChange?.(false);
   }
 
-  togglePlayPositionFlag() {
-    if (!this._flagEntity) {
-      this._flagEntity = this._createFlagEntity();
-      if (!this._flagEntity) return;
-      this._flagObject = {
-        id: '__play_position_flag__',
-        name: 'Play Position',
-        entity: this._flagEntity,
+  /** @returns {Promise<boolean>} */
+  async _ensureSpawnPreview() {
+    const pc = window.pc;
+    if (!pc || !this.viewer) return false;
+    this.viewer.ensureScene?.();
+
+    if (!this._spawnEntity) {
+      const root = new pc.Entity('PlaySpawnPlayer');
+      root.setLocalPosition(0, 0, 0);
+      root.setLocalScale(1, 1, 1);
+      root.enabled = false;
+      this.viewer.splatRoot?.addChild(root);
+      this._spawnEntity = root;
+      this._spawnObject = {
+        id: '__play_spawn_player__',
+        name: 'Player',
+        entity: root,
         objectType: 'playPosition',
       };
     }
 
-    const nextVisible = !this._flagEntity.enabled;
-    this._flagEntity.enabled = nextVisible;
+    if (!this._spawnSplatEntity && !this._spawnLoadPromise) {
+      this._spawnLoadPromise = this._loadSpawnPlayerSplat();
+    }
+    if (this._spawnLoadPromise) {
+      await this._spawnLoadPromise;
+    }
+    return !!this._spawnEntity;
+  }
+
+  async _loadSpawnPlayerSplat() {
+    if (!this.viewer?.loadSplatFromUrl || !this._spawnEntity) return;
+    try {
+      const result = await this.viewer.loadSplatFromUrl(PLAYER_PLY_URL, {
+        append: true,
+        rotationFixZ180: false,
+        skipReorder: false,
+        onProgress: () => {},
+      });
+      const loaded = result?.entity;
+      this._spawnSplatId = result?.splatId || null;
+      if (!loaded || !this._spawnEntity) return;
+
+      if (loaded.parent) {
+        loaded.parent.removeChild(loaded);
+      }
+      this._spawnEntity.addChild(loaded);
+      loaded.name = 'PlaySpawnPlayerSplat';
+      loaded.setLocalPosition(0, 0, 0);
+      loaded.setLocalEulerAngles(0, 0, PLAYER_VISUAL_ROLL);
+      loaded.setLocalScale(1, 1, 1);
+      this._spawnSplatEntity = loaded;
+    } catch (err) {
+      console.warn('[PlayMode] Failed to load player PLY preview:', err);
+    } finally {
+      this._spawnLoadPromise = null;
+    }
+  }
+
+  /** 월드 좌표 → splatRoot 로컬 */
+  _worldToSpawnLocal(wx, wy, wz) {
+    const pc = window.pc;
+    const root = this.viewer?.splatRoot;
+    if (!pc || !root) return { x: wx, y: wy, z: wz };
+    const world = new pc.Vec3(wx, wy, wz);
+    const local = new pc.Vec3();
+    const inv = new pc.Mat4();
+    inv.copy(root.getWorldTransform()).invert();
+    inv.transformPoint(world, local);
+    return { x: local.x, y: local.y, z: local.z };
+  }
+
+  _getColliderScaleFactor() {
+    if (!this._spawnEntity) return 1;
+    const s = this._spawnEntity.getLocalScale();
+    const avg = (Math.abs(s.x) + Math.abs(s.y) + Math.abs(s.z)) / 3;
+    return Math.max(0.2, avg || 1);
+  }
+
+  _captureSpawnEditorSnapshot() {
+    if (!this._spawnEntity) return;
+    const p = this._spawnEntity.getLocalPosition();
+    const e = this._spawnEntity.getLocalEulerAngles();
+    const s = this._spawnEntity.getLocalScale();
+    this._spawnEditorSnapshot = {
+      localPos: { x: p.x, y: p.y, z: p.z },
+      localEuler: { x: e.x, y: e.y, z: e.z },
+      localScale: { x: s.x, y: s.y, z: s.z },
+      enabled: this._spawnEntity.enabled !== false,
+    };
+  }
+
+  _restoreSpawnEditorSnapshot() {
+    if (!this._spawnEntity || !this._spawnEditorSnapshot) return;
+    const snap = this._spawnEditorSnapshot;
+    this._spawnEntity.setLocalPosition(
+      snap.localPos.x,
+      snap.localPos.y,
+      snap.localPos.z
+    );
+    this._spawnEntity.setLocalEulerAngles(
+      snap.localEuler.x,
+      snap.localEuler.y,
+      snap.localEuler.z
+    );
+    this._spawnEntity.setLocalScale(
+      snap.localScale.x,
+      snap.localScale.y,
+      snap.localScale.z
+    );
+    this._spawnEntity.enabled = snap.enabled;
+    this._spawnEditorSnapshot = null;
+  }
+
+  /**
+   * I키: 플레이어 PLY 미리보기 표시/숨김 (기즈모로 위치·크기·회전 조정).
+   */
+  togglePlayPositionFlag() {
+    void this._togglePlaySpawnPreview();
+  }
+
+  async _togglePlaySpawnPreview() {
+    const ready = await this._ensureSpawnPreview();
+    if (!ready || !this._spawnEntity) return;
+
+    const nextVisible = !this._spawnEntity.enabled;
+    this._spawnEntity.enabled = nextVisible;
     if (nextVisible) {
-      this.gizmo?.setTarget?.(this._flagObject);
+      this.gizmo?.setTarget?.(this._spawnObject);
       this.gizmo?.setMode?.('transform');
-      this.viewer?.setSelectedObject?.(this._flagObject);
-    } else if (this.gizmo?.getTarget?.() === this._flagObject) {
+      this.viewer?.setSelectedObject?.(this._spawnObject);
+    } else if (this.gizmo?.getTarget?.() === this._spawnObject) {
       this.gizmo?.setTarget?.(null);
       this.viewer?.setSelectedObject?.(null);
     }
+    this.onPersistableChange?.();
   }
 
-  _createFlagEntity() {
-    const pc = window.pc;
-    const app = this.viewer?.app;
-    if (!pc || !app) return null;
-    this.viewer.ensureScene?.();
+  /** 카메라(또는 플레이 중) 위치로 스폰 캐릭터 좌표 설정 */
+  setPlayPositionFromView() {
+    void this._setPlayPositionFromViewAsync();
+  }
 
-    const root = new pc.Entity('PlayPositionFlag');
-    root.setLocalPosition(0, 0, 0);
-    root.enabled = false;
+  async _setPlayPositionFromViewAsync() {
+    const ready = await this._ensureSpawnPreview();
+    if (!ready || !this._spawnEntity) return;
 
-    const red = new pc.StandardMaterial();
-    red.useLighting = false;
-    red.emissive = new pc.Color(1, 0.08, 0.06);
-    red.diffuse = new pc.Color(1, 0.08, 0.06);
-    red.update();
+    const scale = this._getColliderScaleFactor();
+    const eye = PLAYER_EYE_HEIGHT * scale;
+    let wx;
+    let wy;
+    let wz;
+    if (this.enabled && this._position) {
+      wx = this._position.x;
+      wy = this._position.y;
+      wz = this._position.z;
+    } else if (this.viewer?.cameraEntity) {
+      const cam = this.viewer.cameraEntity.getPosition();
+      wx = cam.x;
+      wy = cam.y - eye;
+      wz = cam.z;
+    } else {
+      return;
+    }
 
-    const dark = new pc.StandardMaterial();
-    dark.useLighting = false;
-    dark.emissive = new pc.Color(0.05, 0.05, 0.05);
-    dark.diffuse = new pc.Color(0.05, 0.05, 0.05);
-    dark.update();
+    const local = this._worldToSpawnLocal(wx, wy, wz);
+    this._spawnEntity.setLocalPosition(local.x, local.y, local.z);
+    this._spawnEntity.enabled = true;
+    this.onPersistableChange?.();
+  }
 
-    const pole = new pc.Entity('PlayPositionFlagPole');
-    pole.addComponent('render', { type: 'box', material: dark });
-    pole.setLocalPosition(0, 0.55, 0);
-    pole.setLocalScale(0.045, 1.1, 0.045);
-    root.addChild(pole);
+  serializeState() {
+    const out = {
+      playPosition: {
+        visible: false,
+        position: { x: 0, y: 0, z: 0 },
+        scale: { x: 1, y: 1, z: 1 },
+        rotationY: 0,
+      },
+    };
+    if (this._spawnEntity) {
+      const p = this._spawnEntity.getLocalPosition();
+      const s = this._spawnEntity.getLocalScale();
+      const e = this._spawnEntity.getLocalEulerAngles();
+      out.playPosition.visible = this._spawnEntity.enabled !== false;
+      out.playPosition.position = { x: p.x, y: p.y, z: p.z };
+      out.playPosition.scale = { x: s.x, y: s.y, z: s.z };
+      out.playPosition.rotationY = e.y;
+    }
+    return out;
+  }
 
-    const flag = new pc.Entity('PlayPositionFlagCloth');
-    flag.addComponent('render', { type: 'box', material: red });
-    flag.setLocalPosition(0.22, 0.95, 0);
-    flag.setLocalScale(0.42, 0.28, 0.035);
-    root.addChild(flag);
+  /** @returns {object} export HTML META.playPosition */
+  getPlaySpawnExportMeta() {
+    return this.serializeState().playPosition;
+  }
 
-    this.viewer.splatRoot?.addChild(root);
-    return root;
+  applySavedState(state) {
+    const pp = state?.playPosition;
+    if (!pp) return;
+    void this._applySavedSpawnState(pp);
+  }
+
+  async _applySavedSpawnState(pp) {
+    const ready = await this._ensureSpawnPreview();
+    if (!ready || !this._spawnEntity) return;
+
+    const pos = pp.position;
+    if (pos && typeof pos.x === 'number') {
+      this._spawnEntity.setLocalPosition(pos.x, pos.y ?? 0, pos.z ?? 0);
+    }
+    const sc = pp.scale;
+    if (sc && typeof sc.x === 'number') {
+      this._spawnEntity.setLocalScale(sc.x, sc.y ?? sc.x, sc.z ?? sc.x);
+    }
+    if (typeof pp.rotationY === 'number') {
+      const e = this._spawnEntity.getLocalEulerAngles();
+      this._spawnEntity.setLocalEulerAngles(e.x, pp.rotationY, e.z);
+    }
+    this._spawnEntity.enabled = pp.visible === true;
+  }
+
+  clearSavedState() {
+    if (this._spawnEntity) {
+      try {
+        this._spawnEntity.destroy();
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    this._spawnEntity = null;
+    this._spawnSplatEntity = null;
+    this._spawnObject = null;
+    this._spawnSplatId = null;
+    this._spawnEditorSnapshot = null;
   }
 
   _getSpawnPosition() {
-    if (this._flagEntity?.enabled) {
-      const p = this._flagEntity.getPosition();
+    if (this._spawnEntity) {
+      const p = this._spawnEntity.getPosition();
       return { x: p.x, y: p.y, z: p.z };
     }
+    const st = this.serializeState?.()?.playPosition?.position;
+    if (st && typeof st.x === 'number') {
+      const root = this.viewer?.splatRoot;
+      if (root && window.pc) {
+        const pc = window.pc;
+        const local = new pc.Vec3(st.x, st.y ?? 0, st.z ?? 0);
+        const world = new pc.Vec3();
+        root.getWorldTransform().transformPoint(local, world);
+        return { x: world.x, y: world.y, z: world.z };
+      }
+      return { x: st.x, y: st.y ?? 0, z: st.z ?? 0 };
+    }
     return { x: 0, y: 0, z: 0 };
+  }
+
+  _getSpawnYaw() {
+    if (this._spawnEntity) {
+      return this._spawnEntity.getLocalEulerAngles().y;
+    }
+    const y = this.serializeState?.()?.playPosition?.rotationY;
+    return typeof y === 'number' ? y : 0;
   }
 
   _onKeyDown(e) {
@@ -241,16 +475,16 @@ export class PlayMode {
       this.disable();
       return;
     }
-    if (e.code === 'KeyI') {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      this.togglePlayPositionFlag();
-      return;
-    }
     if (e.code === 'KeyF') {
       e.preventDefault();
       e.stopImmediatePropagation();
       this._cycleViewMode();
+      return;
+    }
+    if (e.code === 'KeyU') {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      this._toggleMeshBlockerVisibility();
       return;
     }
     if (e.code === 'Space') {
@@ -259,6 +493,7 @@ export class PlayMode {
       if (this._grounded) {
         this._verticalVelocity = JUMP_SPEED;
         this._grounded = false;
+        this._groundFloorY = null;
       }
       return;
     }
@@ -342,22 +577,36 @@ export class PlayMode {
 
   _applyGravity(dt) {
     if (!this._position) return;
+    if (this._grounded && this._verticalVelocity <= 0) {
+      const groundHit = this._findFirstCollision(this._getPlayerAabb(this._getSurfaceSnapThreshold() + 0.02));
+      if (groundHit?.floorY != null) {
+        this._position.y = this._resolveStableFloorY(groundHit.floorY);
+        this._verticalVelocity = 0;
+        return;
+      }
+    }
+
     this._verticalVelocity = Math.max(MAX_FALL_SPEED, this._verticalVelocity + GRAVITY * dt);
     const dy = this._verticalVelocity * dt;
     if (dy === 0) return;
 
     this._position.y += dy;
     const hit = this._findFirstCollision();
-    if (hit) {
-      if (dy < 0) {
-        this._position.y = hit.maxY;
+    if (hit?.blocked) {
+      if (dy < 0 && hit.floorY != null) {
+        this._position.y = this._resolveStableFloorY(hit.floorY);
         this._grounded = true;
-      } else {
-        this._position.y = hit.minY - PLAYER_COLLIDER_HEIGHT;
+        this._verticalVelocity = 0;
+      } else if (dy > 0 && hit.ceilY != null) {
+        this._position.y = hit.ceilY - PLAYER_COLLIDER_HEIGHT * this._colliderScale;
+        this._verticalVelocity = 0;
+      } else if (dy < 0) {
+        this._grounded = false;
+        this._groundFloorY = null;
       }
-      this._verticalVelocity = 0;
     } else {
       this._grounded = false;
+      this._groundFloorY = null;
     }
   }
 
@@ -365,68 +614,73 @@ export class PlayMode {
     if (!delta || !this._position) return;
     this._position[axis] += delta;
     const hit = this._findFirstCollision();
-    if (hit) {
+    if (hit && this._shouldBlockHorizontalMove(hit)) {
       this._position[axis] -= delta;
     }
   }
 
-  _findFirstCollision() {
-    const player = this._getPlayerAabb();
-    for (const obj of this.getCubeObjects()) {
-      if (!obj?.entity || obj.visible === false) continue;
-      const box = this._getEntityAabb(obj.entity);
-      if (box && this._aabbIntersects(player, box)) return box;
-    }
-    return null;
+  _shouldBlockHorizontalMove(hit) {
+    if (!hit?.blocked) return false;
+    if (hit.wallBlocked) return true;
+    if (hit.floorY == null) return true;
+    const threshold = this._getSurfaceSnapThreshold();
+    return hit.floorY > this._position.y + threshold + 0.02;
+  }
+
+  _findFirstCollision(playerAabb = null) {
+    const player = playerAabb || this._getPlayerAabb();
+    const hit = queryBlockerCollision(player, this._blockerCollision);
+    return hit.blocked ? hit : null;
   }
 
   _resolveInitialPenetration() {
     for (let i = 0; i < 12; i++) {
       const hit = this._findFirstCollision();
-      if (!hit) return;
-      this._position.y = hit.maxY;
+      if (!hit?.blocked || hit.floorY == null) return;
+      this._position.y = this._resolveStableFloorY(hit.floorY);
       this._grounded = true;
     }
   }
 
-  _getPlayerAabb() {
-    const p = this._position;
+  _getSurfaceSnapThreshold() {
+    const v = Number(this.getSurfaceSnapThreshold?.());
+    return Number.isFinite(v)
+      ? Math.max(0, Math.min(0.5, v))
+      : DEFAULT_SURFACE_SNAP_THRESHOLD;
+  }
+
+  _resolveStableFloorY(nextFloorY) {
+    if (!Number.isFinite(nextFloorY)) return nextFloorY;
+    const threshold = this._getSurfaceSnapThreshold();
+    if (this._grounded && Number.isFinite(this._groundFloorY)) {
+      const delta = nextFloorY - this._groundFloorY;
+      if (Math.abs(delta) <= threshold) {
+        return this._groundFloorY;
+      }
+    }
+    this._groundFloorY = nextFloorY;
+    return nextFloorY;
+  }
+
+  getSurfaceSettingsForExport() {
     return {
-      minX: p.x - PLAYER_COLLIDER_RADIUS,
-      maxX: p.x + PLAYER_COLLIDER_RADIUS,
-      minY: p.y,
-      maxY: p.y + PLAYER_COLLIDER_HEIGHT,
-      minZ: p.z - PLAYER_COLLIDER_RADIUS,
-      maxZ: p.z + PLAYER_COLLIDER_RADIUS,
+      snapThreshold: this._getSurfaceSnapThreshold(),
     };
   }
 
-  _getEntityAabb(entity) {
-    const pc = window.pc;
-    if (!pc || !entity) return null;
-    const world = entity.getWorldTransform();
-    const localCorners = [
-      [-0.5, -0.5, -0.5], [0.5, -0.5, -0.5], [0.5, 0.5, -0.5], [-0.5, 0.5, -0.5],
-      [-0.5, -0.5, 0.5], [0.5, -0.5, 0.5], [0.5, 0.5, 0.5], [-0.5, 0.5, 0.5],
-    ];
-    const tmp = new pc.Vec3();
-    const out = new pc.Vec3();
-    let minX = Infinity, minY = Infinity, minZ = Infinity;
-    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
-    for (const c of localCorners) {
-      tmp.set(c[0], c[1], c[2]);
-      world.transformPoint(tmp, out);
-      minX = Math.min(minX, out.x); maxX = Math.max(maxX, out.x);
-      minY = Math.min(minY, out.y); maxY = Math.max(maxY, out.y);
-      minZ = Math.min(minZ, out.z); maxZ = Math.max(maxZ, out.z);
-    }
-    return { minX, maxX, minY, maxY, minZ, maxZ };
-  }
-
-  _aabbIntersects(a, b) {
-    return a.minX < b.maxX - COLLISION_EPSILON && a.maxX > b.minX + COLLISION_EPSILON &&
-      a.minY < b.maxY - COLLISION_EPSILON && a.maxY > b.minY + COLLISION_EPSILON &&
-      a.minZ < b.maxZ - COLLISION_EPSILON && a.maxZ > b.minZ + COLLISION_EPSILON;
+  _getPlayerAabb(extraDown = 0) {
+    const p = this._position;
+    const sc = this._colliderScale || 1;
+    const r = PLAYER_COLLIDER_RADIUS * sc;
+    const h = PLAYER_COLLIDER_HEIGHT * sc;
+    return {
+      minX: p.x - r,
+      maxX: p.x + r,
+      minY: p.y - Math.max(0, extraDown),
+      maxY: p.y + h,
+      minZ: p.z - r,
+      maxZ: p.z + r,
+    };
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -449,7 +703,7 @@ export class PlayMode {
   _getPivotPoint() {
     return {
       x: this._position.x,
-      y: this._position.y + PLAYER_EYE_HEIGHT,
+      y: this._position.y + PLAYER_EYE_HEIGHT * (this._colliderScale || 1),
       z: this._position.z,
     };
   }
@@ -593,9 +847,22 @@ export class PlayMode {
 
   _hideCubeRenders() {
     this._hiddenCubeRenders = [];
+    this._meshBlockerEntities = [];
+    this._meshRendersVisible = false;
     for (const obj of this.getCubeObjects()) {
       if (!obj?.entity || obj.visible === false) continue;
+      if (isMeshBlockerObject(obj)) {
+        this._meshBlockerEntities.push(obj.entity);
+      }
       this._setRenderVisibilityRecursive(obj.entity, false);
+    }
+  }
+
+  /** U키: 플레이 중 OBJ/GLB 메시 렌더 표시/숨김 (충돌은 유지) */
+  _toggleMeshBlockerVisibility() {
+    this._meshRendersVisible = !this._meshRendersVisible;
+    for (const ent of this._meshBlockerEntities) {
+      this._applyRenderVisibilityRecursive(ent, this._meshRendersVisible);
     }
   }
 
@@ -623,68 +890,18 @@ export class PlayMode {
     };
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // Player visual (wrapper pattern)
-  //  wrapper(this._playerEntity)  ← 위치 + yaw 매 프레임 갱신
-  //    └─ splat(this._playerSplatEntity)  ← roll 180° 한 번만 적용 후 고정
-  //  이렇게 분리해야 yaw 회전이 roll fix와 섞이지 않고 시각적으로 보임.
-  // ──────────────────────────────────────────────────────────────────────────
-
-  _ensurePlayerVisual() {
-    if (this._playerEntity || this._playerLoadPromise || !this.viewer?.loadSplatFromUrl) return;
-    const pc = window.pc;
-    if (!pc) return;
-
-    // wrapper 먼저 생성: 위치 + yaw 전담
-    this._playerEntity = new pc.Entity('PlayModePlayer');
-    this._playerEntity.enabled = false;
-    const splatRoot = this.viewer.splatRoot || this.viewer.app?.root;
-    splatRoot?.addChild(this._playerEntity);
-
-    this._playerLoadPromise = this.viewer.loadSplatFromUrl(PLAYER_PLY_URL, {
-      append: true,
-      rotationFixZ180: false, // wrapper에서 roll 180으로 처리할거니까 viewer 쪽 fix는 끔
-      skipReorder: false,
-      onProgress: () => {},
-    }).then((result) => {
-      const loadedEntity = result?.entity || null;
-      this._playerSplatId = result?.splatId || null;
-      if (!loadedEntity || !this._playerEntity) return;
-
-      // splat을 wrapper의 child로 reparent
-      this._playerEntity.addChild(loadedEntity);
-      loadedEntity.name = 'PlayModePlayerSplat';
-      loadedEntity.setLocalPosition(0, 0, 0);
-      // 모델 거꾸로 → roll 180 한 번만 적용해서 고정
-      loadedEntity.setLocalEulerAngles(0, 0, PLAYER_VISUAL_ROLL);
-      loadedEntity.setLocalScale(PLAYER_VISUAL_SCALE, PLAYER_VISUAL_SCALE, PLAYER_VISUAL_SCALE);
-      this._playerSplatEntity = loadedEntity;
-
-      this._syncPlayerVisual();
-      this._setPlayerVisible(this.enabled && this._viewMode !== VIEW_FIRST_PERSON);
-    }).catch((err) => {
-      console.warn('[PlayMode] Failed to load player visual:', err);
-    }).finally(() => {
-      this._playerLoadPromise = null;
-    });
-  }
-
   _setPlayerVisible(visible) {
-    if (this._playerEntity) {
-      this._playerEntity.enabled = !!visible;
+    if (this._spawnEntity) {
+      this._spawnEntity.enabled = !!visible;
     }
   }
 
-  /**
-   * 마인크래프트 스타일: wrapper의 yaw = this._yaw (항상).
-   * 카메라가 어디 있든 캐릭터는 마우스 방향을 향함.
-   * → 카메라가 뒤에 있으면 뒷통수, 앞에 있으면 얼굴이 자연스럽게 보임.
-   * roll fix는 child splat에 이미 박혀있으므로 여기서 건드리지 않음.
-   */
+  /** 플레이 중: 스폰 캐릭터를 월드 위치·yaw에 맞춤 (에디터 스냅샷은 종료 시 복원) */
   _syncPlayerVisual() {
-    if (!this._playerEntity || !this._position) return;
-    this._playerEntity.setPosition(this._position.x, this._position.y, this._position.z);
-    this._playerEntity.setLocalEulerAngles(0, this._yaw, 0);
+    if (!this._spawnEntity || !this._position) return;
+    this._spawnEntity.setPosition(this._position.x, this._position.y, this._position.z);
+    const e = this._spawnEntity.getLocalEulerAngles();
+    this._spawnEntity.setLocalEulerAngles(e.x, this._yaw, e.z);
   }
 
   _restoreCubeRenders() {
@@ -692,6 +909,19 @@ export class PlayMode {
       if (item?.render) item.render.enabled = item.enabled;
     }
     this._hiddenCubeRenders = [];
+    this._meshBlockerEntities = [];
+    this._meshRendersVisible = false;
+  }
+
+  _applyRenderVisibilityRecursive(entity, visible) {
+    if (!entity) return;
+    if (entity.render) {
+      entity.render.enabled = visible;
+    }
+    for (const child of entity.children || []) {
+      if (child?.name === 'CubeObjectOutline') continue;
+      this._applyRenderVisibilityRecursive(child, visible);
+    }
   }
 
   _setRenderVisibilityRecursive(entity, visible) {

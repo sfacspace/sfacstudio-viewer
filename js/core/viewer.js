@@ -2303,6 +2303,84 @@ export class PlayCanvasViewer {
   }
 
   /**
+   * OBJ / GLB / GLTF → 메시 엔티티 (충돌 블로커)
+   * @param {File} file
+   * @param {{ append?: boolean, session?: object, onProgress?: (n:number,s?:string)=>void, rotationFixZ180?: boolean }} options
+   * @returns {Promise<{entity: pc.Entity, meshId: string, meshFormat: string, meshBase64: string}|null>}
+   */
+  async loadMeshModelFromFile(file, options = {}) {
+    if (!this.initialized) return null;
+    const pc = window.pc;
+    if (!pc || !this.app || !this.splatRoot) return null;
+
+    const append = !!(options?.append || options?.session?.meta?.append);
+    this._loadingCount = this._loadingCount || 0;
+    if (this._loadingCount > 0 && !append) return null;
+    this._loadingCount += 1;
+
+    const { session, onProgress, rotationFixZ180 = true } = options;
+    const meshId = `mesh_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+    try {
+      const buf = new Uint8Array(await file.arrayBuffer());
+      let meshBase64 = '';
+      const chunk = 0x8000;
+      for (let i = 0; i < buf.length; i += chunk) {
+        meshBase64 += String.fromCharCode.apply(null, buf.subarray(i, i + chunk));
+      }
+      meshBase64 = btoa(meshBase64);
+
+      const { importMeshFileToEntity } = await import('./meshModelLoader.js');
+      const { entity, meshFormat, blobUrl } = await importMeshFileToEntity(this.app, file, (pct, msg) => {
+        onProgress?.(pct, msg);
+      });
+
+      entity._meshId = meshId;
+      this.splatRoot.addChild(entity);
+      session?.trackEntity?.(entity);
+      session?.trackSplatId?.(meshId);
+      this._splatMap.set(meshId, {
+        entity,
+        asset: null,
+        blobUrl: blobUrl || '',
+        fileName: file.name,
+        kind: 'mesh',
+        meshFormat,
+        meshBase64,
+      });
+
+      try {
+        entity._onSplatDestroy = () => {
+          try {
+            this._cleanupSplatResources(meshId, { destroyEntity: false });
+          } catch (e) {
+            /* ignore */
+          }
+          if (blobUrl) {
+            try {
+              URL.revokeObjectURL(blobUrl);
+            } catch (e) {
+              /* ignore */
+            }
+          }
+        };
+        entity.on?.('destroy', entity._onSplatDestroy);
+      } catch (e) {
+        /* ignore */
+      }
+
+      this._loadingCount = Math.max(0, this._loadingCount - 1);
+      onProgress?.(100, 'Complete');
+      return { entity, meshId, meshFormat, meshBase64 };
+    } catch (err) {
+      this._loadingCount = Math.max(0, this._loadingCount - 1);
+      console.error('[PlayCanvasViewer] Mesh load failed', err);
+      onProgress?.(0, 'Error: ' + (err?.message || err));
+      return null;
+    }
+  }
+
+  /**
    * Remove splat by ID
    * @param {string} splatId - 제거할 splat ID
    */

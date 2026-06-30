@@ -379,6 +379,16 @@ export class TimelineController {
   }
 
   /**
+   * @param {string} childId
+   * @param {string|null} parentId
+   * @param {{ nestAfterParent?: boolean }} [opts]
+   * @returns {boolean}
+   */
+  setObjectParent(childId, parentId, opts = {}) {
+    return this._objects.setObjectParent(childId, parentId, opts);
+  }
+
+  /**
    * Return selected object.
    */
   getSelectedObject() {

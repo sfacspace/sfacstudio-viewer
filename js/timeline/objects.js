@@ -53,7 +53,7 @@ export class ObjectsManager {
     this.onHierarchyChange = null;
   }
 
-  /** @param {Object} [options] sourcePath, duplicatedFromSourcePath, objectType */
+  /** @param {Object} [options] sourcePath, sourceFileName, duplicatedFromSourcePath, objectType */
   add(name, entity, splatId = null, options = {}) {
     const obj = {
       id: `obj_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
@@ -63,12 +63,20 @@ export class ObjectsManager {
       splatId,
       glbId: null,
       objectType: options?.objectType ?? 'ply',
+      meshBase64: options?.meshBase64 ?? null,
+      meshFormat: options?.meshFormat ?? null,
+      isCollisionBlocker:
+        options?.isCollisionBlocker ??
+        (options?.objectType === 'cube' ||
+          options?.objectType === 'obj' ||
+          options?.objectType === 'glb'),
       loadedWithGlb: false,
       pairedGlbObjectId: null,
       isMultiFile: false,
       files: null,
       parentId: null,
       sourcePath: options?.sourcePath ?? null,
+      sourceFileName: options?.sourceFileName ?? null,
       duplicatedFromSourcePath: options?.duplicatedFromSourcePath ?? null,
     };
 
@@ -193,10 +201,88 @@ export class ObjectsManager {
     return true;
   }
 
+  /** @returns {string[]} ids to reparent when dragging dragId */
+  _getDragReparentIds(dragId) {
+    if (!dragId) return [];
+    if (this._selectedIds.has(dragId) && this._selectedIds.size > 1) {
+      return this.getSelectedIds();
+    }
+    return [dragId];
+  }
+
+  /**
+   * 다중 선택 시 부모도 함께 선택된 자식은 한 번만 이동(루트만).
+   * @param {string} dragId
+   * @returns {string[]}
+   */
+  _getSelectionRootsForDrag(dragId) {
+    const ids = this._getDragReparentIds(dragId);
+    const set = new Set(ids);
+    return ids.filter((id) => {
+      let pid = this.objects.find((o) => o.id === id)?.parentId;
+      while (pid) {
+        if (set.has(pid)) return false;
+        const p = this.objects.find((o) => o.id === pid);
+        pid = p?.parentId ?? null;
+      }
+      return true;
+    });
+  }
+
+  /** @param {string|string[]} exclude */
+  _excludeIdSet(exclude) {
+    const arr = Array.isArray(exclude) ? exclude : exclude ? [exclude] : [];
+    return new Set(arr.filter(Boolean));
+  }
+
+  /**
+   * 선택된 모든 항목(대상 제외)을 parentId의 자식으로 연결.
+   * @param {string} parentId
+   * @returns {boolean} 하나라도 성공하면 true
+   */
+  attachSelectedAsChildrenOf(parentId) {
+    if (!parentId) return false;
+    const selected = this.getSelectedIds();
+    const roots = selected.filter((id) => {
+      if (id === parentId) return false;
+      let pid = this.objects.find((o) => o.id === id)?.parentId;
+      const set = new Set(selected);
+      while (pid) {
+        if (set.has(pid)) return false;
+        const p = this.objects.find((o) => o.id === pid);
+        pid = p?.parentId ?? null;
+      }
+      return true;
+    });
+    const childIds = roots.length ? roots : selected.filter((id) => id !== parentId);
+    if (!childIds.length) return false;
+    let any = false;
+    for (const cid of childIds) {
+      if (this.setObjectParent(cid, parentId, { nestAfterParent: true })) {
+        any = true;
+      }
+    }
+    return any;
+  }
+
+  /** 우클릭 행을 선택(primary)의 자식으로 (단일 선택용). */
   attachSelectionAsParentOf(targetObjectId) {
     const sel = this.selectedObjectId;
     if (!sel || sel === targetObjectId) return false;
     return this.setObjectParent(targetObjectId, sel);
+  }
+
+  /**
+   * 다중 선택: 우클릭 행=부모, 나머지 선택=자식. 단일: 기존(행=자식).
+   * @param {string} targetObjectId
+   * @returns {boolean}
+   */
+  attachSelectionToTarget(targetObjectId) {
+    const selected = this.getSelectedIds();
+    if (selected.length > 1) {
+      return this.attachSelectedAsChildrenOf(targetObjectId);
+    }
+    return this.attachSelectionAsParentOf(targetObjectId);
   }
 
   clearObjectParent(objectId) {
@@ -237,6 +323,7 @@ export class ObjectsManager {
     }
     
     this.render();
+    this.onObjectsChange?.(this.objects);
     return obj.visible;
   }
 
@@ -595,37 +682,55 @@ export class ObjectsManager {
     return false;
   }
 
-  _getFirstVisibleRowIdExcluding(excludeObjectId) {
+  _getFirstVisibleRowIdExcluding(exclude) {
+    const ex = this._excludeIdSet(exclude);
     const el = this._objectsListEl;
     if (!el) return null;
     const rows = el.querySelectorAll(".timeline__obj-row");
     for (const r of rows) {
       const id = r.dataset.objectId;
-      if (!id || id === excludeObjectId) continue;
+      if (!id || ex.has(id)) continue;
       return id;
     }
     return null;
   }
 
-  _getLastVisibleRowIdExcluding(excludeObjectId) {
+  _getLastVisibleRowIdExcluding(exclude) {
+    const ex = this._excludeIdSet(exclude);
     const el = this._objectsListEl;
     if (!el) return null;
     const rows = [...el.querySelectorAll(".timeline__obj-row")].filter(
-      (r) => r.dataset.objectId && r.dataset.objectId !== excludeObjectId
+      (r) => r.dataset.objectId && !ex.has(r.dataset.objectId)
     );
     if (!rows.length) return null;
     return rows[rows.length - 1].dataset.objectId || null;
   }
 
-  _moveObjectToEndDetached(dragId) {
-    const objs = this.objects;
-    const from = objs.findIndex((o) => o.id === dragId);
-    if (from === -1) return;
-    const item = objs[from];
-    const hadParent = !!item.parentId;
-    item.parentId = null;
-    objs.splice(from, 1);
-    objs.push(item);
+  /**
+   * @param {string[]} dragIds
+   * @param {string} targetId
+   * @param {boolean} placeBefore
+   */
+  _reorderObjects(dragIds, targetId, placeBefore) {
+    const idSet = new Set((dragIds || []).filter(Boolean));
+    if (!idSet.size || !targetId || idSet.has(targetId)) return;
+
+    const items = [];
+    const remaining = [];
+    for (const o of this.objects) {
+      if (idSet.has(o.id)) items.push(o);
+      else remaining.push(o);
+    }
+    if (!items.length) return;
+
+    let insertAt = remaining.findIndex((o) => o.id === targetId);
+    if (insertAt === -1) {
+      remaining.push(...items);
+    } else {
+      if (!placeBefore) insertAt += 1;
+      remaining.splice(insertAt, 0, ...items);
+    }
+    this.objects.splice(0, this.objects.length, ...remaining);
     this.render();
     this.onObjectsChange?.(this.objects);
     try {
@@ -633,7 +738,54 @@ export class ObjectsManager {
     } catch (err) {
       console.warn("[ObjectsManager] syncEntityOrder failed", err);
     }
-    if (hadParent) this.onHierarchyChange?.(dragId);
+  }
+
+  /** @param {string[]} dragIds */
+  _detachObjectsFromParent(dragIds) {
+    const idSet = new Set((dragIds || []).filter(Boolean));
+    let any = false;
+    for (const o of this.objects) {
+      if (!idSet.has(o.id) || !o.parentId) continue;
+      o.parentId = null;
+      any = true;
+      this.onHierarchyChange?.(o.id);
+    }
+    return any;
+  }
+
+  /** @param {string} dragId */
+  _moveObjectToEndDetached(dragId) {
+    this._moveObjectsToEndDetached(this._getSelectionRootsForDrag(dragId));
+  }
+
+  /** @param {string[]} dragIds */
+  _moveObjectsToEndDetached(dragIds) {
+    const roots = (dragIds || []).filter(Boolean);
+    if (!roots.length) return;
+    const idSet = new Set(roots);
+    const hadParent = this._detachObjectsFromParent(roots);
+
+    const items = [];
+    const remaining = [];
+    for (const o of this.objects) {
+      if (idSet.has(o.id)) items.push(o);
+      else remaining.push(o);
+    }
+    remaining.push(...items);
+    this.objects.splice(0, this.objects.length, ...remaining);
+
+    this.render();
+    this.onObjectsChange?.(this.objects);
+    try {
+      this._syncEntityOrder?.();
+    } catch (err) {
+      console.warn("[ObjectsManager] syncEntityOrder failed", err);
+    }
+    if (!hadParent) return;
+    for (const id of roots) {
+      const o = this.objects.find((x) => x.id === id);
+      if (o && !o.parentId) this.onHierarchyChange?.(id);
+    }
   }
 
   _onGlobalDragEnd() {
@@ -719,49 +871,42 @@ export class ObjectsManager {
       if (!dragId || !targetId || dragId === targetId) return;
 
       if (zone === "child") {
-        const ok = this.setObjectParent(dragId, targetId, { nestAfterParent: true });
+        const reparentIds = this._getSelectionRootsForDrag(dragId);
+        let ok = false;
+        for (const cid of reparentIds) {
+          if (cid === targetId) continue;
+          if (this.setObjectParent(cid, targetId, { nestAfterParent: true })) {
+            ok = true;
+          }
+        }
         if (!ok) {
-          this._reorderObject(dragId, targetId, true);
+          this._reorderObjects(reparentIds, targetId, true);
         }
         return;
       }
 
-      const dragged = this.objects.find((o) => o.id === dragId);
-      const hadParent = !!(dragged && dragged.parentId);
-      const firstId = this._getFirstVisibleRowIdExcluding(dragId);
-      const lastId = this._getLastVisibleRowIdExcluding(dragId);
+      const moveIds = this._getSelectionRootsForDrag(dragId).filter((id) => id !== targetId);
+      if (!moveIds.length) return;
+
+      const anyHadParent = moveIds.some((id) => {
+        const o = this.objects.find((x) => x.id === id);
+        return !!(o && o.parentId);
+      });
+      const firstId = this._getFirstVisibleRowIdExcluding(moveIds);
+      const lastId = this._getLastVisibleRowIdExcluding(moveIds);
       const dropToRoot =
-        hadParent &&
+        anyHadParent &&
         ((zone === "before" && targetId === firstId) || (zone === "after" && targetId === lastId));
-      if (dropToRoot && dragged) dragged.parentId = null;
-
-      this._reorderObject(dragId, targetId, zone === "before");
-
-      if (dropToRoot && hadParent) {
-        this.onHierarchyChange?.(dragId);
+      if (dropToRoot) {
+        this._detachObjectsFromParent(moveIds);
       }
+
+      this._reorderObjects(moveIds, targetId, zone === "before");
     });
   }
 
   _reorderObject(draggedId, targetId, placeBefore) {
-    const objs = this.objects;
-    const from = objs.findIndex((o) => o.id === draggedId);
-    if (from === -1) return;
-    const [item] = objs.splice(from, 1);
-    let insertAt = objs.findIndex((o) => o.id === targetId);
-    if (insertAt === -1) {
-      objs.splice(from, 0, item);
-      return;
-    }
-    if (!placeBefore) insertAt += 1;
-    objs.splice(insertAt, 0, item);
-    this.render();
-    this.onObjectsChange?.(this.objects);
-    try {
-      this._syncEntityOrder?.();
-    } catch (err) {
-      console.warn("[ObjectsManager] syncEntityOrder failed", err);
-    }
+    this._reorderObjects([draggedId], targetId, placeBefore);
   }
 
   _createObjectButton(obj) {
@@ -786,6 +931,9 @@ export class ObjectsManager {
     }
     if (obj.objectType === "empty") {
       row.classList.add("timeline__obj-row--empty");
+    }
+    if (obj.objectType === "obj" || obj.objectType === "glb" || obj.isCollisionBlocker) {
+      row.classList.add("timeline__obj-row--mesh-blocker");
     }
 
     const expandSlot = document.createElement("span");
@@ -864,7 +1012,18 @@ export class ObjectsManager {
         return;
       }
       this._draggingObjectId = obj.id;
-      row.classList.add("is-dragging");
+      const dragIds = this._getDragReparentIds(obj.id);
+      const listEl = this._objectsListEl;
+      if (listEl) {
+        for (const id of dragIds) {
+          const r = listEl.querySelector(
+            `.timeline__obj-row[data-object-id="${escapeSelectorAttr(id)}"]`
+          );
+          r?.classList.add("is-dragging");
+        }
+      } else {
+        row.classList.add("is-dragging");
+      }
       try {
         e.dataTransfer.effectAllowed = "move";
         e.dataTransfer.setData(DND_MIME, obj.id);
@@ -1117,12 +1276,31 @@ export class ObjectsManager {
     const makeChildBtn = menu.querySelector('[data-action="parentFromSelection"]');
     const clearParentBtn = menu.querySelector('[data-action="clearParent"]');
     const sepHi = menu.querySelector(".context-menu__sep--hierarchy");
-    const canMakeChild =
+    const selectedCount = this.getSelectedIds().length;
+    const canMakeChildMulti =
+      selectedCount > 1 &&
+      !!targetObj &&
+      supportsHierarchy(targetObj) &&
+      this.getSelectedIds().some(
+        (sid) =>
+          sid !== objectId && validateParentAssignment(this.objects, sid, objectId) === null,
+      );
+    const canMakeChildSingle =
+      selectedCount <= 1 &&
       !!targetObj &&
       supportsHierarchy(targetObj) &&
       !!this.selectedObjectId &&
       this.selectedObjectId !== objectId &&
       validateParentAssignment(this.objects, objectId, this.selectedObjectId) === null;
+    const canMakeChild = canMakeChildMulti || canMakeChildSingle;
+    if (makeChildBtn) {
+      const label = makeChildBtn.querySelector(".context-menu__label");
+      if (label) {
+        label.textContent = canMakeChildMulti
+          ? t("panel.hierarchyAttachSelection")
+          : t("panel.hierarchyMakeChild");
+      }
+    }
     const canClearParent = !!(targetObj && supportsHierarchy(targetObj) && targetObj.parentId);
     if (makeChildBtn) makeChildBtn.style.display = canMakeChild ? "" : "none";
     if (clearParentBtn) clearParentBtn.style.display = canClearParent ? "" : "none";
@@ -1144,7 +1322,7 @@ export class ObjectsManager {
         }
         if (action === "parentFromSelection") {
           this._hideTimelineObjectContextMenu();
-          const ok = this.attachSelectionAsParentOf(id);
+          const ok = this.attachSelectionToTarget(id);
           if (!ok) {
             alert(t("panel.hierarchyAttachFailed"));
           }

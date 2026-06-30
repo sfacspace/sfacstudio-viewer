@@ -1,5 +1,5 @@
 /**
- * FileLoader – loads .ply (3DGS) 및 CAD (.step .stp .iges .igs) into PlayCanvas viewer.
+ * FileLoader – loads .ply, .obj, .glb, .gltf, CAD (.step .stp .iges .igs) into PlayCanvas viewer.
  * Cleans previous assets on new load; updates loading UI.
  */
 
@@ -47,12 +47,13 @@ export class FileLoader {
     this._loadSessionManager?.endLoadSession?.(session?.id);
   }
 
-  /** @returns {'ply'|'cad'|null} */
+  /** @returns {'ply'|'cad'|'mesh'|null} */
   _fileKind(filename) {
     if (!filename) return null;
     const ext = filename.split(".").pop()?.toLowerCase();
     if (ext === "ply") return "ply";
     if (ext === "step" || ext === "stp" || ext === "iges" || ext === "igs") return "cad";
+    if (ext === "obj" || ext === "glb" || ext === "gltf") return "mesh";
     return null;
   }
 
@@ -60,9 +61,28 @@ export class FileLoader {
     if (!filename) return false;
     if (this._fileKind(filename)) return true;
     this.showError(
-      "지원하지 않는 파일 형식입니다. .ply, .step, .stp, .iges, .igs 파일만 지원합니다."
+      "지원하지 않는 파일 형식입니다. .ply, .obj, .glb, .gltf, .step, .stp, .iges, .igs 파일만 지원합니다."
     );
     return false;
+  }
+
+  /** @param {{ splatId?: string, meshId?: string, entity: object, fileName: string, meshFormat?: string, meshBase64?: string }} result */
+  _packLoadResult(file, result) {
+    if (!result?.entity) return null;
+    const id = result.splatId || result.meshId;
+    const ext = file.name.split(".").pop()?.toLowerCase() || "ply";
+    this._loadedFiles.push({ name: file.name, ext, base64: result.meshBase64 || "", splatId: id });
+    const objectType =
+      result.meshFormat === "obj" ? "obj" : result.meshFormat === "glb" ? "glb" : undefined;
+    return {
+      fileName: file.name,
+      splatId: id,
+      meshId: result.meshId,
+      entity: result.entity,
+      objectType,
+      meshFormat: result.meshFormat,
+      meshBase64: result.meshBase64,
+    };
   }
 
   getLastLoadResult() {
@@ -136,6 +156,16 @@ export class FileLoader {
             if (status) this.setLoadingText(status);
           },
         });
+      } else if (kind === "mesh") {
+        loaded = await this.viewer.loadMeshModelFromFile(file, {
+          rotationFixZ180,
+          session: loadSession,
+          onProgress: (percent, status) => {
+            if (silent) return;
+            this.setLoadingProgress(percent);
+            if (status) this.setLoadingText(status);
+          },
+        });
       }
 
       if (loaded?.entity) {
@@ -174,10 +204,13 @@ export class FileLoader {
       return { success: false, results: [] };
     }
 
+    const silent = !!options.silent;
+    const onLoadProgress = typeof options.onLoadProgress === 'function' ? options.onLoadProgress : null;
+
     const loadable = Array.from(files).filter((f) => this._fileKind(f.name));
     if (loadable.length === 0) {
       this.showError(
-        "지원하지 않는 파일 형식입니다. .ply, .step, .stp, .iges, .igs 파일만 지원합니다."
+        "지원하지 않는 파일 형식입니다. .ply, .obj, .glb, .gltf, .step, .stp, .iges, .igs 파일만 지원합니다."
       );
       return { success: false, results: [] };
     }
@@ -199,13 +232,25 @@ export class FileLoader {
     for (let i = 0; i < totalFiles; i++) {
       const file = loadable[i];
       if (totalFiles > 1) {
-        const result = await this._loadFileSingleBatch(file, optionsWithSession, i, totalFiles);
+        const result = await this._loadFileSingleBatch(file, {
+          ...optionsWithSession,
+          silent,
+          onFileProgress: (filePct) => {
+            if (!onLoadProgress) return;
+            const agg = ((i + filePct / 100) / totalFiles) * 100;
+            onLoadProgress(Math.max(0, Math.min(100, agg)));
+          },
+        }, i, totalFiles);
         if (result) {
           results.push(result);
           successCount++;
         }
       } else {
-        const result = await this.loadFileSingle(file, optionsWithSession);
+        const result = await this.loadFileSingle(file, {
+          ...optionsWithSession,
+          silent,
+          onLoadProgress,
+        });
         if (result) {
           results.push(result);
           successCount++;
@@ -225,6 +270,7 @@ export class FileLoader {
     const { rotationFixZ180 = true, session } = options;
     const skipReorder = options?.skipReorder === true;
     const kind = this._fileKind(file.name);
+    const onFileProgress = typeof options.onFileProgress === 'function' ? options.onFileProgress : null;
 
     try {
       let result = null;
@@ -235,21 +281,30 @@ export class FileLoader {
           session,
           disableNormalize,
           skipReorder,
-          onProgress: () => {},
+          onProgress: (percent) => {
+            onFileProgress?.(percent);
+          },
+        });
+      } else if (kind === "mesh") {
+        result = await this.viewer.loadMeshModelFromFile(file, {
+          rotationFixZ180,
+          session,
+          onProgress: (percent) => {
+            onFileProgress?.(percent);
+          },
         });
       } else {
         result = await this.viewer.loadCadMeshFromFile(file, {
           rotationFixZ180,
           session,
-          onProgress: () => {},
+          onProgress: (percent) => {
+            onFileProgress?.(percent);
+          },
         });
       }
 
-      if (result && result.entity) {
-        const ext = file.name.split(".").pop()?.toLowerCase() || "ply";
-        this._loadedFiles.push({ name: file.name, ext, base64: "", splatId: result.splatId });
-        return { fileName: file.name, splatId: result.splatId, entity: result.entity };
-      }
+      const packed = this._packLoadResult(file, result);
+      if (packed) return packed;
       return null;
     } catch (err) {
       console.error(`[FileLoader] Load failed: ${file.name}`, err);
@@ -289,6 +344,7 @@ export class FileLoader {
 
     const { rotationFixZ180 = true } = options;
     const silent = !!options?.silent;
+    const onLoadProgress = typeof options.onLoadProgress === 'function' ? options.onLoadProgress : null;
     const signal = options?.signal;
     const allowConcurrent = !!options?.allowConcurrent;
     const skipReorder = options?.skipReorder === true;
@@ -321,6 +377,8 @@ export class FileLoader {
         this.showLoadingOverlay(true);
         this.setLoadingText(t('loading.default') + ': ' + file.name);
         this.setLoadingProgress(0);
+      } else {
+        onLoadProgress?.(0);
       }
 
       if (!allowConcurrent && this.viewer?.isLoading?.()) {
@@ -345,6 +403,10 @@ export class FileLoader {
           skipReorder,
           signal,
           onProgress: (percent, status) => {
+            if (onLoadProgress) {
+              onLoadProgress(percent);
+              return;
+            }
             if (silent) return;
             this.setLoadingProgress(percent);
             if (status) {
@@ -361,6 +423,24 @@ export class FileLoader {
           rotationFixZ180,
           session,
           onProgress: (percent, status) => {
+            if (onLoadProgress) {
+              onLoadProgress(percent);
+              return;
+            }
+            if (silent) return;
+            this.setLoadingProgress(percent);
+            if (status) this.setLoadingText(file.name + ': ' + status);
+          },
+        });
+      } else if (kind === "mesh") {
+        result = await this.viewer.loadMeshModelFromFile(file, {
+          rotationFixZ180,
+          session,
+          onProgress: (percent, status) => {
+            if (onLoadProgress) {
+              onLoadProgress(percent);
+              return;
+            }
             if (silent) return;
             this.setLoadingProgress(percent);
             if (status) this.setLoadingText(file.name + ': ' + status);
@@ -368,22 +448,27 @@ export class FileLoader {
         });
       }
 
-      if (result && result.entity) {
+      const packed = this._packLoadResult(file, result);
+      if (packed) {
         this._state = "loaded";
-        if (!silent) {
+        if (onLoadProgress) {
+          onLoadProgress(100);
+        } else if (!silent) {
           this.setLoadingText(`Loaded: ${file.name}`);
           this.setLoadingProgress(100);
         }
-        const ext = file.name.split(".").pop()?.toLowerCase() || "ply";
-        this._loadedFiles.push({ name: file.name, ext, base64: "", splatId: result.splatId });
         if (!silent) setTimeout(() => this.hideLoadingOverlay(), 300);
         if (ownsSession) this._endLoadSession(session);
 
         const sig = this._getFileSignature(file);
         if (sig) {
-          this._dedupBySignature.set(sig, { splatId: result.splatId, entity: result.entity, fileName: file.name });
+          this._dedupBySignature.set(sig, {
+            splatId: packed.splatId,
+            entity: packed.entity,
+            fileName: file.name,
+          });
         }
-        return { fileName: file.name, splatId: result.splatId, entity: result.entity };
+        return packed;
       }
 
       if (signal?.aborted || this.viewer?.isLoading?.()) return null;

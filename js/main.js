@@ -3,6 +3,7 @@ import { Entity, MeshInstance } from "playcanvas";
 import { t, getLanguage, setLanguage } from './i18n.js';
 // Core imports
 import { PlayCanvasViewer } from "./core/viewer.js";
+import { isCollisionBlockerObject } from "./core/collisionBlockers.js";
 import { FileLoader } from "./core/fileLoader.js";
 import { TimelineController } from "./timeline/index.js";
 import { InspectorController } from "./ui/inspector.js";
@@ -10,6 +11,13 @@ import { GizmoController } from "./ui/gizmo.js";
 import { FlyMode } from "./camera/flyMode.js";
 import { PlayMode } from "./game/playMode.js";
 import { exportSingleHTML } from "./export/index.js";
+import {
+  applyPlayModeFromSfvFile,
+  isSfvFileName,
+  persistPlayModeToStorage,
+  restorePlayModeFromStorage,
+  tryRestorePlayModeFromFacilitySfv,
+} from "./project/sfvPlayMode.js";
 import { exportVideo } from "./export/exportVideo.js";
 import { CameraTemplatesManager } from "./timeline/cameraTemplates.js";
 import { ObjectDetailsPanel } from "./ui/objectDetailsPanel.js";
@@ -38,7 +46,6 @@ import {
 import MemoryMonitor from './services/memoryMonitor.js';
 import LoadSessionManager from './core/loadSessionManager.js';
 import { importCache } from './services/importCache.js';
-import { buildProjectData, saveProjectToFile, loadProjectFromFile } from './project/projectSaveLoad.js';
 import { detachChildrenBeforeParentDelete } from './timeline/objectHierarchy.js';
 import { runDuplicateObject } from './timeline/duplicateObject.js';
 // 2D selector overlay
@@ -248,9 +255,6 @@ async function getLocalFileServerBaseUrl() {
 // File menu inputs/actions
 const loadPlyInputEl = document.getElementById("loadPlyInput");
 const menuLoadPlyEl = document.querySelector('a[data-action="load-ply"]');
-const menuSaveProjectEl = document.querySelector('a[data-action="save-project"]');
-const menuSaveProjectAsEl = document.querySelector('a[data-action="save-project-as"]');
-const menuLoadProjectEl = document.querySelector('a[data-action="load-project"]');
 const menuExportViewerEl = document.querySelector('a[data-action="export-viewer"]');
 const menuExportMp4El = document.querySelector('a[data-action="export-mp4"]');
 const cameraModeSwitch = document.getElementById("cameraMode");
@@ -1489,8 +1493,19 @@ window.addEventListener("drop", async (e) => {
   const files = Array.from(e.dataTransfer?.files || []);
   if (files.length === 0) return;
 
+  const sfvFiles = files.filter((f) => isSfvFileName(f.name));
+  const meshFiles = files.filter((f) => !isSfvFileName(f.name));
+
+  if (sfvFiles.length > 0 && playMode) {
+    for (const sfv of sfvFiles) {
+      await applyPlayModeFromSfvFile(playMode, sfv);
+    }
+  }
+
+  if (meshFiles.length === 0) return;
+
   window.__memoryTaskBegin?.('File Load');
-  await handleFiles(files);
+  await handleFiles(meshFiles);
   window.__memoryTaskEnd?.();
 });
 
@@ -1510,98 +1525,6 @@ if (loadPlyInputEl) {
     await handleFiles(files);
     window.__memoryTaskEnd?.();
     e.target.value = "";
-  });
-}
-
-// 현재 프로젝트 파일 핸들 (저장 시 같은 파일에 덮어쓰기용)
-let currentProjectFileHandle = null;
-
-async function runSaveProject(opts = {}) {
-  if (!timeline || !objectDescription) return Promise.resolve();
-  const data = await buildProjectData({
-    timeline,
-    objectDescription,
-    selectionTool: typeof window.__selectionTool !== 'undefined' ? window.__selectionTool : null,
-  });
-  if (!data.objects?.length) {
-    alert("저장할 오브젝트가 없습니다. PLY를 먼저 로드해 주세요.");
-    return Promise.resolve();
-  }
-  const fileHandle = opts.saveAs ? null : currentProjectFileHandle;
-  return saveProjectToFile(data, {
-    fileHandle: fileHandle ?? undefined,
-    getSuggestedName: () => `project${Date.now()}.liam`,
-  });
-}
-
-// File menu: 저장 (기존 프로젝트 파일이 있으면 그대로, 없으면 파인더 열기)
-if (menuSaveProjectEl) {
-  menuSaveProjectEl.addEventListener("click", async (e) => {
-    e.preventDefault();
-    try {
-      const result = await runSaveProject({ saveAs: false });
-      if (result?.saved && result?.fileHandle) currentProjectFileHandle = result.fileHandle;
-    } catch (err) {
-      if (err?.name !== 'AbortError') console.error(err);
-    }
-  });
-}
-// File menu: 다른 이름으로 저장 (항상 새 파일로 저장)
-if (menuSaveProjectAsEl) {
-  menuSaveProjectAsEl.addEventListener("click", async (e) => {
-    e.preventDefault();
-    try {
-      const result = await runSaveProject({ saveAs: true });
-      if (result?.saved && result?.fileHandle) currentProjectFileHandle = result.fileHandle;
-    } catch (err) {
-      if (err?.name !== 'AbortError') console.error(err);
-    }
-  });
-}
-if (menuLoadProjectEl) {
-  menuLoadProjectEl.addEventListener("click", async (e) => {
-    e.preventDefault();
-    if (!fileLoader || !timeline || !viewer) return;
-    const confirmed = await showConfirmModal(
-      t('loadProject.confirmTitle'),
-      t('loadProject.confirmMessage'),
-      t('loadProject.confirmButton')
-    );
-    if (!confirmed) return;
-    const loadingOverlayEl = document.getElementById("loadingOverlay");
-    const loadingProgressEl = document.getElementById("loadingPercent");
-    const showProgress = (text) => {
-      if (loadingOverlayEl) loadingOverlayEl.classList.add("is-visible");
-      if (loadingProgressEl) loadingProgressEl.textContent = text ?? "";
-    };
-    const hideProgress = () => {
-      if (loadingOverlayEl) loadingOverlayEl.classList.remove("is-visible");
-    };
-    try {
-      showProgress("프로젝트 불러오는 중...");
-      const result = await loadProjectFromFile(
-        {
-          fileLoader,
-          timeline,
-          viewer,
-          objectDescription: objectDescription ?? null,
-          inspector: inspector ?? null,
-          getLocalFileServerBaseUrl,
-        },
-        { onProgress: showProgress }
-      );
-      if (!result.success) {
-        if (result.error) alert(result.error);
-      } else {
-        if (result.fileHandle) currentProjectFileHandle = result.fileHandle;
-        if (typeof window.updateExportButtonState === 'function') window.updateExportButtonState();
-      }
-    } catch (err) {
-      console.error(err);
-      alert("프로젝트 불러오기 실패: " + (err?.message || err));
-    } finally {
-      hideProgress();
-    }
   });
 }
 
@@ -1833,7 +1756,16 @@ async function handleFiles(files, options = {}) {
       if (result.results.length === 1) {
         // Single file: existing flow
         const loaded = result.results[0];
-        lastAddedObj = timeline.addObject(loaded.fileName, loaded.entity, loaded.splatId, pathForSingle ? { sourcePath: pathForSingle } : {});
+        const addOpts = pathForSingle
+          ? { sourcePath: pathForSingle, sourceFileName: sortedFiles[0]?.name || loaded.fileName }
+          : {};
+        if (loaded.objectType) {
+          addOpts.objectType = loaded.objectType;
+          addOpts.isCollisionBlocker = true;
+          if (loaded.meshBase64) addOpts.meshBase64 = loaded.meshBase64;
+          if (loaded.meshFormat) addOpts.meshFormat = loaded.meshFormat;
+        }
+        lastAddedObj = timeline.addObject(loaded.fileName, loaded.entity, loaded.splatId, addOpts);
       } else {
         // Multiple files: one object; files sorted by name (sourcePath per file)
         const filesData = result.results.map((r, i) => ({
@@ -2808,6 +2740,9 @@ async function bootstrap() {
       window.__gizmo = gizmo;
       // Update inspector on gizmo change
       gizmo.onTransformChange = (obj, isRealtime = false) => {
+        if (obj?.objectType === 'playPosition') {
+          playMode?.onPersistableChange?.();
+        }
         // If gizmo scale mode and inspector uniform scale on, enforce ratio
         const isScaleMode = gizmo?.mode === 'scale';
         if (inspector?._uniformScaleEnabled && isScaleMode) {
@@ -2842,12 +2777,25 @@ async function bootstrap() {
         viewer,
         gizmo,
         flyMode,
-        getCubeObjects: () => timeline?.objects?.filter((obj) => obj.objectType === "cube") ?? [],
+        onSwitchToOrbit: () => {
+          if (!isFlyMode && !flyMode?.getEnabled?.()) return;
+          if (cameraModeSwitch) cameraModeSwitch.checked = false;
+          isFlyMode = false;
+          updateExportButtonState();
+        },
+        getCubeObjects: () =>
+          timeline?.objects?.filter((obj) => isCollisionBlockerObject(obj)) ?? [],
+        getTimelineObjects: () => timeline?.objects ?? [],
         getPanelVisibilityState,
         setPanelVisibilityState,
+        getSurfaceSnapThreshold: () =>
+          performanceSettings?.getPlaySurfaceSettings?.().snapThreshold ?? 0.06,
         onStateChange: (active) => updatePlayModeButton(active),
+        onPersistableChange: () => persistPlayModeToStorage(playMode),
       });
       window.__playMode = playMode;
+      restorePlayModeFromStorage(playMode);
+      void tryRestorePlayModeFromFacilitySfv(playMode);
       
       // Init Object Details Panel
       detailsPanel = new ObjectDetailsPanel();

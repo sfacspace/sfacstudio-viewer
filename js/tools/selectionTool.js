@@ -40,6 +40,24 @@ export class SelectionTool {
     /** 렌더 요청 로그용: 선택/지움/Undo/Redo 후 요청한 프레임이 그려질 때만 로그 */
     this._renderRequestedBySelection = false;
     this._renderLogListenersAttached = false;
+    /** @type {(() => void) | null} */
+    this.onPersistableChange = null;
+  }
+
+  /** @param {Set<number>|undefined|null} prevSet @param {Set<number>|undefined|null} nextSet */
+  _notifyIfSelectionSetChanged(prevSet, nextSet) {
+    const a = prevSet instanceof Set ? prevSet : new Set();
+    const b = nextSet instanceof Set ? nextSet : new Set();
+    if (a.size !== b.size) {
+      this.onPersistableChange?.();
+      return;
+    }
+    for (const x of a) {
+      if (!b.has(x)) {
+        this.onPersistableChange?.();
+        return;
+      }
+    }
   }
 
   resetAll() {
@@ -890,6 +908,27 @@ export class SelectionTool {
     return set;
   }
 
+  /**
+   * 프로젝트 저장 등 — 현재 선택과 무관하게 타임라인 오브젝트 기준 지워진 점 인덱스
+   * @param {{ isSequence?: boolean, id?: string }} timelineObj
+   * @param {import('playcanvas').Entity} entity
+   * @returns {Set<number>}
+   */
+  getErasedIndicesForTimelineObject(timelineObj, entity) {
+    if (!entity?.gsplat) return new Set();
+    if (timelineObj?.isSequence && timelineObj.id) {
+      const bucket = this.erasedVolumesBySequenceId.get(timelineObj.id);
+      if (bucket?.batches?.length > 0) {
+        return this._getErasedIndicesFromBatches(entity, bucket.batches);
+      }
+      return new Set();
+    }
+    const key = this._getGsplatKey(entity);
+    if (!key) return new Set();
+    const set = this.erasedIndicesByKey.get(key);
+    return set instanceof Set ? new Set(set) : new Set();
+  }
+
   _setErasedIndicesForEntity(gsplatEntity, set) {
     const key = this._getGsplatKey(gsplatEntity);
     if (!key) return;
@@ -1409,6 +1448,7 @@ export class SelectionTool {
         const task = new MultiEraseTask(items);
         const history = this._getHistoryForEntity(null);
         if (history) history.addTask(task);
+        this.onPersistableChange?.();
       }
 
       this.pendingComplementErase = false;
@@ -1537,6 +1577,7 @@ export class SelectionTool {
       const instance = gsplatEntity.gsplat?.instance;
       if (instance?.mesh) instance.mesh.dirtyBound = true;
       this._requestRenderAfterColorChange();
+      this.onPersistableChange?.();
     } catch (err) {}
   }
 
@@ -1721,6 +1762,9 @@ export class SelectionTool {
     if (this.detailsPanel) {
       this.detailsPanel.updateUndoRedoButtons();
     }
+    if (result) {
+      this.onPersistableChange?.();
+    }
     return result;
   }
 
@@ -1731,6 +1775,9 @@ export class SelectionTool {
     this.clearSelectionHighlight();
     if (this.detailsPanel) {
       this.detailsPanel.updateUndoRedoButtons();
+    }
+    if (result) {
+      this.onPersistableChange?.();
     }
     return result;
   }
@@ -2022,6 +2069,7 @@ export class SelectionTool {
     this.lastSelectedIndices = [...nextSet];
     this._logSelectedPointsCenter();
     this.detailsPanel?.updateEraserComplementDisabledState?.();
+    this._notifyIfSelectionSetChanged(prevSet, nextSet);
   }
 
   restorePointColors() {
@@ -2042,6 +2090,7 @@ export class SelectionTool {
     this._setSelectionHighlightForEntity(gsplatEntity, prevSet, new Set());
     this.lastSelectedIndices = [];
     this.detailsPanel?.updateEraserComplementDisabledState?.();
+    this.onPersistableChange?.();
   }
 
   clearSelection() {

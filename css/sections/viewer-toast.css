@@ -1,0 +1,170 @@
+/* 시설 .sfv 서버 저장 완료 토스트 */
+.viewer-save-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 22px;
+  border-radius: 10px;
+  background: rgba(18, 22, 32, 0.94);
+  color: #e8edf4;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 100500;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.viewer-save-toast.is-visible {
+  opacity: 1;
+}
+
+.viewer-save-toast.is-hiding {
+  opacity: 0;
+}
+
+/* 프로젝트 저장 중: 전체 화면 차단 + 안내 */
+.viewer-save-blocking-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 10, 18, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.viewer-save-blocking-overlay.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.viewer-save-blocking-overlay__panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 28px 36px;
+  border-radius: 16px;
+  background: rgba(22, 28, 40, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  max-width: min(360px, 90vw);
+}
+
+.viewer-save-blocking-overlay__spinner {
+  color: var(--color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewer-save-blocking-overlay__spinner .rotating-semicircle {
+  width: 72px;
+  height: 72px;
+}
+
+.viewer-save-blocking-overlay__spinner .rotating-semicircle::before {
+  width: 60px;
+  height: 60px;
+}
+
+.viewer-save-blocking-overlay__message {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--color-text-primary);
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+/* Twin / 네트워크 끊김: 전체 화면 차단 + X 아이콘 + 새로고침 */
+.viewer-connection-lost-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 6, 12, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.viewer-connection-lost-overlay.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.viewer-connection-lost-overlay__panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 36px 40px;
+  border-radius: 18px;
+  background: rgba(18, 22, 32, 0.96);
+  border: 1px solid rgba(255, 80, 80, 0.22);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  max-width: min(400px, 92vw);
+  text-align: center;
+}
+
+.viewer-connection-lost-overlay__icon {
+  color: #ff6b6b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.viewer-connection-lost-overlay__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+}
+
+.viewer-connection-lost-overlay__hint {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(232, 237, 244, 0.72);
+  line-height: 1.5;
+}
+
+.viewer-connection-lost-overlay__btn {
+  margin-top: 8px;
+  padding: 12px 24px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(80, 140, 255, 0.22);
+  color: #e8edf4;
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.viewer-connection-lost-overlay__btn:hover {
+  background: rgba(80, 140, 255, 0.35);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.viewer-connection-lost-overlay__btn:focus-visible {
+  outline: 2px solid rgba(120, 170, 255, 0.85);
+  outline-offset: 3px;
+}

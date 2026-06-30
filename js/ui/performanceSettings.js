@@ -7,21 +7,24 @@ const PRESETS = {
     cameraThrottle: 'every',
     overlayUpdate: 'always',
     aabbSampling: false,
-    aabbSamples: '100000'
+    aabbSamples: '100000',
+    playSurfaceThreshold: '0.06'
   },
   balanced: {
     dprCap: '1.25',
     cameraThrottle: 'raf',
     overlayUpdate: 'visible',
     aabbSampling: true,
-    aabbSamples: '100000'
+    aabbSamples: '100000',
+    playSurfaceThreshold: '0.06'
   },
   performance: {
     dprCap: '1.0',
     cameraThrottle: 'low',
     overlayUpdate: 'off',
     aabbSampling: true,
-    aabbSamples: '50000'
+    aabbSamples: '50000',
+    playSurfaceThreshold: '0.06'
   }
 };
 
@@ -42,6 +45,7 @@ export class PerformanceSettings {
       aabbSampling: null,
       aabbSamples: null,
       aabbSamplesRow: null,
+      playSurfaceThreshold: null,
       resetBtn: null
     };
     this._cameraUpdatePending = false;
@@ -59,6 +63,7 @@ export class PerformanceSettings {
     this.elements.aabbSampling = document.getElementById('settingsAabbSampling');
     this.elements.aabbSamples = document.getElementById('settingsAabbSamples');
     this.elements.aabbSamplesRow = document.getElementById('settingsAabbSamplesRow');
+    this.elements.playSurfaceThreshold = document.getElementById('settingsPlaySurfaceThreshold');
     this.elements.resetBtn = document.getElementById('settingsPerfReset');
     this._loadFromStorage();
     this._syncUIFromSettings();
@@ -104,6 +109,12 @@ export class PerformanceSettings {
       this._syncUIFromSettings();
       this._saveToStorage();
     });
+    this.elements.playSurfaceThreshold?.addEventListener('change', (e) => {
+      this.settings.playSurfaceThreshold = e.target.value;
+      this.settings.preset = this._detectPreset();
+      this._syncUIFromSettings();
+      this._saveToStorage();
+    });
 
     this.elements.resetBtn?.addEventListener('click', () => {
       this.reset();
@@ -120,6 +131,7 @@ export class PerformanceSettings {
     this.settings.overlayUpdate = preset.overlayUpdate;
     this.settings.aabbSampling = preset.aabbSampling;
     this.settings.aabbSamples = preset.aabbSamples;
+    this.settings.playSurfaceThreshold = preset.playSurfaceThreshold;
     
     this._syncUIFromSettings();
     this._applyAllSettings();
@@ -132,7 +144,8 @@ export class PerformanceSettings {
         this.settings.dprCap === preset.dprCap &&
         this.settings.cameraThrottle === preset.cameraThrottle &&
         this.settings.overlayUpdate === preset.overlayUpdate &&
-        this.settings.aabbSampling === preset.aabbSampling
+        this.settings.aabbSampling === preset.aabbSampling &&
+        this.settings.playSurfaceThreshold === preset.playSurfaceThreshold
       ) {
         return name;
       }
@@ -167,6 +180,10 @@ export class PerformanceSettings {
     
     if (this.elements.aabbSamples) {
       this.elements.aabbSamples.value = this.settings.aabbSamples;
+    }
+
+    if (this.elements.playSurfaceThreshold) {
+      this.elements.playSurfaceThreshold.value = this.settings.playSurfaceThreshold;
     }
 
     if (this.elements.aabbSamplesRow) {
@@ -262,6 +279,15 @@ export class PerformanceSettings {
     return {
       enabled: this.settings.aabbSampling,
       sampleCount: parseInt(this.settings.aabbSamples, 10)
+    };
+  }
+
+  getPlaySurfaceSettings() {
+    const snapThreshold = Number.parseFloat(this.settings.playSurfaceThreshold);
+    return {
+      snapThreshold: Number.isFinite(snapThreshold)
+        ? Math.max(0, Math.min(0.5, snapThreshold))
+        : 0.06
     };
   }
 

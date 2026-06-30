@@ -24,6 +24,8 @@ export class InspectorController {
     this._gizmoController = null;
     /** @type {(() => void) | null} */
     this._onRequestRename = null;
+    /** @type {(() => void) | null} */
+    this._onPersistableChange = null;
     this._isExternalUpdate = false;
     /** 첫 표시 시에만 플로팅 기본 위치(오른쪽 상단) 적용 */
     this._appliedDefaultFloatPosition = false;
@@ -77,6 +79,7 @@ export class InspectorController {
       this._nameEl.addEventListener("dblclick", (e) => {
         e.preventDefault();
         e.stopPropagation();
+        if (this._currentObject?.isMarkerPlacementAnchor) return;
         if (typeof this._onRequestRename === "function") this._onRequestRename();
       });
     }
@@ -85,6 +88,11 @@ export class InspectorController {
   /** 계층에서 이름 편집 시작 (더블클릭 제목). */
   setOnRequestRename(fn) {
     this._onRequestRename = typeof fn === "function" ? fn : null;
+  }
+
+  /** 인스펙터에서 변환 값을 적용했을 때 (저장 대상 변경). */
+  setOnPersistableChange(fn) {
+    this._onPersistableChange = typeof fn === "function" ? fn : null;
   }
 
   /** 타임라인에서 이름 변경 후 제목 줄만 맞춤. */
@@ -131,6 +139,11 @@ export class InspectorController {
 
     this._currentObject = obj;
     if (this._containerEl) {
+      if (obj.isMarkerPlacementAnchor) {
+        this._containerEl.classList.add("object-inspector--marker-placement");
+      } else {
+        this._containerEl.classList.remove("object-inspector--marker-placement");
+      }
       this._containerEl.classList.remove("is-hidden");
       this._containerEl.setAttribute("aria-hidden", "false");
       if (
@@ -160,6 +173,7 @@ export class InspectorController {
   hide() {
     this._currentObject = null;
     if (this._containerEl) {
+      this._containerEl.classList.remove("object-inspector--marker-placement");
       this._containerEl.classList.add("is-hidden");
       this._containerEl.setAttribute("aria-hidden", "true");
     }
@@ -221,6 +235,38 @@ export class InspectorController {
     this._previousScaleValues = { x: 1, y: 1, z: 1 };
   }
 
+  /**
+   * 인스펙터 입력이 대표 entity 현재 변환과 다른지 (blur 시 오탐 dirty 방지)
+   * @param {number} posX
+   * @param {number} posY
+   * @param {number} posZ
+   * @param {number} rotX
+   * @param {number} rotY
+   * @param {number} rotZ
+   * @param {number} scaleX
+   * @param {number} scaleY
+   * @param {number} scaleZ
+   */
+  _transformInputDiffersFromEntity(posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ) {
+    const entity = this._getPrimaryEntity(this._currentObject);
+    if (!entity) return false;
+    const pos = entity.getLocalPosition();
+    const rot = entity.getLocalEulerAngles();
+    const scale = entity.getLocalScale();
+    const e = 1e-3;
+    return (
+      Math.abs(pos.x - posX) > e ||
+      Math.abs(pos.y - posY) > e ||
+      Math.abs(pos.z - posZ) > e ||
+      Math.abs(rot.x - rotX) > e ||
+      Math.abs(rot.y - rotY) > e ||
+      Math.abs(rot.z - rotZ) > e ||
+      Math.abs(scale.x - scaleX) > e ||
+      Math.abs(scale.y - scaleY) > e ||
+      Math.abs(scale.z - scaleZ) > e
+    );
+  }
+
   _applyFieldsToEntity() {
     if (!this._currentObject) return;
     const posX = parseFloat(this._posX?.value) || 0;
@@ -232,7 +278,13 @@ export class InspectorController {
     const scaleX = parseFloat(this._scaleX?.value) || 1;
     const scaleY = parseFloat(this._scaleY?.value) || 1;
     const scaleZ = parseFloat(this._scaleZ?.value) || 1;
+    const persistChanged =
+      !this._isExternalUpdate &&
+      this._transformInputDiffersFromEntity(posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ);
     this._applyTransformToAllEntities(posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ);
+    if (persistChanged) {
+      this._onPersistableChange?.();
+    }
     if (this._gizmoController && !this._isExternalUpdate) {
       this._gizmoController.updateScaleRatio(scaleX, scaleY, scaleZ);
     }
@@ -241,6 +293,11 @@ export class InspectorController {
   _applyTransformToAllEntities(posX, posY, posZ, rotX, rotY, rotZ, scaleX, scaleY, scaleZ) {
     const obj = this._currentObject;
     if (!obj) return;
+
+    if (obj.isMarkerPlacementAnchor && obj.entity) {
+      obj.entity.setLocalPosition(posX, posY, posZ);
+      return;
+    }
 
     const pos = { x: posX, y: posY, z: posZ };
     const rot = { x: rotX, y: rotY, z: rotZ };

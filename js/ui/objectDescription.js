@@ -1,10 +1,16 @@
 /**
  * ObjectDescription - 기즈모 패널의 "설명 추가" + 3D 월드 코멘트 마커
- * 추가 시: 궤도 중심에 말풍선 버튼 위치 기록, 카메라 상태 저장, 창 닫기
+ * 추가 시: 선택 오브젝트 위치에서 배치 모드(이동 기즈모·미리보기) 후 확정 시 월드 좌표·카메라 저장
  * 월드: 2D 말풍선 버튼 항상 맨 위 렌더, 클릭 시 카메라 복원 + 오른쪽 설명 창
  */
 
 import { t } from '../i18n.js';
+import {
+  computeMarkerOffsetLocal,
+  ensureMarkerOffsetLocal,
+  getPrimaryEntityForObject,
+  worldPositionForMarker,
+} from './markerAnchor.js';
 
 const _nextId = (() => { let n = 0; return () => `comment-${Date.now()}-${++n}`; })();
 
@@ -17,6 +23,11 @@ export class ObjectDescription {
     this.timeline = options.timeline ?? null;
     /** @type {(() => void) | null} */
     this.onRequestRename = typeof options.onRequestRename === "function" ? options.onRequestRename : null;
+    /** @type {(() => void) | null} */
+    this.onPersistableChange =
+      typeof options.onPersistableChange === 'function' ? options.onPersistableChange : null;
+    /** @type {import('./markerPlacementMode.js').MarkerPlacementMode | null} */
+    this.markerPlacement = null;
 
     this.btn = document.getElementById('gizmoDescriptionBtn');
     this.tooltip = document.getElementById('gizmoDescriptionTooltip');
@@ -25,7 +36,7 @@ export class ObjectDescription {
     this.descriptionInput = document.getElementById('gizmoDescriptionInput');
     this.addBtn = document.getElementById('gizmoDescriptionAddBtn');
 
-    /** @type {Array<{id:string, objectId:string, objectName:string, title:string, worldPosition:{x,y,z}, cameraState:object, description:string}>} */
+    /** @type {Array<{id:string, objectId:string, objectName:string, title:string, worldPosition:{x,y,z}, markerOffsetLocal?:{x:number,y:number,z:number}, cameraState:object, description:string}>} */
     this.comments = [];
     this._overlay = null;
     this._markers = new Map();
@@ -37,6 +48,11 @@ export class ObjectDescription {
     this._openCommentId = null;
     this._rafId = null;
     this.init();
+  }
+
+  /** @param {import('./markerPlacementMode.js').MarkerPlacementMode | null} mp */
+  setMarkerPlacement(mp) {
+    this.markerPlacement = mp ?? null;
   }
 
   init() {
@@ -152,8 +168,10 @@ export class ObjectDescription {
     const screenPos = new pc.Vec3();
 
     this._markers.forEach(({ comment, el }) => {
-      const p = comment.worldPosition;
-      worldPos.set(p.x, p.y, p.z);
+      ensureMarkerOffsetLocal(comment, this.timeline);
+      const obj = this.timeline?.objects?.find((o) => o.id === comment.objectId) ?? null;
+      const ent = getPrimaryEntityForObject(obj);
+      worldPositionForMarker(ent, comment.markerOffsetLocal, comment.worldPosition, worldPos);
       camera.worldToScreen(worldPos, screenPos);
       if (screenPos.z < 0) {
         el.style.display = 'none';
@@ -327,6 +345,7 @@ export class ObjectDescription {
     this.comments.splice(idx, 1);
     this._closeDescriptionPanel();
     this._rebuildMarkers();
+    this.onPersistableChange?.();
   }
 
   /**
@@ -363,6 +382,10 @@ export class ObjectDescription {
   }
 
   hideTooltip() {
+    const mp = this.markerPlacement;
+    if (mp?.isActive() && mp.getSessionKind() === 'comment') {
+      mp.cancel();
+    }
     if (this.tooltip) this.tooltip.classList.remove('is-visible');
     if (this.btn) {
       this.btn.classList.add('is-off');
@@ -370,43 +393,139 @@ export class ObjectDescription {
     }
   }
 
+  /** 코멘트 팝오버가 열려 있고 오브젝트가 선택되면 파란 구·기즈모·미리보기 즉시 시작 */
+  _syncCommentMarkerPlacementPreview() {
+    const mp = this.markerPlacement;
+    if (!mp || !this._overlay || !this.viewer) return;
+    const open = !!this.tooltip?.classList.contains('is-visible');
+    if (!open) {
+      if (mp.isActive() && mp.getSessionKind() === 'comment') mp.cancel();
+      return;
+    }
+    const sel = this.getSelection();
+    const obj = sel ? (this.timeline?.objects?.find((o) => o.id === sel.id) ?? null) : null;
+    if (!sel || !obj) {
+      if (mp.isActive() && mp.getSessionKind() === 'comment') mp.cancel();
+      return;
+    }
+    if (mp.isActive() && mp.getSessionKind() !== 'comment') mp.cancel();
+
+    const finishAdd = (worldPosition, cameraState) => {
+      const title = (this.titleInput?.value ?? '').trim();
+      const description = (this.descriptionInput?.value ?? '').trim();
+      const anchorEntity = getPrimaryEntityForObject(obj);
+      const markerOffsetLocal = anchorEntity
+        ? computeMarkerOffsetLocal(anchorEntity, worldPosition.x, worldPosition.y, worldPosition.z)
+        : null;
+
+      this.comments.push({
+        id: _nextId(),
+        objectId: obj.id,
+        objectName: obj.name ?? '',
+        title: title || '',
+        worldPosition,
+        ...(markerOffsetLocal ? { markerOffsetLocal } : {}),
+        cameraState,
+        description: description || '(설명 없음)',
+      });
+
+      this._rebuildMarkers();
+      this.hideTooltip();
+      if (this.titleInput) this.titleInput.value = '';
+      if (this.descriptionInput) this.descriptionInput.value = '';
+      this.onPersistableChange?.();
+    };
+
+    mp.start({
+      anchorTimelineObject: obj,
+      overlayMount: this._overlay,
+      previewButtonClass: 'comment-marker comment-marker--bubble marker-placement-preview',
+      previewInnerHtml: '<span class="comment-marker__icon" aria-hidden="true"></span>',
+      sessionKind: 'comment',
+      onCommit: finishAdd,
+      onCancel: () => {},
+    });
+  }
+
   updateFromSelection() {
     const sel = this.getSelection();
+    const obj = sel ? (this.timeline?.objects?.find((o) => o.id === sel.id) ?? null) : null;
+    const row = this.btn?.closest('.gizmo-controls__description-row');
+    const hideRow = !!(obj && obj.visible === false);
+    if (row) {
+      row.classList.toggle('is-hidden', hideRow);
+      row.setAttribute('aria-hidden', hideRow ? 'true' : 'false');
+    }
+    if (hideRow) {
+      this.hideTooltip();
+    }
+
     if (this.objectNameEl) {
       this.objectNameEl.textContent = sel?.name ?? '—';
     }
     if (this.addBtn) {
-      this.addBtn.disabled = sel == null;
+      this.addBtn.disabled = sel == null || hideRow;
     }
+    this._syncCommentMarkerPlacementPreview();
   }
 
   onAddClick() {
     if (this.addBtn?.disabled) return;
     const sel = this.getSelection();
     if (!sel || !this.viewer) return;
+    const obj = this.timeline?.objects?.find((o) => o.id === sel.id) ?? null;
+
+    if (this.markerPlacement?.isActive() && this.markerPlacement.getSessionKind() === 'comment') {
+      this.markerPlacement.commit();
+      return;
+    }
 
     const title = (this.titleInput?.value ?? '').trim();
     const description = (this.descriptionInput?.value ?? '').trim();
+
+    const finishAdd = (worldPosition, cameraState) => {
+      const anchorEntity = getPrimaryEntityForObject(obj);
+      const markerOffsetLocal = anchorEntity
+        ? computeMarkerOffsetLocal(anchorEntity, worldPosition.x, worldPosition.y, worldPosition.z)
+        : null;
+
+      this.comments.push({
+        id: _nextId(),
+        objectId: sel.id,
+        objectName: sel.name ?? '',
+        title: title || '',
+        worldPosition,
+        ...(markerOffsetLocal ? { markerOffsetLocal } : {}),
+        cameraState,
+        description: description || '(설명 없음)',
+      });
+
+      this._rebuildMarkers();
+      this.hideTooltip();
+      if (this.titleInput) this.titleInput.value = '';
+      if (this.descriptionInput) this.descriptionInput.value = '';
+      this.onPersistableChange?.();
+    };
+
+    if (this.markerPlacement && obj && this._overlay) {
+      const started = this.markerPlacement.start({
+        anchorTimelineObject: obj,
+        overlayMount: this._overlay,
+        previewButtonClass: 'comment-marker comment-marker--bubble marker-placement-preview',
+        previewInnerHtml: '<span class="comment-marker__icon" aria-hidden="true"></span>',
+        sessionKind: 'comment',
+        onCommit: finishAdd,
+        onCancel: () => {},
+      });
+      if (started) return;
+    }
+
     const worldPosition = this.viewer._orbitTarget
       ? { ...this.viewer._orbitTarget }
       : { x: 0, y: 0, z: 0 };
     const cameraState = this.viewer.getCameraState?.();
     if (!cameraState) return;
-
-    this.comments.push({
-      id: _nextId(),
-      objectId: sel.id,
-      objectName: sel.name ?? '',
-      title: title || '',
-      worldPosition,
-      cameraState,
-      description: description || '(설명 없음)',
-    });
-
-    this._rebuildMarkers();
-    this.hideTooltip();
-    if (this.titleInput) this.titleInput.value = '';
-    if (this.descriptionInput) this.descriptionInput.value = '';
+    finishAdd(worldPosition, cameraState);
   }
 
   destroy() {

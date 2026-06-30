@@ -93,6 +93,23 @@ export class FlyMode {
 
   disable() {
     if (!this.isEnabled) return;
+    this._teardownFlyControls();
+    this._startReturnAnimation();
+  }
+
+  /** 플레이 모드 진입 등 — 복귀 애니메이션 없이 즉시 Orbit 상태로 */
+  disableImmediate() {
+    if (!this.isEnabled && !this._isReturning) return;
+    if (this.isEnabled) {
+      this._teardownFlyControls();
+    } else {
+      this._isReturning = false;
+    }
+    this._finishReturn();
+  }
+
+  _teardownFlyControls() {
+    if (!this.isEnabled) return;
     this.isEnabled = false;
 
     const canvas = this.viewer?.canvas;
@@ -115,7 +132,6 @@ export class FlyMode {
     this._isLeftMouseDown = false;
     this._isRightMouseDown = false;
     this._keys.clear();
-    this._startReturnAnimation();
   }
 
   getEnabled() {
