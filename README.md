@@ -6,7 +6,7 @@
 
 SFACSTUDIO is a PlayCanvas-based 3D Gaussian Splatting viewer. It lets you load PLY files in the browser, use the timeline and camera keyframes, selection and volume tools, **add description comments** (speech-bubble markers with camera restore), and export to video or a single HTML file. It is built on web technologies and runs in the browser, so there's nothing to download or install.
 
-A live version of this tool is available at: https://sfacstudio.vercel.app/
+A live version of this tool is available at: https://sfacstudio-viewer.vercel.app/
 
 ![SFACSTUDIO Viewer – 3D viewport, timeline, and interactive controls](static/Landingimg.gif)
 
