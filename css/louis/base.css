@@ -1,0 +1,264 @@
+/* base — 컴포넌트가 공유하는 최소 유틸리티.
+ *
+ * DS-D-0004: 전역 선택자를 쓰지 않는다. 값은 --louis-* 변수로만 참조하고 숫자 z-index를 쓰지 않는다.
+ */
+
+/* 헤어라인 — 0.5px inset stroke recipe (DS-D-0023).
+ *
+ * 일반 0.5px stroke는 CSS `border`가 아니라 inset box-shadow로 그린다. border는 box-sizing:
+ * border-box 안쪽을 0.5px 줄이고 브라우저가 DPR 1에서 사용값을 1px로 올리므로 레이아웃이
+ * 화면마다 달라지지만, inset shadow는 레이아웃 박스를 건드리지 않는다. 색은 단일 semantic
+ * 토큰 `color-stroke-hairline`(light black 10% · dark paper 10%)이고 두께는
+ * `border-width-hairline`(0.5px)이다. divider처럼 한 면만 필요하면 방향성 변형을 쓴다.
+ *
+ * **컴포넌트마다 shadow 문자열을 복사하지 않는다.** 한 곳에서 선언하고 var()로 참조한다.
+ * elevation이 있는 표면은 `box-shadow: var(--louis-elevation-*), var(--louis-hairline-inset)`처럼
+ * ambient/drop shadow 뒤에 조합한다. forced-colors에서는 box-shadow가 사라지므로 각 컴포넌트가
+ * 시스템 색 border/outline로 되살린다.
+ *
+ * 곱셈(`*`) 기호는 저작 게이트의 전역 선택자 패턴에 걸리므로 block-end는 `calc(0px - …)`로 뺀다.
+ *
+ * **테마 스코프마다 다시 선언한다 (DS-D-0068).** 커스텀 속성 값의 var()는 그 속성을 선언한 요소에서
+ * 풀리고, 자손은 풀린 값을 상속한다. `:root`에만 두면 중첩된 `[data-theme]` 안에서도 바깥 테마의 색이
+ * 흘러든다 — `html[data-theme=dark]` 아래 `main[data-theme=light]`인 제품 홈에서 라이트 면의 헤어라인이
+ * 다크의 흰색 8%로 칠해져 윤곽이 사라졌다. 색 토큰은 tokens.css가 `[data-theme="…"]`마다 다시 선언하므로
+ * recipe도 같은 자리에서 다시 푼다. 값을 가리지 않는 `[data-theme]`인 것은 테마가 늘어도 따라가게 하려는
+ * 것이다. */
+:root,
+[data-theme] {
+  --louis-hairline-inset:
+    inset 0 0 0 var(--louis-border-width-hairline) var(--louis-color-stroke-hairline);
+  --louis-hairline-inset-block-start:
+    inset 0 var(--louis-border-width-hairline) 0 var(--louis-color-stroke-hairline);
+  --louis-hairline-inset-block-end:
+    inset 0 calc(0px - var(--louis-border-width-hairline)) 0 var(--louis-color-stroke-hairline);
+}
+
+/* 시각적으로 숨기되 accessibility tree에는 남긴다.
+ * dialog.md의 accessible description, button.md의 icon-only accessible name이 이 유틸을 쓴다. */
+.louis-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 포커스 — 링을 그리지 않는다 (DS-D-0074, 소유자 결정 2026-10-06).
+ *
+ * 키보드 포커스는 평상 렌더링에서 링도 번짐도 그리지 않는다. 포커스의 표현은 **이 한 규칙이
+ * 소유한다** — 컴포넌트가 링을 다시 선언하지 않고, 호출부가 링 클래스를 붙이지 않는다(옛
+ * `.louis-focus-ring` opt-in 은 이 규칙으로 흡수돼 없어졌다). `outline: none` 이 브라우저 기본
+ * 링까지 지우므로 키보드 포커스가 Chrome 의 파랑·검정 링으로 돌아가지도 않는다.
+ *
+ * 선택자는 클래스가 `louis-` 로 시작하는 요소다. 전역 선택자가 아니라 LOUIS 가 그리는 요소만
+ * 잡는다(DS-D-0004 — 전역 기본값은 opt-in reset.css 가 같은 내용으로 갖는다). `:where()` 로
+ * 특이도를 `:focus-visible` 하나(0,1,0)에 묶어 컴포넌트와 소비자가 언제나 이긴다.
+ *
+ * **강제 색(Windows 고대비)에서만 링을 되살린다.** 그 모드에서는 면 색과 그림자가 시스템 색으로
+ * 치환돼 포커스를 말할 다른 단서가 없다. 링은 시스템 색 `Highlight` 로 그리고, 두께는
+ * `border-width-ring` 이다. 틈 2px 는 spacing 축에 없는 값이라 리터럴을 이 블록에 격리한다.
+ * 포커스를 자손이 받고 링을 조상이 그리는 컴포넌트(text-field 상자 · segmented 칸 · project-card
+ * 프레임)와 강제 색의 선택 테두리가 이 규칙을 이기는 컴포넌트(selectable-list-row)만 자기 파일의
+ * 강제 색 블록에서 같은 링을 다시 적는다. */
+:where([class^="louis-"], [class*=" louis-"]):focus-visible {
+  outline: none;
+}
+
+@media (forced-colors: active) {
+  :where([class^="louis-"], [class*=" louis-"]):focus-visible {
+    outline: var(--louis-border-width-ring) solid Highlight;
+    outline-offset: 2px;
+  }
+}
+
+/* 최소 hit target — button.md의 44px 내부 기준(WCAG 2.2 AA는 24px, 44px는 AAA).
+ * 시각 크기는 그대로 두고 타깃만 넓힌다. */
+.louis-hit-target {
+  position: relative;
+}
+
+.louis-hit-target::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  width: max(100%, var(--louis-layout-control-hit-target-minimum));
+  height: max(100%, var(--louis-layout-control-hit-target-minimum));
+}
+
+/* 떠 있는 크롬의 글래스 표면 — 캔버스/그리드 위에 뜨는 플로팅 CTA·토스트·오버레이가 쓴다.
+ * 제품 정본은 두 홈 씬이 인라인 style로 복제하던 `blur(16px) saturate(130%)`이며 그 값을
+ * 그대로 채택했다 — 제품 외형 수렴 결정.
+ *
+ * `-webkit-` 접두사를 **병기하지 않는다.** 제품 빌드의 lightningcss가 접두사 병기 시 표준
+ * 선언을 떨어뜨린 전례가 있다(제품 주석에 기록됨). 면 색·라운드·그림자는 이 유틸이 소유하지
+ * 않는다 — 흐림만 얹고 나머지는 소비처(또는 dialog/menu recipe)가 그린다. */
+.louis-glass-surface {
+  backdrop-filter: blur(var(--louis-blur-glass)) saturate(130%);
+}
+
+/* 점진 블러 — 아래는 온전히 흐리고 위로 갈수록 흐림이 걷힌다.
+ *
+ * 사진 위에 글자 띠를 얹는 카드가 쓰는 레시피다. 균일한 흐림은 띠의 윗변이 사진 위에 직선으로
+ * 남아 「유리판을 올린 자국」이 보이는데, 흐림을 위로 걷으면 그 경계가 사라진다. 정본은
+ * ProjectCard 의 제목 띠이고 MediaCard 의 정보 바가 같은 것을 쓴다 — **두 소비처가 생겨서
+ * 여기로 올렸다.** 곡선과 반경이 두 벌이 되면 한쪽만 고쳐지고 둘이 갈린다.
+ *
+ * **반경과 곡선을 값으로 발행한다.** 클래스로 내지 않는 이유는 이 레시피가 놓이는 자리가
+ * 언제나 `::before` 이기 때문이다 — 마스크는 요소와 **자손 전부**에 걸리므로 띠 자체에 얹으면
+ * 위쪽 글자가 함께 지워진다. 흐림만 칠하는 층을 따로 두고 내용은 `position: relative` 로 그
+ * 위에 올린다. 의사요소는 마크업이 아니라 소비처 CSS 가 만드는 것이라 클래스로 건네줄 수 없다.
+ * `--louis-hairline-inset` 이 box-shadow 문자열을 값으로 발행하는 것과 같은 형태다.
+ *
+ * mask의 정지점은 **색이 아니라 알파 램프**다 — 흐림이 얼마나 남는지만 정한다. 그래서 semantic
+ * 색 토큰이 아니라 `color-mix`로 검정의 불투명도를 직접 적는다. 여기에 색 토큰을 넣으면 테마에
+ * 따라 흐림의 세기가 달라진다.
+ *
+ * 정지점의 뜻: 바닥에서 55%까지 온전히 흐리고 70% → 85% → 100% 로 흐림이 죽는다. 같은 값을
+ * `figma/components.measured.json` 의 `overlayMaskStops` 가 표로 갖고 있고, Figma 의
+ * BACKGROUND_BLUR PROGRESSIVE offset 은 거기서 **유도**된다(verify-figma-parity.mjs). 세 곳이
+ * 한 원천을 본다. */
+:root {
+  --louis-progressive-blur: blur(var(--louis-blur-surface));
+  --louis-progressive-blur-mask: linear-gradient(
+    to top,
+    black 0%,
+    black 55%,
+    color-mix(in srgb, black 80%, transparent) 70%,
+    color-mix(in srgb, black 40%, transparent) 85%,
+    transparent 100%
+  );
+  /* 헤더 띠의 흐림. 카드(`--louis-progressive-blur`, blur-surface 10px)와 **반경이 다르다** —
+   * 화면 위에 고정된 띠는 뒤로 지나가는 것이 카드보다 크고 빨라 한 단 더 흐려야 형태가 죽는다.
+   * 곡선과 짝을 이루라고 반경도 값으로 발행한다: 소비처는 이 한 줄과 아래 마스크 한 줄만 받는다.
+   *
+   * 그전에는 곡선만 이름을 얻고 반경 12px 은 제품에 숫자로 남아 있었다 — 「곡선이 적힌 곳은
+   * 한 군데다」라고 적어 두고 반경은 두 군데였다. 그 갈림은 제품 리터럴 감사가 찾았고
+   * (2026-08-30), 토큰을 내는 것은 소유자 지시였다. */
+  --louis-progressive-blur-header: blur(var(--louis-blur-header));
+
+  /* **헤더 띠의 곡선. 카드의 곡선과 다르다.**
+   *
+   * 화면 위에 고정된 띠는 위가 진하고 아래로 흐림이 죽는다. 감쇠도 카드보다 이르고 곧다 —
+   * 40%까지 온전히 흐리고 거기서 곧장 0으로 내려간다. 카드 정보 바의 곡선(위 값)은 55%까지
+   * 평평한 뒤 세 단으로 눕는데, 그것을 헤더에 씌우면 흐림이 **아래로 더 깊게 뻗는다**
+   * (84px에서 0.50 대 0.80). 두 곡선은 값이 다르고 하는 일도 다르므로 이름을 따로 갖는다.
+   *
+   * 이 값은 제품 랜딩 GNB 가 `ad0b67c7`(CSS Modules → Tailwind 이관) 이래 쓰던 것이며
+   * **모양을 바꾸지 않고 이름만 준 것이다**(2026-08-30 소유자 확인). 그전에 카드 곡선으로
+   * 옮겼다가 되돌렸다 — 화면에 보이던 꺾임은 이 곡선 탓이 아니라 그 위에 깔려 있던 88%
+   * 불투명 베일 탓이었고, 베일을 걷자 사라졌다. */
+  --louis-progressive-blur-mask-header: linear-gradient(
+    to bottom,
+    black 40%,
+    transparent 100%
+  );
+  /* 가로 방향. 왼쪽이 진하고 오른쪽으로 흐림이 죽는다 — 접힌 레이어 패널처럼 **가로로** 잘리는
+   * 목록이 쓴다. 제품 `NodeLayersPanel.tsx:85` 이 이 정지점을 `to right` 로 손수 적고 있었고,
+   * 값은 정본과 한 글자도 다르지 않았다. */
+  --louis-progressive-blur-mask-inline-start: linear-gradient(
+    to right,
+    black 0%,
+    black 55%,
+    color-mix(in srgb, black 80%, transparent) 70%,
+    color-mix(in srgb, black 40%, transparent) 85%,
+    transparent 100%
+  );
+  /* **위에서 아래로. 카드 곡선의 거울상이다.**
+   *
+   * 접미사 없는 `--louis-progressive-blur-mask` 는 `to top` — 띠의 **끝쪽**에 붙어 안으로
+   * 걷힌다. 이름을 붙이자면 block-end 쪽이다. 그 짝이 없어서, 위 가장자리에 붙는 띠는
+   * `-header` 를 빌려 쓰거나 곡선을 손으로 베껴 적는 수밖에 없었다. 둘 다 틀린다 — `-header`
+   * 는 40% 에서 곧장 0 으로 내려가는 **다른 곡선**이고(위 주석), 베껴 적으면 정지점이 두
+   * 군데가 된다.
+   *
+   * 배너가 위·아래 두 밴드를 같은 세기로 쓰면서 짝이 실제로 필요해졌다. 정지점은 카드 곡선과
+   * 한 글자도 다르지 않고 방향만 뒤집는다 — 두 밴드가 대칭이라는 것이 곧 이 값이 같다는 뜻이다.
+   * `-inline-start` 가 `to right` 인 것과 같은 규칙으로, 붙는 변의 이름을 접미사로 쓴다. */
+  --louis-progressive-blur-mask-block-start: linear-gradient(
+    to bottom,
+    black 0%,
+    black 55%,
+    color-mix(in srgb, black 80%, transparent) 70%,
+    color-mix(in srgb, black 40%, transparent) 85%,
+    transparent 100%
+  );
+  /* **오른쪽 가장자리. `-inline-start` 의 거울상이다(2026-10-12).**
+   *
+   * 짝이 없어서 제품은 오른쪽 띠를 `-inline-start` 층에 `scaleX(-1)` 을 걸어 뒤집어 썼다 — 랜딩
+   * 컴포지션 패널의 설명 띠, 모델 무대의 좌우 호버 블러. 뒤집기는 층 안의 내용까지 뒤집으므로 흐림만
+   * 칠하는 `::before` 에서만 성립하고, 읽는 사람은 곡선이 어느 변에 붙는지를 변환을 풀어야 안다.
+   * `-block-start` 와 같은 규칙으로 붙는 변의 이름을 접미사로 쓰고, 정지점은 한 글자도 다르지 않게
+   * 방향만 뒤집는다. 제품의 뒤집기를 걷는 일은 다음 핀 상향 때 제품 쪽에서 한다. */
+  --louis-progressive-blur-mask-inline-end: linear-gradient(
+    to left,
+    black 0%,
+    black 55%,
+    color-mix(in srgb, black 80%, transparent) 70%,
+    color-mix(in srgb, black 40%, transparent) 85%,
+    transparent 100%
+  );
+}
+
+/* overlay가 놓이는 stacking 문맥. 숫자 z-index 대신 layer 토큰만 쓴다. */
+/* sticky 층 — 앱 셸의 navigation rail과 top chrome이 쓴다. 토큰만 있고 쓸 클래스가 없어
+ * 셸을 짓는 사람이 숫자를 쓰게 되어 있었다 (DS-D-0018). */
+.louis-layer-sticky {
+  z-index: var(--louis-layer-sticky);
+}
+.louis-layer-popover {
+  z-index: var(--louis-layer-popover);
+}
+
+.louis-layer-modal {
+  z-index: var(--louis-layer-modal);
+}
+
+.louis-layer-critical {
+  z-index: var(--louis-layer-critical);
+}
+
+/* 위치가 확정되기 전에는 보이지도 hit-test되지도 않는다.
+ * menu-popover.md: 임시 top/right 위치를 한 프레임도 노출하지 않는다.
+ * visibility를 쓰는 이유는 display:none이면 enter transition의 시작 프레임이 사라지기 때문이다. */
+[data-louis-state="opening"] {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* closing 중인 layer는 아래 control의 hit test를 막지 않는다.
+ * elevation-layer.md: 투명하거나 closing 중인 layer가 pointer/focus를 가로채면 실패다. */
+[data-louis-state="closing"] {
+  pointer-events: none;
+}
+
+[data-louis-state="closed"] {
+  display: none;
+}
+
+/* modal이 scroll owner를 잠근다. 잠금 대상은 body 고정이 아니라 overlay layer가 지정한 요소다.
+ * dialog.md: 기존 inline style을 보존하고 닫힌 뒤 복원한다 — 복원은 JS가 하고 여기서는 잠금만
+ * 표현한다. 속성 선택자라 잠금 여부가 DOM에서 그대로 읽히고 테스트가 상태를 직접 볼 수 있다. */
+[data-louis-scroll-locked="true"] {
+  overflow: hidden;
+}
+
+/* 공용 회전 — loop lifecycle (DS-D-0016).
+ *
+ * **이름 하나에 본문 하나다.** 제품은 회전 keyframe 이름이 18개인데 본문이 전부
+ * `to { rotate: 360deg }` 한 종류이고, 이 저장소도 button과 menu가 각자 자기 이름을 갖고
+ * 있었다. 같은 것을 두 번 적으면 한쪽만 고쳐지는 날이 온다.
+ *
+ * `transform: rotate()`가 아니라 개별 속성 `rotate`인 이유는 motion.md의 loop 절이 그것을
+ * 허용 property로 선언했기 때문이다 — `scale`·`translate`와 합성된다. */
+@keyframes louis-spin {
+  to {
+    rotate: 360deg;
+  }
+}

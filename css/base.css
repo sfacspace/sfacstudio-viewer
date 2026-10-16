@@ -1,7 +1,9 @@
+/* LOUIS (Klipse Design System) — 토큰이 가장 먼저 온다 */
+@import './louis/tokens.css';
+@import './louis/base.css';
 @import './theme.css';
 @import './sections/layout.css';
 @import './sections/header.css';
-@import './sections/fireflies.css';
 @import './sections/button.css';
 @import './sections/overlay.css';
 @import './sections/modal.css';
@@ -12,3 +14,4 @@
 @import './sections/switch.css';
 @import './sections/other.css';
 @import './sections/settings.css';
+@import './sections/theme-toggle.css';

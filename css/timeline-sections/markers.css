@@ -18,9 +18,8 @@
   width: 10px;
   height: 10px;
   transform: translateX(-50%);
-  background: var(--color-error);
-  border-radius: 999px;
-  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.35);
+  background: var(--louis-color-timeline-accent);
+  border-radius: var(--louis-radius-pill);
   z-index: 2;
 }
 
@@ -31,7 +30,7 @@
   left: 50%;
   width: 3px;
   transform: translateX(-50%);
-  background: #fff;
+  background: var(--louis-color-timeline-accent);
   border-radius: 3px;
   z-index: 1;
 }
@@ -41,17 +40,22 @@
   transform: translate(-50%, -100%);
   margin-bottom: 4px;
   padding: 4px 8px;
-  background: var(--color-bg-primary);
-  color: var(--color-text-primary);
-  font-size: 11px;
+  background: var(--louis-color-app-tooltip-bg);
+  color: var(--louis-color-app-tooltip-text);
+  font-family: var(--app-font);
+  font-size: 12px;
+  font-weight: var(--louis-type-weight-medium);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  border-radius: 6px;
+  border-radius: var(--louis-radius-control-sm);
   border: none;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--louis-elevation-tooltip), inset 0 0 0 var(--louis-border-width-hairline) var(--louis-color-app-tooltip-border);
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 120ms ease, visibility 120ms ease;
+  transition:
+    opacity var(--louis-motion-tooltip-enter-duration) var(--louis-motion-tooltip-enter-timing-function),
+    visibility var(--louis-motion-tooltip-enter-duration) var(--louis-motion-tooltip-enter-timing-function);
   z-index: 1000;
 }
 
@@ -70,7 +74,7 @@
   height: 0;
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
-  border-top: 4px solid var(--color-bg-primary);
+  border-top: 4px solid var(--louis-color-app-tooltip-bg);
 }
 
 .timeline-time-tooltip {
@@ -78,18 +82,22 @@
   transform: translate(-50%, -100%);
   margin-top: -8px;
   padding: 4px 8px;
-  background: var(--color-bg-primary);
-  color: var(--color-text-primary);
-  font-size: 11px;
-  font-weight: 500;
+  background: var(--louis-color-app-tooltip-bg);
+  color: var(--louis-color-app-tooltip-text);
+  font-family: var(--app-font);
+  font-size: 12px;
+  font-weight: var(--louis-type-weight-medium);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  border-radius: 6px;
+  border-radius: var(--louis-radius-control-sm);
   border: none;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--louis-elevation-tooltip), inset 0 0 0 var(--louis-border-width-hairline) var(--louis-color-app-tooltip-border);
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 150ms ease, visibility 150ms ease;
+  transition:
+    opacity var(--louis-motion-tooltip-enter-duration) var(--louis-motion-tooltip-enter-timing-function),
+    visibility var(--louis-motion-tooltip-enter-duration) var(--louis-motion-tooltip-enter-timing-function);
   z-index: 1000;
 }
 
@@ -108,88 +116,84 @@
   height: 0;
   border-left: 5px solid transparent;
   border-right: 5px solid transparent;
-  border-top: 5px solid var(--color-bg-primary);
+  border-top: 5px solid var(--louis-color-app-tooltip-bg);
 }
 
-/* Camera marker: yellow */
+/* Camera marker: LOUIS yellow */
 .timeline-camera-marker {
   position: absolute;
   transform: translate(-50%, -50%) rotate(45deg);
   width: 12px;
   height: 12px;
-  background: #e0b830;
+  background: var(--louis-color-yellow-500);
+  border-radius: 2px;
   cursor: move;
   user-select: none;
   z-index: 160;
-  transition: transform 120ms ease, filter 120ms ease;
+  transition: transform var(--app-duration) var(--app-ease), background-color var(--app-duration) var(--app-ease);
   border: none;
-  filter: drop-shadow(0 2px 6px rgba(224, 184, 48, 0.45));
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(224, 184, 48, 0.35);
 }
 
 .timeline-camera-marker:hover {
   transform: translate(-50%, -50%) rotate(45deg) scale(1.2);
-  filter: drop-shadow(0 4px 10px rgba(224, 184, 48, 0.55));
-  background: #e8c040;
+  background: var(--louis-color-yellow-400);
 }
 
 .timeline-camera-marker.is-dragging {
   cursor: ew-resize;
   transform: translate(-50%, -50%) rotate(45deg) scale(1.3);
-  filter: drop-shadow(0 6px 12px rgba(224, 184, 48, 0.6));
-  background: #e8c040;
+  background: var(--louis-color-yellow-400);
+  box-shadow: 0 0 0 2px var(--louis-color-fg-primary);
 }
 
-/* Keyframe marker: accent blue */
+/* Keyframe marker: LOUIS primary */
 .timeline-keyframe-marker {
   position: absolute;
   transform: translate(-50%, -50%) rotate(45deg);
   width: 12px;
   height: 12px;
-  background: var(--color-accent);
+  background: var(--louis-color-accent-primary);
+  border-radius: 2px;
   cursor: move;
   user-select: none;
   z-index: 160;
-  transition: transform 120ms ease, filter 120ms ease;
+  transition: transform var(--app-duration) var(--app-ease), background-color var(--app-duration) var(--app-ease);
   border: none;
-  filter: drop-shadow(0 2px 6px rgba(var(--color-accent-rgb), 0.4));
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 4px var(--color-accent-glow);
 }
 
 .timeline-keyframe-marker:hover {
   transform: translate(-50%, -50%) rotate(45deg) scale(1.2);
-  filter: drop-shadow(0 4px 10px rgba(var(--color-accent-rgb), 0.5));
-  background: var(--color-accent-strong);
+  background: var(--louis-color-accent-primary-hover);
 }
 
 .timeline-keyframe-marker:active {
   cursor: ew-resize;
   transform: translate(-50%, -50%) rotate(45deg) scale(1.3);
-  filter: drop-shadow(0 6px 12px rgba(var(--color-accent-rgb), 0.6));
-  background: var(--color-accent-strong);
+  background: var(--louis-color-accent-primary-hover);
+  box-shadow: 0 0 0 2px var(--louis-color-fg-primary);
 }
 
 .timeline-camera-segment {
   position: absolute;
   height: 6px;
-  background: rgba(var(--color-accent-rgb), 0.35);
+  background: color-mix(in srgb, var(--louis-color-accent-primary) 36%, transparent);
   border-radius: 4px;
   cursor: pointer;
   z-index: 140;
   box-shadow: none;
-  transition: box-shadow 140ms ease, background 140ms ease;
+  transition: box-shadow var(--app-duration) var(--app-ease), background-color var(--app-duration) var(--app-ease);
 }
 
 .timeline-camera-segment.is-selected {
-  background: rgba(168, 224, 108, 0.85);
-  box-shadow: 0 0 10px rgba(168, 224, 108, 0.5), 0 0 18px rgba(168, 224, 108, 0.3);
+  background: var(--louis-color-green-500);
+  box-shadow: inset 0 0 0 1px var(--louis-color-green-700);
 }
 
 .timeline-camera-segment--wrap {
   background: repeating-linear-gradient(
     90deg,
-    rgba(var(--color-accent-rgb), 0.4),
-    rgba(var(--color-accent-rgb), 0.4) 6px,
+    color-mix(in srgb, var(--louis-color-accent-primary) 40%, transparent),
+    color-mix(in srgb, var(--louis-color-accent-primary) 40%, transparent) 6px,
     transparent 6px,
     transparent 12px
   );
@@ -199,24 +203,24 @@
 .camera-moving-object {
   position: absolute;
   height: 4px;
-  background-color: var(--color-text-secondary);
+  background-color: var(--louis-color-fg-tertiary);
   border-radius: 2px;
   pointer-events: auto;
   cursor: pointer;
   z-index: 155;
-  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  transition: background-color var(--app-duration) var(--app-ease), box-shadow var(--app-duration) var(--app-ease);
 }
 
 .camera-moving-object:hover {
-  background-color: var(--color-text-primary);
+  background-color: var(--louis-color-fg-primary);
 }
 
 .camera-moving-object.is-dashed {
   background-color: transparent;
   background-image: repeating-linear-gradient(
     90deg,
-    rgba(var(--color-accent-rgb), 0.5) 0px,
-    rgba(var(--color-accent-rgb), 0.5) 8px,
+    color-mix(in srgb, var(--louis-color-accent-primary) 48%, transparent) 0px,
+    color-mix(in srgb, var(--louis-color-accent-primary) 48%, transparent) 8px,
     transparent 8px,
     transparent 14px
   );
@@ -225,27 +229,36 @@
 .camera-moving-object.is-dashed:hover {
   background-image: repeating-linear-gradient(
     90deg,
-    rgba(var(--color-accent-rgb), 0.7) 0px,
-    rgba(var(--color-accent-rgb), 0.7) 8px,
+    color-mix(in srgb, var(--louis-color-accent-primary) 72%, transparent) 0px,
+    color-mix(in srgb, var(--louis-color-accent-primary) 72%, transparent) 8px,
     transparent 8px,
     transparent 14px
   );
 }
 
 .camera-moving-object.is-selected {
-  background-color: rgba(168, 224, 108, 0.9);
+  background-color: var(--louis-color-green-500);
   background-image: none;
-  box-shadow: 0 0 8px rgba(168, 224, 108, 0.5), 0 0 16px rgba(168, 224, 108, 0.3);
 }
 
 .camera-moving-object.is-dashed.is-selected {
   background-color: transparent;
   background-image: repeating-linear-gradient(
     90deg,
-    rgba(168, 224, 108, 0.9) 0px,
-    rgba(168, 224, 108, 0.9) 8px,
+    var(--louis-color-green-500) 0px,
+    var(--louis-color-green-500) 8px,
     transparent 8px,
     transparent 14px
   );
-  box-shadow: 0 0 8px rgba(168, 224, 108, 0.5), 0 0 16px rgba(168, 224, 108, 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline-pin__tooltip,
+  .timeline-time-tooltip,
+  .timeline-camera-marker,
+  .timeline-keyframe-marker,
+  .timeline-camera-segment,
+  .camera-moving-object {
+    transition: none;
+  }
 }

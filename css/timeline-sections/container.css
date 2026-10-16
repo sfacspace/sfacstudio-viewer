@@ -24,11 +24,11 @@
   pointer-events: none !important;
 }
 
-/* 앱: 상단(헤더 아래), 왼쪽 계층 패널 ~ 오른쪽 도구 열 사이 — 하단 액센트 선(패널 세로선과 동일) */
+/* 앱: 상단(헤더 아래), 왼쪽 계층 패널 ~ 오른쪽 도구 열 사이 — 하단 헤어라인 구분선 */
 .timeline-container.timeline-container--dock-top {
   left: var(--objects-panel-width);
   right: var(--right-tools-strip-width);
-  border-bottom: 2px solid rgb(var(--color-accent-rgb));
+  border-bottom: 1px solid var(--louis-color-stroke-hairline);
   box-sizing: border-box;
   transition:
     left var(--panel-slide-duration, 0.28s) var(--panel-slide-easing, cubic-bezier(0.22, 1, 0.36, 1)),
@@ -71,7 +71,9 @@ body:has(#rightToolsPanel.is-hidden) .timeline-container.timeline-container--doc
 .timeline-bottom__content {
   overflow: visible;
   max-height: 220px;
-  transition: max-height 200ms ease, opacity 200ms ease;
+  transition:
+    max-height var(--louis-motion-layout-change-duration) var(--louis-motion-layout-change-timing-function),
+    opacity var(--louis-motion-layout-change-duration) var(--louis-motion-layout-change-timing-function);
 }
 
 /* 타임블록(스페이서) 없음: 재생 줄 + 카메라 라인만 */
@@ -81,7 +83,8 @@ body:has(#rightToolsPanel.is-hidden) .timeline-container.timeline-container--doc
 
 @media (prefers-reduced-motion: reduce) {
   .timeline-container,
-  .timeline-container.timeline-container--dock-top {
+  .timeline-container.timeline-container--dock-top,
+  .timeline-bottom__content {
     transition-duration: 0.01ms !important;
   }
 }

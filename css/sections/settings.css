@@ -41,7 +41,7 @@
 .settings-modal__list {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
   margin-top: 8px;
 }
 
@@ -67,21 +67,22 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
+  gap: 16px;
 }
 .settings-modal__label {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-accent);
-  letter-spacing: -0.2px;
+  font-size: var(--louis-typography-body-sm-medium-font-size);
+  font-weight: var(--louis-typography-body-sm-medium-font-weight);
+  letter-spacing: var(--louis-typography-body-sm-medium-letter-spacing);
+  color: var(--louis-color-fg-primary);
 }
 
-/* Toggle switch design */
+/* Toggle switch — LOUIS switch */
 .settings-modal__switch {
   position: relative;
   display: inline-block;
-  width: 54px;
-  height: 30px;
+  width: 40px;
+  height: 24px;
+  flex-shrink: 0;
 }
 .settings-modal__switch input {
   opacity: 0;
@@ -92,42 +93,36 @@
   position: absolute;
   cursor: pointer;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: var(--color-bg-elevated);
-  border-radius: 30px;
-  box-shadow: 0 2px 8px var(--color-accent-glow);
-  transition: background 0.22s cubic-bezier(.4,0,.2,1), box-shadow 0.22s;
+  background: var(--app-switch-off-track);
+  border-radius: var(--louis-radius-pill);
+  transition: background-color var(--louis-motion-tab-select-duration) var(--louis-motion-tab-select-timing-function);
 }
 .settings-modal__switch input:checked + .settings-modal__slider {
-  background: linear-gradient(90deg, var(--color-accent-strong) 0%, var(--color-accent) 100%);
-  box-shadow: 0 2px 12px var(--color-accent-glow);
+  background: var(--louis-color-switch-on-track);
 }
 .settings-modal__slider:before {
   content: "";
   position: absolute;
-  left: 5px;
-  top: 5px;
+  left: 2px;
+  top: 2px;
   width: 20px;
   height: 20px;
-  border-radius: 50%;
-  background: var(--color-text-primary);
-  box-shadow: 0 2px 8px var(--color-shadow);
-  transition: transform 0.22s cubic-bezier(.4,0,.2,1), background 0.22s;
+  border-radius: var(--louis-radius-pill);
+  background: var(--louis-color-switch-thumb);
+  box-shadow: var(--louis-elevation-switch-thumb);
+  transition: transform var(--louis-motion-tab-select-duration) var(--louis-motion-content-rise-timing-function);
 }
 .settings-modal__switch input:checked + .settings-modal__slider:before {
-  transform: translateX(24px);
-  background: var(--color-text-primary);
+  transform: translateX(16px);
 }
-.settings-modal__switch input:focus + .settings-modal__slider {
-  box-shadow: 0 0 0 2px var(--color-accent), 0 2px 12px var(--color-accent-glow);
-}
-.settings-modal__slider {
-  background: var(--color-bg-elevated);
+.settings-modal__switch input:focus-visible + .settings-modal__slider {
+  box-shadow: var(--louis-elevation-focus-ring);
 }
 .settings-modal__placeholder {
-  font-size: 14px;
-  line-height: 1.55;
-  color: rgba(235, 242, 255, 0.88);
-  padding: 6px 50px;
+  font-size: var(--louis-typography-body-sm-regular-font-size);
+  line-height: var(--louis-typography-body-sm-regular-line-height);
+  color: var(--louis-color-fg-secondary);
+  padding: 6px 48px;
 }
 
 .settings-modal__footer--right {
@@ -141,75 +136,80 @@
 /* Section divider */
 .settings-modal__divider {
   width: 100%;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.08);
+  height: 0;
+  box-shadow: var(--louis-hairline-inset-block-start);
+  padding-top: var(--louis-border-width-default);
   margin: 8px 0;
 }
 
-/* Section title */
+/* Section title — 묶음 제목은 행보다 한 단계 위, 눈썹 라벨을 쓰지 않는다 */
 .settings-modal__section-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--color-accent);
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
+  font-size: var(--louis-typography-body-md-semibold-font-size);
+  font-weight: var(--louis-typography-body-md-semibold-font-weight);
+  letter-spacing: var(--louis-typography-body-md-semibold-letter-spacing);
+  color: var(--louis-color-fg-primary);
   padding: 8px 0 4px 0;
 }
 
-/* Select dropdown */
+/* Select dropdown — LOUIS select (filled) */
 .settings-modal__select {
   min-width: 140px;
-  padding: 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(235, 242, 255, 0.95);
-  font-size: 13px;
-  font-weight: 500;
+  height: var(--louis-layout-control-height-md);
+  padding: 0 32px 0 12px;
+  border: none;
+  border-radius: var(--louis-radius-control);
+  background-color: var(--louis-color-accent-secondary);
+  box-shadow: var(--louis-hairline-inset);
+  color: var(--louis-color-fg-primary);
+  font-size: var(--louis-typography-body-sm-regular-font-size);
+  letter-spacing: var(--louis-typography-body-sm-regular-letter-spacing);
   cursor: pointer;
   outline: none;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: background-color var(--app-duration) var(--app-ease);
   -webkit-appearance: none;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(235,242,255,0.6)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  /* 체브론: 토큰 색을 쓰려고 SVG 데이터 URI 대신 두 개의 그라디언트 삼각형으로 그린다 */
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--louis-color-fg-tertiary) 50%),
+    linear-gradient(135deg, var(--louis-color-fg-tertiary) 50%, transparent 50%);
+  background-position:
+    right 16px center,
+    right 12px center;
+  background-size: 4px 4px, 4px 4px;
   background-repeat: no-repeat;
-  background-position: right 10px center;
-  padding-right: 32px;
 }
 
 .settings-modal__select:hover {
-  border-color: rgba(var(--color-accent-rgb), 0.5);
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: var(--louis-color-accent-secondary-hover);
 }
 
-.settings-modal__select:focus {
-  border-color: rgba(var(--color-accent-rgb), 0.7);
-  box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb), 0.15);
+.settings-modal__select:focus-visible {
+  box-shadow: var(--louis-elevation-focus-ring);
 }
 
 .settings-modal__select option {
-  background: rgba(18, 25, 35, 0.98);
-  color: rgba(232, 238, 247, 0.95);
+  background: var(--louis-color-bg-menu);
+  color: var(--louis-color-fg-primary);
   padding: 8px;
 }
 
 /* Small select variant */
 .settings-modal__select--small {
   min-width: 100px;
-  padding: 6px 10px;
-  font-size: 12px;
+  height: var(--louis-layout-control-height-sm);
+  border-radius: var(--louis-radius-control-sm);
+  font-size: var(--louis-typography-caption-regular-font-size);
 }
 
 /* Sub-item styling (indented) */
 .settings-modal__item--sub {
   padding-left: 24px;
-  opacity: 0.9;
 }
 
 .settings-modal__label--sub {
-  font-size: 13px;
-  font-weight: 500;
-  color: rgba(235, 242, 255, 0.7);
+  font-size: var(--louis-typography-body-sm-regular-font-size);
+  font-weight: var(--louis-typography-body-sm-regular-font-weight);
+  color: var(--louis-color-fg-secondary);
 }
 
 /* Centered item (for reset button) */
@@ -217,26 +217,22 @@
   justify-content: center;
 }
 
-/* Reset button */
+/* Reset button — LOUIS secondary button */
 .settings-modal__reset-btn {
-  padding: 10px 20px;
-  border-radius: 8px;
-  border: 1.5px solid rgba(var(--color-accent-rgb), 0.6);
-  background: rgba(var(--color-accent-rgb), 0.1);
-  color: rgba(var(--color-accent-rgb), 0.95);
-  font-size: 13px;
-  font-weight: 600;
+  height: var(--louis-button-height-md);
+  padding: 0 var(--louis-button-padding-inline-md);
+  border-radius: var(--louis-button-radius);
+  border: none;
+  background: var(--louis-color-accent-secondary);
+  color: var(--louis-color-fg-primary);
+  font-size: var(--louis-typography-body-sm-medium-font-size);
+  font-weight: var(--louis-typography-body-sm-medium-font-weight);
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  transition: background-color var(--app-duration) var(--app-ease);
 }
 
 .settings-modal__reset-btn:hover {
-  background: rgba(var(--color-accent-rgb), 0.2);
-  border-color: rgba(var(--color-accent-rgb), 0.85);
-}
-
-.settings-modal__reset-btn:active {
-  transform: scale(0.97);
+  background: var(--louis-color-accent-secondary-hover);
 }
 
 /* ============================================ */
@@ -257,21 +253,24 @@
   top: calc(100% + 8px);
   min-width: 260px;
   max-width: min(520px, 72vw);
-  padding: 12px 12px;
-  border-radius: 12px;
-  background: rgba(15, 20, 28, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(10px);
-  color: rgba(232, 238, 247, 0.88);
-  font-size: 12px;
-  line-height: 1.55;
+  padding: 8px 12px;
+  border-radius: var(--louis-radius-control-sm);
+  background: var(--louis-color-app-tooltip-bg);
+  box-shadow: var(--louis-elevation-tooltip), inset 0 0 0 var(--louis-border-width-hairline) var(--louis-color-app-tooltip-border);
+  color: var(--louis-color-app-tooltip-text);
+  font-size: var(--louis-typography-caption-regular-font-size);
+  font-weight: var(--louis-type-weight-tooltip);
+  letter-spacing: var(--louis-typography-caption-regular-letter-spacing);
+  line-height: var(--louis-typography-caption-regular-line-height);
   z-index: 2600;
   opacity: 0;
   visibility: hidden;
-  transform: translateY(-4px) scale(0.98);
+  transform: translateY(-4px) scale(var(--louis-motion-scale-tooltip-rest));
   transform-origin: top left;
-  transition: opacity 120ms ease, transform 120ms ease, visibility 120ms;
+  transition:
+    opacity var(--louis-motion-tooltip-exit-duration) var(--louis-motion-tooltip-exit-timing-function),
+    transform var(--louis-motion-tooltip-exit-duration) var(--louis-motion-tooltip-exit-timing-function),
+    visibility 0s linear var(--louis-motion-tooltip-exit-duration);
   pointer-events: none;
   white-space: normal;
 }
@@ -280,4 +279,18 @@
   opacity: 1;
   visibility: visible;
   transform: translateY(0) scale(1);
+  transition:
+    opacity var(--louis-motion-tooltip-enter-duration) var(--louis-motion-tooltip-enter-timing-function),
+    transform var(--louis-motion-tooltip-enter-duration) var(--louis-motion-tooltip-enter-timing-function),
+    visibility 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-modal__slider,
+  .settings-modal__slider:before,
+  .settings-modal__select,
+  .settings-modal__reset-btn,
+  .settings-modal__tooltip {
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -7,40 +7,42 @@
   margin: 0;
   padding: 0 2px 0 0;
   box-sizing: border-box;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--louis-color-stroke-hairline);
   background: transparent;
-  color: var(--color-text-primary);
+  color: var(--louis-color-fg-primary);
+  font-family: var(--app-font);
   font-size: 12px;
+  font-weight: var(--louis-type-weight-regular);
   line-height: 22px;
   user-select: none;
   flex-shrink: 0;
-  transition: background 100ms ease;
+  transition: background-color var(--app-duration) var(--app-ease);
   cursor: grab;
 }
 
 .timeline__obj-row:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--louis-color-accent-ghost-hover);
 }
 
 .timeline__obj-row.is-selected {
-  background: rgba(60, 120, 200, 0.22);
+  background: var(--louis-color-floating-item-selected);
 }
 
 .timeline__obj-row.is-primary-selected {
-  box-shadow: inset 2px 0 0 0 rgba(120, 190, 255, 0.95);
+  box-shadow: inset 2px 0 0 0 var(--louis-color-accent-primary);
 }
 
 .timeline__obj-row.is-multi-file {
-  border-left: 2px solid rgba(var(--color-sequence-rgb), 0.45);
+  border-left: 2px solid color-mix(in srgb, var(--color-sequence) 45%, transparent);
   padding-left: 2px;
 }
 
 .timeline__obj-row.is-multi-file.is-selected {
-  background: rgba(var(--color-sequence-rgb), 0.16);
+  background: color-mix(in srgb, var(--color-sequence) 16%, transparent);
 }
 
 .timeline__obj-row--empty:not(.is-selected) {
-  border-left: 2px dashed rgba(255, 255, 255, 0.14);
+  border-left: 2px dashed var(--louis-color-stroke-control);
   padding-left: 2px;
 }
 
@@ -67,18 +69,18 @@
   padding: 0;
   margin: 0;
   border: none;
-  border-radius: 2px;
+  border-radius: 4px;
   background: transparent;
-  color: var(--color-text-muted);
-  font-size: 9px;
+  color: var(--louis-color-fg-tertiary);
+  font-size: 9px; /* 펼침 삼각형 글리프 크기 — 텍스트가 아니라 아이콘 */
   line-height: 1;
   cursor: pointer;
   user-select: none;
 }
 
 .timeline__obj-row__expand:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--color-text-primary);
+  background: var(--louis-color-accent-ghost-hover);
+  color: var(--louis-color-fg-primary);
 }
 
 /* 리스트 하단 빈 영역: 드롭 시 루트로 이동 (남는 세로 공간 포함) */
@@ -86,12 +88,12 @@
   flex: 1 1 auto;
   min-height: 28px;
   box-sizing: border-box;
-  transition: background 80ms ease;
+  transition: background-color var(--app-duration) var(--app-ease);
 }
 
 .timeline__obj-list-end-drop.is-drop-end-active {
-  background: rgba(90, 160, 255, 0.2);
-  box-shadow: inset 0 -2px 0 0 rgba(90, 160, 255, 0.95);
+  background: color-mix(in srgb, var(--louis-color-accent-primary) 16%, transparent);
+  box-shadow: inset 0 -2px 0 0 var(--louis-color-accent-primary);
 }
 
 .timeline__obj-row__main {
@@ -113,16 +115,16 @@
 }
 
 .timeline__obj-row.is-drop-before {
-  box-shadow: inset 0 2px 0 0 rgba(90, 160, 255, 0.95);
+  box-shadow: inset 0 2px 0 0 var(--louis-color-accent-primary);
 }
 
 .timeline__obj-row.is-drop-after {
-  box-shadow: inset 0 -2px 0 0 rgba(90, 160, 255, 0.95);
+  box-shadow: inset 0 -2px 0 0 var(--louis-color-accent-primary);
 }
 
 .timeline__obj-row.is-drop-child {
-  box-shadow: inset 0 0 0 2px rgba(130, 200, 255, 0.95);
-  background: rgba(80, 140, 200, 0.12);
+  box-shadow: inset 0 0 0 2px var(--louis-color-accent-primary);
+  background: color-mix(in srgb, var(--louis-color-accent-primary) 12%, transparent);
 }
 
 .timeline__obj-row.is-dragging {
@@ -133,28 +135,31 @@
 .timeline__obj-btn-vis {
   height: 18px;
   width: 22px;
-  border-radius: 2px;
+  border-radius: 4px;
   border: none;
   background: transparent;
-  color: var(--color-text-muted);
+  color: var(--louis-color-fg-tertiary);
   cursor: pointer;
   user-select: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-shadow: none;
-  transition: background 100ms ease, color 100ms ease, opacity 100ms ease;
+  transition:
+    background-color var(--app-duration) var(--app-ease),
+    color var(--app-duration) var(--app-ease),
+    opacity var(--app-duration) var(--app-ease);
   flex: 0 0 auto;
   padding: 0;
 }
 
 .timeline__obj-btn-vis:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--color-text-primary);
+  background: var(--louis-color-accent-ghost-hover);
+  color: var(--louis-color-fg-primary);
 }
 
 .timeline__obj-btn-vis:active {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--louis-color-accent-secondary-hover);
 }
 
 .timeline__obj-btn-vis.is-off {
@@ -199,10 +204,11 @@
   border: none;
   background: var(--color-bg-input);
   color: var(--color-text-primary);
-  border-radius: 6px;
+  border-radius: var(--louis-radius-control-sm);
   padding: 6px 8px;
   margin-bottom: 4px;
-  font-size: 11px;
+  font-family: var(--app-font);
+  font-size: 12px;
   line-height: 1.2;
   cursor: pointer;
   white-space: nowrap;
@@ -220,19 +226,19 @@
 .timeline__obj-btn-name-input {
   flex: 1;
   padding: 2px 6px;
-  border: 1px solid var(--color-accent-border);
+  border: 1px solid var(--louis-color-stroke-focus);
   border-radius: 4px;
-  background: var(--color-bg-input);
-  color: var(--color-text-primary);
-  font-size: 11px;
+  background: var(--louis-color-bg-inset);
+  color: var(--louis-color-fg-primary);
+  font-family: var(--app-font);
+  font-size: 12px;
   line-height: 1.2;
   outline: none;
   min-width: 0;
 }
 
 .timeline__obj-btn-name-input:focus {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb), 0.25);
+  border-color: var(--louis-color-stroke-focus);
 }
 
 /* Hierarchy: empty-area marquee selection (fixed to viewport) */
@@ -240,12 +246,20 @@
   position: fixed;
   z-index: 50000;
   box-sizing: border-box;
-  border: 1px solid rgba(120, 190, 255, 0.85);
-  background: rgba(120, 190, 255, 0.12);
+  border: 1px solid var(--louis-color-accent-primary);
+  background: color-mix(in srgb, var(--louis-color-accent-primary) 12%, transparent);
   pointer-events: none;
 }
 
 .objects-panel__list.is-marquee-dragging {
   user-select: none;
   cursor: crosshair;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline__obj-row,
+  .timeline__obj-btn-vis,
+  .timeline__obj-list-end-drop {
+    transition: none;
+  }
 }

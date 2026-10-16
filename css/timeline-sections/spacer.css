@@ -1,4 +1,4 @@
-/* Timeline spacer (semi-transparent) */
+/* Timeline spacer (track rows) */
 .timeline-spacer {
   position: relative;
   z-index: 139;
@@ -6,11 +6,9 @@
   max-height: 300px;
   display: flex;
   flex-direction: column;
-  background: rgba(35, 35, 35, 0.42);
-  backdrop-filter: blur(8px);
+  background: var(--louis-color-bg-surface);
   border: none;
-  border-top: 1px solid var(--color-accent-border);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  border-top: 1px solid var(--louis-color-stroke-hairline);
   overflow: hidden;
   /* Line position: override via --timeline-spacer-line-left */
   --timeline-spacer-line-left: calc(16.6667% - 1px);
@@ -20,13 +18,19 @@
   flex-shrink: 0;
   height: 4px;
   width: 100%;
-  background: var(--color-accent-timeline);
+  background: transparent;
   cursor: ns-resize;
-  transition: background 0.12s ease;
+  transition: background-color var(--app-duration) var(--app-ease);
 }
 
 .timeline-spacer__resize-handle:hover {
-  background: var(--color-accent-border);
+  background: var(--louis-color-stroke-control);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline-spacer__resize-handle {
+    transition: none;
+  }
 }
 
 .timeline-spacer::after {
@@ -36,8 +40,7 @@
   top: 0;
   bottom: 0;
   width: 1px;
-  background: rgb(var(--color-accent-rgb));
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.2);
+  background: var(--louis-color-stroke-hairline);
   pointer-events: none;
   z-index: 1;
 }

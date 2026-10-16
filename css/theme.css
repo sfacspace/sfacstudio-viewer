@@ -1,56 +1,79 @@
 /**
- * Dark theme with deep blue accent
+ * SFACSTUDIO theme — LOUIS (Klipse Design System) 토큰 브리지
+ *
+ * 색·글꼴·반경·그림자·모션의 정본은 css/louis/tokens.css(@klipse-design/tokens 생성물)다.
+ * 이 파일은 기존 화면 CSS가 쓰던 --color-* 이름을 LOUIS 시맨틱 토큰에 연결만 한다.
+ * 새 값(hex·rgba 리터럴)을 여기에 추가하지 않는다 — 필요한 역할은 --louis-* 에서 고른다.
+ *
+ * 알파 합성은 color-mix(in srgb, var(--louis-…) N%, transparent)로 한다.
+ * 테마는 <html data-theme="dark|light">가 결정하고 아래 별칭은 자동으로 따라 뒤집힌다.
  */
-:root {
-  /* Background */
-  --color-bg-primary: #050810;
-  --color-bg-secondary: #0a0f18;
-  --color-bg-card: #0d1320;
-  --color-bg-elevated: #111827;
-  --color-bg-input: rgba(255, 255, 255, 0.05);
-  --color-bg-input-focus: rgba(255, 255, 255, 0.07);
+:root,
+[data-theme] {
+  /* Surfaces */
+  --color-bg-primary: var(--louis-color-bg-canvas);
+  --color-bg-secondary: var(--louis-color-bg-surface);
+  --color-bg-card: var(--louis-color-bg-raised);
+  --color-bg-elevated: var(--louis-color-bg-menu);
+  --color-bg-input: var(--louis-color-accent-secondary);
+  --color-bg-input-focus: var(--louis-color-accent-secondary-hover);
 
-  /* Accent (bright blue for icon readability) */
-  --color-accent: #4a6d98;
-  --color-accent-rgb: 74, 109, 152;
-  --color-accent-strong: #5a7fa8;
-  --color-accent-hover: #3a5d85;
-  --color-accent-dim: rgba(74, 109, 152, 0.4);
-  --color-accent-dim-2: rgba(74, 109, 152, 0.25);
-  --color-accent-border: rgba(74, 109, 152, 0.6);
-  --color-accent-glow: rgba(74, 109, 152, 0.3);
-  --color-accent-timeline: #3a5d85;
-  --color-accent-timeline-border: rgba(58, 93, 133, 0.65);
+  /* Accent — LOUIS primary blue */
+  --color-accent: var(--louis-color-accent-primary);
+  --color-accent-strong: var(--louis-color-accent-primary-hover);
+  --color-accent-hover: var(--louis-color-accent-primary-hover);
+  --color-accent-active: var(--louis-color-accent-primary-active);
+  --color-accent-dim: color-mix(in srgb, var(--louis-color-accent-primary) 40%, transparent);
+  --color-accent-dim-2: color-mix(in srgb, var(--louis-color-accent-primary) 24%, transparent);
+  --color-accent-border: color-mix(in srgb, var(--louis-color-accent-primary) 56%, transparent);
+  --color-accent-glow: color-mix(in srgb, var(--louis-color-accent-primary) 28%, transparent);
+  --color-accent-timeline: var(--louis-color-timeline-accent);
+  --color-accent-timeline-border: color-mix(in srgb, var(--louis-color-timeline-accent) 64%, transparent);
+  /* 채운 accent 면 위의 잉크 — 테마와 무관하게 밝다 */
+  --color-on-accent: var(--louis-color-fg-on-danger);
 
-  /* Sidebar / docked panels: same as .timeline (timeline-sections/timeline.css) */
-  --color-sidebar-surface: rgba(26, 26, 26, 0.42);
+  /* Docked panels (sidebar · timeline · toolbar) */
+  --color-sidebar-surface: var(--louis-color-bg-surface);
 
   /* Text and icons */
-  --color-text-primary: #dce4f2;
-  --color-text-secondary: rgba(220, 228, 242, 0.88);
-  --color-text-muted: rgba(220, 228, 242, 0.62);
-  --color-text-dim: rgba(220, 228, 242, 0.52);
+  --color-text-primary: var(--louis-color-fg-primary);
+  --color-text-secondary: var(--louis-color-fg-secondary);
+  --color-text-muted: var(--louis-color-fg-tertiary);
+  --color-text-dim: var(--louis-color-fg-disabled);
 
-  /* Border */
-  --color-border: rgba(255, 255, 255, 0.06);
-  --color-border-strong: rgba(255, 255, 255, 0.1);
-  --color-border-focus: rgba(74, 109, 152, 0.65);
+  /* Strokes */
+  --color-border: var(--louis-color-stroke-hairline);
+  --color-border-strong: var(--louis-color-stroke-control);
+  --color-border-focus: var(--louis-color-stroke-focus);
 
   /* Overlay / shadow */
-  --color-overlay: rgba(0, 0, 0, 0.75);
-  --color-shadow: rgba(0, 0, 0, 0.5);
-  --color-shadow-strong: rgba(0, 0, 0, 0.7);
+  --color-overlay: var(--louis-color-dim-modal);
+  /* 레거시 그림자 색 — 새 코드는 --app-surface-*-shadow 레시피를 쓴다 */
+  --color-shadow: color-mix(in srgb, var(--louis-color-media-scrim-dark) 24%, transparent);
+  --color-shadow-strong: color-mix(in srgb, var(--louis-color-media-scrim-dark) 40%, transparent);
 
-  /* Sequence block: purple */
-  --color-sequence: #6b4c9a;
-  --color-sequence-rgb: 107, 76, 154;
-  --color-sequence-dim: rgba(107, 76, 154, 0.4);
-  --color-sequence-border: rgba(107, 76, 154, 0.6);
-  --color-sequence-glow: rgba(107, 76, 154, 0.25);
+  /* Sequence block — violet */
+  --color-sequence: var(--louis-color-violet-500);
+  --color-sequence-dim: color-mix(in srgb, var(--louis-color-violet-500) 40%, transparent);
+  --color-sequence-border: color-mix(in srgb, var(--louis-color-violet-500) 56%, transparent);
+  --color-sequence-glow: color-mix(in srgb, var(--louis-color-violet-500) 24%, transparent);
 
-  /* Semantic colors */
-  --color-success: #2d5a3a;
-  --color-error: #dc3545;
-  --color-warning: #4a6d98;
-  --color-info: #4a6d98;
+  /* Semantic */
+  --color-success: var(--louis-color-green-500);
+  --color-error: var(--louis-color-accent-danger);
+  --color-warning: var(--louis-color-yellow-500);
+  --color-info: var(--louis-color-accent-primary);
+
+  /* Switch 꺼짐 트랙 — LOUIS 토큰은 양 테마 모두 흰색 16%라(switch.md Known deviations)
+   * 라이트 면 위에서 사라진다. 테마로 뒤집히는 잉크 16%로 대신한다(다크 값은 동일). */
+  --app-switch-off-track: var(--louis-color-gray-000-alpha-16);
+
+  /* Shared recipes */
+  --app-font: var(--louis-font-family-sans);
+  --app-font-mono: var(--louis-font-family-mono);
+  --app-surface-menu-shadow: var(--louis-elevation-menu), var(--louis-hairline-inset);
+  --app-surface-popover-shadow: var(--louis-elevation-popover), var(--louis-hairline-inset);
+  --app-surface-modal-shadow: var(--louis-elevation-modal), var(--louis-hairline-inset);
+  --app-ease: var(--louis-motion-control-hover-timing-function);
+  --app-duration: var(--louis-motion-control-hover-duration);
 }

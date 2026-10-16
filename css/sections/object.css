@@ -1,5 +1,5 @@
 .object-inspector__scale-link .scale-link-icon--off svg path {
-  stroke: var(--color-text-muted) !important;
+  stroke: var(--louis-color-fg-tertiary) !important;
 }
 .object-inspector__scale-link svg path {
   stroke: var(--color-accent);
@@ -23,14 +23,15 @@
   max-width: calc(100vw - 24px);
   min-width: 220px;
   padding: 12px;
-  border-radius: 14px;
-  background: var(--color-sidebar-surface);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.15);
+  border-radius: var(--louis-radius-overlay);
+  font-family: var(--app-font);
+  background: var(--louis-color-bg-surface-translucent);
+  box-shadow: var(--app-surface-popover-shadow);
   z-index: 120;
   border: none;
   overflow: hidden;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(var(--louis-blur-panel));
+  -webkit-backdrop-filter: blur(var(--louis-blur-panel));
   transition:
     left var(--panel-slide-duration) var(--panel-slide-easing),
     top var(--panel-slide-duration) var(--panel-slide-easing),
@@ -63,7 +64,7 @@ body:has(#rightToolsPanel.is-hidden) .object-inspector--viewport-float {
 }
 
 .object-inspector__dock-head {
-  margin: 0 0 6px;
+  margin: 0 0 8px;
 }
 
 .object-inspector__dock-head .objects-panel__section-rule--gray {
@@ -71,11 +72,11 @@ body:has(#rightToolsPanel.is-hidden) .object-inspector--viewport-float {
 }
 
 .object-inspector__dock-header {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.14px;
+  line-height: 1.5;
+  color: var(--louis-color-fg-primary);
   margin: 0 0 6px;
   padding: 0 2px;
 }
@@ -85,11 +86,12 @@ body:has(#rightToolsPanel.is-hidden) .object-inspector--viewport-float {
 }
 
 .object-inspector__title {
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--color-text-primary);
-  letter-spacing: 0.2px;
-  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--louis-color-fg-primary);
+  letter-spacing: -0.14px;
+  line-height: 1.5;
+  margin: 0 0 12px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -105,18 +107,19 @@ body:has(#rightToolsPanel.is-hidden) .object-inspector--viewport-float {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  border: 1px solid var(--color-border);
+  gap: 8px;
+  padding: 4px 0;
+  border-radius: 0;
+  border: none;
   background: transparent;
 }
 
 .object-inspector__label {
   flex: 0 0 64px;
   font-size: 12px;
-  font-weight: 700;
-  color: var(--color-text-secondary);
+  font-weight: 500;
+  letter-spacing: -0.12px;
+  color: var(--louis-color-fg-secondary);
   display: flex;
   align-items: center;
 }
@@ -134,15 +137,17 @@ body:has(#rightToolsPanel.is-hidden) .object-inspector--viewport-float {
 }
 
 .object-inspector__input {
-  height: 28px;
+  height: var(--louis-layout-inspector-control-height);
   padding: 0 8px;
   padding-right: 24px;
-  border-radius: 8px;
+  border-radius: var(--louis-radius-inspector-control);
   border: none;
-  background: var(--color-bg-card);
-  color: var(--color-text-primary);
+  background: var(--louis-color-accent-secondary);
+  color: var(--louis-color-fg-primary);
+  font-family: var(--app-font);
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
   text-align: right;
   outline: none;
   width: 100%;
@@ -152,22 +157,24 @@ body:has(#rightToolsPanel.is-hidden) .object-inspector--viewport-float {
   background-position: right 6px center;
   background-size: 12px 12px;
   cursor: text;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-  transition: background 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: var(--louis-hairline-inset);
+  transition: background-color var(--app-duration) var(--app-ease), box-shadow var(--app-duration) var(--app-ease);
 }
 
 .object-inspector__input:hover {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='rgba(235,242,255,0.4)'%3E%3Cpath d='M8 3L6 5h1.5v6H6l2 2 2-2H8.5V5H10L8 3z'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='gray' fill-opacity='0.8'%3E%3Cpath d='M8 3L6 5h1.5v6H6l2 2 2-2H8.5V5H10L8 3z'/%3E%3C/svg%3E");
 }
 
 .object-inspector__input:focus {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 0 0 2px rgba(var(--color-accent-rgb), 0.25);
+  background-color: var(--louis-color-accent-secondary-hover);
+  box-shadow: inset 0 0 0 1px var(--louis-color-stroke-focus);
 }
 
 .object-inspector__input.is-dragging {
   cursor: ns-resize;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='rgba(61,93,133,0.9)'%3E%3Cpath d='M8 3L6 5h1.5v6H6l2 2 2-2H8.5V5H10L8 3z'/%3E%3C/svg%3E");
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 0 0 2px rgba(var(--color-accent-rgb), 0.25);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='dodgerblue'%3E%3Cpath d='M8 3L6 5h1.5v6H6l2 2 2-2H8.5V5H10L8 3z'/%3E%3C/svg%3E");
+  background-color: var(--louis-color-accent-secondary-hover);
+  box-shadow: inset 0 0 0 1px var(--louis-color-stroke-focus);
   user-select: none;
 }
 
@@ -180,10 +187,10 @@ body:has(#rightToolsPanel.is-hidden) .object-inspector--viewport-float {
   margin-left: 6px;
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--louis-radius-control-sm);
   background: transparent;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background-color var(--app-duration) var(--app-ease);
   flex-shrink: 0;
 }
 
@@ -220,11 +227,12 @@ body:has(#rightToolsPanel.is-hidden) .object-inspector--viewport-float {
   left: 216px;
   width: 200px;
   padding: 0;
-  border-radius: 12px;
-  background: var(--color-sidebar-surface);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.15);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  border-radius: var(--louis-radius-overlay);
+  font-family: var(--app-font);
+  background: var(--louis-color-bg-surface-translucent);
+  box-shadow: var(--app-surface-popover-shadow);
+  backdrop-filter: blur(var(--louis-blur-panel));
+  -webkit-backdrop-filter: blur(var(--louis-blur-panel));
   z-index: 110;
   border: none;
   user-select: none;
@@ -239,7 +247,7 @@ body:has(#rightToolsPanel.is-hidden) .object-inspector--viewport-float {
   left: 0;
   right: 0;
   height: 36px;
-  border-radius: 12px 12px 0 0;
+  border-radius: var(--louis-radius-overlay) var(--louis-radius-overlay) 0 0;
   cursor: grab;
   pointer-events: auto;
 }
@@ -253,15 +261,15 @@ body:has(#rightToolsPanel.is-hidden) .object-inspector--viewport-float {
   align-items: center;
   min-height: 36px;
   padding: 0 12px;
-  background: var(--color-accent-dim);
-  border-bottom: 1px solid var(--color-border);
+  background: transparent;
+  border-bottom: 1px solid var(--louis-color-stroke-hairline);
 }
 
 .camera-path-editor__title {
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--color-accent);
-  letter-spacing: 0.2px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--louis-color-fg-primary);
+  letter-spacing: -0.14px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -279,19 +287,20 @@ body:has(#rightToolsPanel.is-hidden) .object-inspector--viewport-float {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 10px;
+  gap: 8px;
+  padding: 4px 0;
+  border-radius: 0;
   border: none;
-  background: rgba(255, 255, 255, 0.04);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  background: transparent;
+  box-shadow: none;
 }
 
 .camera-path-editor__label {
   flex: 0 0 48px;
   font-size: 12px;
-  font-weight: 700;
-  color: var(--color-text-secondary);
+  font-weight: 500;
+  letter-spacing: -0.12px;
+  color: var(--louis-color-fg-secondary);
 }
 
 .camera-path-editor__input-wrap {
@@ -300,26 +309,28 @@ body:has(#rightToolsPanel.is-hidden) .object-inspector--viewport-float {
 }
 
 .camera-path-editor__input {
-  height: 28px;
+  height: var(--louis-layout-inspector-control-height);
   padding: 0 24px 0 8px;
-  border-radius: 8px;
+  border-radius: var(--louis-radius-inspector-control);
   border: none;
-  background: var(--color-bg-card);
-  color: var(--color-text-primary);
+  background: var(--louis-color-accent-secondary);
+  color: var(--louis-color-fg-primary);
+  font-family: var(--app-font-mono);
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
   text-align: right;
   outline: none;
   width: 100%;
   box-sizing: border-box;
   cursor: text;
   position: relative;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-  transition: background 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: var(--louis-hairline-inset);
+  transition: background-color var(--app-duration) var(--app-ease), box-shadow var(--app-duration) var(--app-ease);
 }
 
 .camera-path-editor__input:hover {
-  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path d="M6 1L6 11M3 4L6 1L9 4M3 8L6 11L9 8" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path d="M6 1L6 11M3 4L6 1L9 4M3 8L6 11L9 8" stroke="gray" stroke-opacity="0.8" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>');
   background-repeat: no-repeat;
   background-position: calc(100% - 6px) center;
   background-size: 12px 12px;
@@ -327,15 +338,17 @@ body:has(#rightToolsPanel.is-hidden) .object-inspector--viewport-float {
 
 .camera-path-editor__input.is-dragging {
   cursor: none;
-  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path d="M6 1L6 11M3 4L6 1L9 4M3 8L6 11L9 8" stroke="rgba(61,93,133,0.9)" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path d="M6 1L6 11M3 4L6 1L9 4M3 8L6 11L9 8" stroke="dodgerblue" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>');
   background-repeat: no-repeat;
   background-position: calc(100% - 6px) center;
   background-size: 12px 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 0 0 2px rgba(var(--color-accent-rgb), 0.25);
+  background-color: var(--louis-color-accent-secondary-hover);
+  box-shadow: inset 0 0 0 1px var(--louis-color-stroke-focus);
 }
 
 .camera-path-editor__input:focus {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 0 0 2px rgba(var(--color-accent-rgb), 0.25);
+  background-color: var(--louis-color-accent-secondary-hover);
+  box-shadow: inset 0 0 0 1px var(--louis-color-stroke-focus);
 }
 
 .camera-path-editor__input[type="number"]::-webkit-outer-spin-button,
@@ -347,4 +360,13 @@ body:has(#rightToolsPanel.is-hidden) .object-inspector--viewport-float {
 .camera-path-editor__input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+/* SVG 배경 아이콘은 CSS 토큰을 읽지 못해 중립 회색/파랑 이름색을 쓴다(테마 양쪽에서 읽힘). */
+
+@media (prefers-reduced-motion: reduce) {
+  .object-inspector--viewport-float,
+  .object-inspector__input,
+  .camera-path-editor__input {
+    transition: none;
+  }
 }

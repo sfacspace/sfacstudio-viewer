@@ -3,8 +3,8 @@
 .panels-toggle__icon,
 .orbit-toggle__icon,
 .fullscreen-toggle__icon {
-  width: 18px;
-  height: 18px;
+  width: var(--louis-icon-size-sm);
+  height: var(--louis-icon-size-sm);
   display: inline-block;
   background-color: currentColor;
   -webkit-mask-repeat: no-repeat;
@@ -47,22 +47,24 @@
 .app-tooltip {
   position: fixed;
   z-index: 5000;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: rgba(12, 18, 28, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(10px);
-  color: rgba(235, 242, 255, 0.92);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.4;
+  padding: 6px 10px;
+  border-radius: var(--louis-radius-control-sm);
+  background: var(--louis-color-app-tooltip-bg);
+  box-shadow: var(--louis-elevation-tooltip), inset 0 0 0 var(--louis-border-width-hairline) var(--louis-color-app-tooltip-border);
+  color: var(--louis-color-app-tooltip-text);
+  font-size: var(--louis-typography-caption-regular-font-size);
+  font-weight: var(--louis-type-weight-tooltip);
+  letter-spacing: var(--louis-typography-caption-regular-letter-spacing);
+  line-height: var(--louis-typography-caption-regular-line-height);
   white-space: pre-line;
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transform: translateY(-4px) scale(0.98);
-  transition: opacity 120ms ease, transform 120ms ease, visibility 120ms;
+  transform: scale(var(--louis-motion-scale-tooltip-rest));
+  transition:
+    opacity var(--louis-motion-tooltip-exit-duration) var(--louis-motion-tooltip-exit-timing-function),
+    transform var(--louis-motion-tooltip-exit-duration) var(--louis-motion-tooltip-exit-timing-function),
+    visibility 0s linear var(--louis-motion-tooltip-exit-duration);
   user-select: none;
   -webkit-user-select: none;
 }
@@ -70,7 +72,19 @@
 .app-tooltip.is-visible {
   opacity: 1;
   visibility: visible;
-  transform: translateY(0) scale(1);
+  transform: scale(1);
+  transition:
+    opacity var(--louis-motion-tooltip-enter-duration) var(--louis-motion-tooltip-enter-timing-function),
+    transform var(--louis-motion-tooltip-enter-duration) var(--louis-motion-tooltip-enter-timing-function),
+    visibility 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-tooltip,
+  .app-tooltip.is-visible {
+    transition-duration: 0.01ms !important;
+    transform: none;
+  }
 }
 
 /* Tooltip areas: cursor for UX */
