@@ -90,6 +90,7 @@
   },
   "tooltip": {
     "settings": "설정",
+    "toggleTheme": "테마 전환 (라이트/다크)",
     "panelTogglesToolbar": "패널 표시",
     "toggleLeftSidebar": "왼쪽 패널 (계층)",
     "toggleTopTimeline": "상단 타임라인",

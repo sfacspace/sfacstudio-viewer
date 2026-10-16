@@ -1,58 +1,67 @@
-/* Buttons and toggles */
-button:focus,
-button:focus-visible,
-[role="button"]:focus,
-[role="button"]:focus-visible {
-  outline: none;
-  box-shadow: none;
+/* Buttons and toggles — LOUIS button / icon-button recipes */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
 }
 
+button:focus,
+[role="button"]:focus {
+  outline: none;
+}
+
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: none;
+  box-shadow: var(--louis-elevation-focus-ring);
+}
+
+/* Secondary button (md) */
 .file-upload__btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 34px;
-  padding: 0 14px;
-  border-radius: 10px;
-  border: 1px solid var(--color-border-strong);
-  background: var(--color-bg-input);
-  color: var(--color-text-primary);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
+  height: var(--louis-button-height-md);
+  padding: 0 var(--louis-button-padding-inline-md);
+  border-radius: var(--louis-button-radius);
+  border: none;
+  background: var(--louis-color-accent-secondary);
+  color: var(--louis-color-fg-primary);
+  font-size: var(--louis-typography-body-sm-medium-font-size);
+  font-weight: var(--louis-typography-body-sm-medium-font-weight);
+  letter-spacing: var(--louis-typography-body-sm-medium-letter-spacing);
   cursor: pointer;
   user-select: none;
-  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+  transition: background-color var(--app-duration) var(--app-ease);
 }
 
 .file-upload__btn:hover {
-  border-color: var(--color-border-focus);
-  background: var(--color-bg-input-focus);
+  background: var(--louis-color-accent-secondary-hover);
 }
 
-.file-upload__btn:active {
-  transform: translateY(1px);
-}
-
+/* Ghost icon buttons */
 .grid-toggle,
 .panels-toggle,
 .orbit-toggle,
 .fullscreen-toggle,
 .header-panel-toggle,
 .settings-button {
-  height: 34px;
-  min-width: 40px;
-  padding: 0 12px;
-  border-radius: 10px;
+  height: var(--louis-layout-control-height-md);
+  min-width: var(--louis-layout-control-height-md);
+  padding: 0 6px;
+  border-radius: var(--louis-radius-control);
   border: none;
   background: transparent;
-  color: var(--color-accent);
+  color: var(--louis-color-fg-secondary);
   cursor: pointer;
   user-select: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: color 140ms ease, transform 120ms ease, opacity 140ms ease;
+  transition:
+    background-color var(--app-duration) var(--app-ease),
+    color var(--app-duration) var(--app-ease);
 }
 
 .grid-toggle:hover,
@@ -61,26 +70,29 @@ button:focus-visible,
 .fullscreen-toggle:hover,
 .header-panel-toggle:hover,
 .settings-button:hover {
-  opacity: 0.9;
+  background: var(--louis-color-accent-ghost-hover);
+  color: var(--louis-color-fg-primary);
 }
 
-.grid-toggle:active,
-.panels-toggle:active,
-.orbit-toggle:active,
-.fullscreen-toggle:active,
-.header-panel-toggle:active,
-.settings-button:active {
-  transform: translateY(1px);
+/* 켜짐(눌림) 상태 */
+.header-panel-toggle[aria-pressed="true"],
+.settings-button[aria-pressed="true"] {
+  color: var(--louis-color-fg-primary);
 }
 
+.settings-button[aria-pressed="true"] {
+  background: var(--louis-color-floating-item-selected);
+}
+
+/* 꺼짐 상태 */
 .grid-toggle.is-off,
 .panels-toggle.is-off,
 .orbit-toggle.is-off,
 .fullscreen-toggle.is-off,
 .header-panel-toggle.is-off,
-.settings-button.is-off {
-  color: var(--color-text-muted);
-  opacity: 0.85;
+.settings-button.is-off,
+.header-panel-toggle[aria-pressed="false"] {
+  color: var(--louis-color-fg-tertiary);
 }
 
 .grid-toggle.is-off:hover,
@@ -88,48 +100,55 @@ button:focus-visible,
 .orbit-toggle.is-off:hover,
 .fullscreen-toggle.is-off:hover,
 .header-panel-toggle.is-off:hover,
-.settings-button.is-off:hover {
-  color: var(--color-text-secondary);
-  opacity: 0.95;
+.settings-button.is-off:hover,
+.header-panel-toggle[aria-pressed="false"]:hover {
+  color: var(--louis-color-fg-secondary);
 }
 
+/* Primary button (md) */
 .export-button {
-  height: 34px;
-  padding: 0 14px;
-  border-radius: 10px;
-  border: 1px solid var(--color-accent-border);
-  background: var(--color-accent-dim);
-  color: var(--color-text-primary);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.2px;
+  height: var(--louis-button-height-md);
+  min-width: var(--louis-button-min-width-md);
+  padding: 0 var(--louis-button-padding-inline-md);
+  border-radius: var(--louis-button-radius);
+  border: none;
+  background: var(--louis-color-accent-primary);
+  color: var(--color-on-accent);
+  font-size: var(--louis-typography-body-sm-semibold-font-size);
+  font-weight: var(--louis-typography-body-sm-semibold-font-weight);
+  letter-spacing: var(--louis-typography-body-sm-semibold-letter-spacing);
   cursor: pointer;
   user-select: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 16px var(--color-accent-glow);
-  transition: background 140ms ease, border-color 140ms ease, transform 120ms ease, box-shadow 140ms ease, opacity 140ms ease;
+  transition: background-color var(--app-duration) var(--app-ease);
 }
 
 .export-button:hover {
-  background: var(--color-accent-dim-2);
-  border-color: var(--color-accent);
+  background: var(--louis-color-accent-primary-hover);
 }
 
 .export-button:active {
-  transform: translateY(1px);
+  background: var(--louis-color-accent-primary-active);
 }
 
-.export-button:disabled {
-  background: var(--color-bg-input);
-  border-color: var(--color-border);
-  color: var(--color-text-dim);
-  box-shadow: none;
+.export-button:disabled,
+.export-button:disabled:hover {
+  background: var(--louis-color-accent-secondary);
+  color: var(--louis-color-fg-disabled);
   cursor: not-allowed;
 }
 
-.export-button:disabled:hover {
-  background: var(--color-bg-input);
-  border-color: var(--color-border);
+@media (prefers-reduced-motion: reduce) {
+  .file-upload__btn,
+  .grid-toggle,
+  .panels-toggle,
+  .orbit-toggle,
+  .fullscreen-toggle,
+  .header-panel-toggle,
+  .settings-button,
+  .export-button {
+    transition-duration: 0.01ms !important;
+  }
 }

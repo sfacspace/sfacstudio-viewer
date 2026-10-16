@@ -29,22 +29,23 @@ export class SelectionRenderer {
     this.svg.style.display = 'none';
 
     this.rectElement = document.createElementNS(this.svg.namespaceURI, 'rect');
-    this.rectElement.setAttribute('fill', 'rgba(201, 161, 60, 0.1)');
-    this.rectElement.setAttribute('stroke', 'rgba(201, 161, 60, 0.8)');
+    this.rectElement.style.fill = 'color-mix(in srgb, var(--louis-color-accent-primary) 12%, transparent)';
+    this.rectElement.style.stroke = 'var(--louis-color-accent-primary)';
     this.rectElement.setAttribute('stroke-width', '2');
     this.svg.appendChild(this.rectElement);
 
     this.brushCircle = document.createElementNS(this.svg.namespaceURI, 'circle');
-    this.brushCircle.setAttribute('fill', 'rgba(201, 161, 60, 0.1)');
-    this.brushCircle.setAttribute('stroke', 'rgba(201, 161, 60, 0.8)');
+    this.brushCircle.style.fill = 'color-mix(in srgb, var(--louis-color-accent-primary) 12%, transparent)';
+    this.brushCircle.style.stroke = 'var(--louis-color-accent-primary)';
     this.brushCircle.setAttribute('stroke-width', '2');
     this.brushCircle.style.display = 'none';
     this.svg.appendChild(this.brushCircle);
 
     this.brushSizeText = document.createElementNS(this.svg.namespaceURI, 'text');
-    this.brushSizeText.setAttribute('fill', 'rgba(201, 161, 60, 0.8)');
+    this.brushSizeText.style.fill = 'var(--louis-color-accent-primary)';
     this.brushSizeText.setAttribute('font-size', '14');
-    this.brushSizeText.setAttribute('font-family', 'monospace');
+    this.brushSizeText.style.fontFamily = 'var(--louis-font-family-mono)';
+    this.brushSizeText.style.fontVariantNumeric = 'tabular-nums';
     this.brushSizeText.style.display = 'none';
     this.svg.appendChild(this.brushSizeText);
     

@@ -6,33 +6,33 @@
 }
 
 .gizmo-tooltip__title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--color-accent);
-  letter-spacing: -0.5px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--louis-color-fg-primary);
+  letter-spacing: -0.16px;
   line-height: 32px;
 }
 
 /* Camera reset tooltip button */
 .gizmo-tooltip__reset-btn {
-  height: 32px;
-  padding: 0 18px;
-  border-radius: 7px;
+  height: var(--louis-button-height-md);
+  padding: 0 var(--louis-button-padding-inline-md);
+  border-radius: var(--louis-radius-control);
   border: none;
-  background: var(--color-accent-dim);
-  color: var(--color-accent);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: -0.2px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 6px var(--color-accent-glow);
+  background: var(--louis-color-accent-secondary);
+  color: var(--louis-color-fg-primary);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.14px;
+  box-shadow: none;
   cursor: pointer;
-  transition: background 0.15s, box-shadow 0.15s, color 0.15s;
+  transition: background-color var(--app-duration) var(--app-ease), color var(--app-duration) var(--app-ease);
 }
 
 .gizmo-tooltip__reset-btn:hover {
-  background: var(--color-accent-dim-2);
-  color: var(--color-text-primary);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4), 0 2px 8px var(--color-accent-glow);
+  background: var(--louis-color-accent-secondary-hover);
+  color: var(--louis-color-fg-primary);
 }
 /* Gizmo and camera info, controls */
 /* 뷰포트 우하단, 오른쪽은 사이드바 너비에 맞춤 (절대 픽셀 고정 아님) */
@@ -67,17 +67,19 @@ body:has(#rightToolsPanel.is-hidden) .axis-gizmo {
   bottom: 100px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 6px 12px;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  padding: 4px 12px;
+  border-radius: var(--louis-radius-pill);
+  background: var(--louis-color-bg-surface-translucent);
+  box-shadow: var(--louis-hairline-inset);
+  backdrop-filter: blur(var(--louis-blur-panel));
   z-index: 109;
-  font-family: monospace;
-  font-size: 11px;
-  color: rgba(200, 220, 255, 0.9);
+  font-family: var(--app-font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--louis-color-fg-secondary);
   white-space: nowrap;
   opacity: 1;
-  transition: opacity 0.5s ease;
+  transition: opacity var(--louis-motion-content-fade-duration) var(--louis-motion-content-fade-timing-function);
   pointer-events: none;
   user-select: none;
   -webkit-user-select: none;
@@ -98,11 +100,11 @@ body:has(#rightToolsPanel.is-hidden) .axis-gizmo {
   flex-direction: column;
   gap: 12px;
   padding: 12px;
-  border-radius: 12px;
-  background: rgba(26, 26, 26, 0.42);
+  border-radius: var(--louis-radius-overlay);
+  background: var(--louis-color-bg-surface-translucent);
   border: none;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.15);
-  backdrop-filter: blur(8px);
+  box-shadow: var(--app-surface-popover-shadow);
+  backdrop-filter: blur(var(--louis-blur-panel));
   z-index: 110;
 }
 
@@ -142,51 +144,54 @@ body:has(#rightToolsPanel.is-hidden) .axis-gizmo {
 /* 기즈모 버튼과 동일 톤: 배경·테두리·비활성 아이콘( muted ) / 활성 시 골드+흰 아이콘 */
 .gizmo-controls__selection-tools .object-details-panel__button,
 .gizmo-controls__selection-tools .object-details-panel__button.object-details-panel__button--neutral {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   padding: 0;
-  border-radius: 10px;
+  border-radius: var(--louis-radius-control);
   border: none;
   cursor: pointer;
   user-select: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 140ms ease, transform 120ms ease, box-shadow 140ms ease, opacity 140ms ease, color 140ms ease;
+  transition:
+    background-color var(--app-duration) var(--app-ease),
+    opacity var(--app-duration) var(--app-ease),
+    color var(--app-duration) var(--app-ease);
 }
 
 .gizmo-controls__selection-tools .object-details-panel__button.is-off,
 .gizmo-controls__selection-tools .object-details-panel__button--neutral.is-off:not(.object-details-panel__button--complement-on) {
-  background: var(--color-bg-secondary);
-  color: var(--color-text-muted);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  opacity: 0.9;
+  background: transparent;
+  color: var(--louis-color-fg-secondary);
+  box-shadow: none;
+  opacity: 1;
 }
 
 /* 셀렉터 전용(상자·브러시·입체): is-off 해제 시만 액센트 — neutral 버튼은 제외 */
 .gizmo-controls__selection-tools .object-details-panel__button:not(.object-details-panel__button--neutral):not(.is-off) {
-  background: rgb(var(--color-accent-rgb));
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(var(--color-accent-rgb), 0.4);
+  background: var(--louis-color-accent-primary);
+  color: var(--color-on-accent);
+  box-shadow: none;
 }
 
 .gizmo-controls__selection-tools .object-details-panel__button:not(.object-details-panel__button--neutral):not(.is-off):hover {
-  background: var(--color-accent-hover);
-  color: #fff;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(var(--color-accent-rgb), 0.45);
+  background: var(--louis-color-accent-primary-hover);
+  color: var(--color-on-accent);
+  box-shadow: none;
 }
 
 .gizmo-controls__selection-tools .object-details-panel__button.is-off:hover:not(.object-details-panel__button--selector-disabled),
 .gizmo-controls__selection-tools .object-details-panel__button--neutral.is-off:hover:not(.object-details-panel__button--selector-disabled):not(.object-details-panel__button--complement-on) {
-  background: var(--color-bg-elevated);
-  color: var(--color-text-primary);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.38);
+  background: var(--louis-color-accent-ghost-hover);
+  color: var(--louis-color-fg-primary);
+  box-shadow: none;
 }
 
 .gizmo-controls__selection-tools .object-details-panel__button--complement-on {
-  background: rgb(var(--color-accent-rgb));
-  color: #fff;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(var(--color-accent-rgb), 0.4);
+  background: var(--louis-color-accent-primary);
+  color: var(--color-on-accent);
+  box-shadow: none;
 }
 
 .gizmo-controls__selection-tools .object-details-panel__button svg {
@@ -209,7 +214,7 @@ body:has(#rightToolsPanel.is-hidden) .axis-gizmo {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
   position: relative;
   overflow: visible;
@@ -218,8 +223,8 @@ body:has(#rightToolsPanel.is-hidden) .axis-gizmo {
 .gizmo-controls__divider {
   height: 1px;
   width: 100%;
-  background: var(--color-border);
-  margin: 2px 0 4px;
+  background: var(--louis-color-stroke-hairline);
+  margin: 4px 0;
 }
 
 .gizmo-controls__camera-row {
@@ -234,33 +239,40 @@ body:has(#rightToolsPanel.is-hidden) .axis-gizmo {
 
 /* Active (selected): gold opaque bg, white icon */
 .gizmo-controls__button {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   padding: 0;
-  border-radius: 10px;
+  border-radius: var(--louis-radius-control);
   border: none;
-  background: rgb(var(--color-accent-rgb));
-  color: #fff;
+  background: var(--louis-color-accent-primary);
+  color: var(--color-on-accent);
   cursor: pointer;
   user-select: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(var(--color-accent-rgb), 0.4);
-  transition: background 140ms ease, transform 120ms ease, box-shadow 140ms ease, opacity 140ms ease;
+  box-shadow: none;
+  transition:
+    background-color var(--app-duration) var(--app-ease),
+    color var(--app-duration) var(--app-ease),
+    opacity var(--app-duration) var(--app-ease);
 }
 
 .gizmo-controls__button:hover {
-  background: var(--color-accent-hover);
-  color: #fff;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(var(--color-accent-rgb), 0.45);
+  background: var(--louis-color-accent-primary-hover);
+  color: var(--color-on-accent);
 }
 
 .gizmo-controls__button.is-off {
-  background: var(--color-bg-secondary);
-  color: var(--color-text-muted);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  opacity: 0.9;
+  background: transparent;
+  color: var(--louis-color-fg-secondary);
+  box-shadow: none;
+  opacity: 1;
+}
+
+.gizmo-controls__button.is-off:hover {
+  background: var(--louis-color-accent-ghost-hover);
+  color: var(--louis-color-fg-primary);
 }
 
 .gizmo-controls__icon {
@@ -313,7 +325,7 @@ body:has(#rightToolsPanel.is-hidden) .axis-gizmo {
 .gizmo-controls__tint-popover {
   min-width: auto;
   max-width: none;
-  padding: 12px 14px;
+  padding: 12px;
   bottom: 0;
 }
 
@@ -340,42 +352,46 @@ body:has(#rightToolsPanel.is-hidden) .axis-gizmo {
   height: 28px;
   padding: 0;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.35);
+  border: 2px solid var(--louis-color-stroke-control);
   cursor: pointer;
   box-sizing: border-box;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+  transition:
+    transform var(--app-duration) var(--app-ease),
+    box-shadow var(--app-duration) var(--app-ease),
+    border-color var(--app-duration) var(--app-ease);
   background-clip: padding-box;
 }
 
 .gizmo-tint-swatch:hover {
   transform: scale(1.08);
-  border-color: rgba(255, 255, 255, 0.65);
+  border-color: var(--louis-color-stroke-strong);
 }
 
 .gizmo-tint-swatch.is-selected {
-  box-shadow: 0 0 0 2px rgb(var(--color-accent-rgb));
-  border-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 2px var(--louis-color-accent-primary);
+  border-color: var(--louis-color-bg-menu);
 }
 
 .gizmo-tint-swatch--none {
   background: transparent;
-  border: 2px dashed rgba(255, 255, 255, 0.45);
+  border: 2px dashed var(--louis-color-stroke-strong);
 }
 
+/* 색지정 스와치는 데이터 색(오브젝트 틴트) — 팔레트 500 단계 */
 .gizmo-tint-swatch--red {
-  background: #e53935;
+  background: var(--louis-color-red-500);
 }
 
 .gizmo-tint-swatch--yellow {
-  background: #fbc02d;
+  background: var(--louis-color-yellow-500);
 }
 
 .gizmo-tint-swatch--blue {
-  background: #1e88e5;
+  background: var(--louis-color-blue-500);
 }
 
 .gizmo-tint-swatch--green {
-  background: #43a047;
+  background: var(--louis-color-green-500);
 }
 
 .gizmo-controls__icon--color-tint {
@@ -390,65 +406,86 @@ body:has(#rightToolsPanel.is-hidden) .axis-gizmo {
 }
 
 #gizmoDescriptionTooltip:not(.gizmo-controls__tooltip--dock) {
-  background: rgba(13, 19, 32, 0.82);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--louis-color-bg-menu);
   bottom: -28px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--app-surface-popover-shadow);
 }
 
 .gizmo-tooltip__object-name {
   display: block;
-  font-size: 13px;
-  color: var(--color-text-primary);
+  font-size: 14px;
+  letter-spacing: -0.14px;
+  color: var(--louis-color-fg-primary);
   margin-top: 4px;
   word-break: break-all;
 }
 
 .gizmo-tooltip__input {
   width: 100%;
-  height: 36px;
-  padding: 8px 10px;
+  height: var(--louis-button-height-lg);
+  padding: 8px 12px;
   border: none;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.25);
-  color: var(--color-text-primary);
-  font-size: 13px;
+  border-radius: var(--louis-radius-control);
+  background: var(--louis-color-accent-secondary);
+  box-shadow: var(--louis-hairline-inset);
+  color: var(--louis-color-fg-primary);
+  font-size: 14px;
+  letter-spacing: -0.14px;
   font-family: inherit;
   box-sizing: border-box;
+  outline: none;
+}
+
+.gizmo-tooltip__input:focus,
+.gizmo-tooltip__textarea:focus {
+  box-shadow: inset 0 0 0 1px var(--louis-color-stroke-focus);
+}
+
+.gizmo-tooltip__input::placeholder,
+.gizmo-tooltip__textarea::placeholder {
+  color: var(--louis-color-fg-tertiary);
 }
 
 .gizmo-tooltip__textarea {
   width: 100%;
   min-height: 120px;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border: none;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.25);
-  color: var(--color-text-primary);
-  font-size: 13px;
+  border-radius: var(--louis-radius-control);
+  background: var(--louis-color-accent-secondary);
+  box-shadow: var(--louis-hairline-inset);
+  color: var(--louis-color-fg-primary);
+  font-size: 14px;
+  letter-spacing: -0.14px;
+  line-height: 1.5;
   font-family: inherit;
   resize: vertical;
   box-sizing: border-box;
+  outline: none;
 }
 
 .gizmo-tooltip__add-btn {
-  padding: 8px 16px;
+  height: var(--louis-button-height-md);
+  padding: 0 var(--louis-button-padding-inline-md);
   border: none;
-  border-radius: 8px;
-  background: rgb(var(--color-accent-rgb));
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
+  border-radius: var(--louis-radius-control);
+  background: var(--louis-color-accent-primary);
+  color: var(--color-on-accent);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.14px;
   cursor: pointer;
+  transition: background-color var(--app-duration) var(--app-ease);
 }
 
 .gizmo-tooltip__add-btn:hover:not(:disabled) {
-  background: var(--color-accent-hover);
+  background: var(--louis-color-accent-primary-hover);
 }
 
 .gizmo-tooltip__add-btn:disabled {
-  opacity: 0.5;
+  background: var(--louis-color-accent-secondary);
+  color: var(--louis-color-fg-disabled);
   cursor: not-allowed;
 }
 
@@ -456,14 +493,16 @@ body:has(#rightToolsPanel.is-hidden) .axis-gizmo {
   display: none;
   min-width: 220px;
   max-width: 320px;
-  padding: 14px 16px;
-  border-radius: 10px;
-  background: var(--color-bg-primary);
-  color: var(--color-text-primary);
-  font-size: 13px;
-  line-height: 1.55;
+  padding: 12px 16px;
+  border-radius: var(--louis-radius-overlay);
+  background: var(--louis-color-bg-menu);
+  color: var(--louis-color-fg-primary);
+  font-family: var(--app-font);
+  font-size: 14px;
+  letter-spacing: -0.14px;
+  line-height: 1.5;
   border: none;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55), 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--app-surface-popover-shadow);
   position: absolute;
   right: 100%;
   bottom: 0;
@@ -503,7 +542,7 @@ body:has(#rightToolsPanel.is-hidden) .axis-gizmo {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .gizmo-tooltip__close {
@@ -513,11 +552,12 @@ body:has(#rightToolsPanel.is-hidden) .axis-gizmo {
   padding: 0;
   margin: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--louis-radius-control-sm);
   background: transparent;
-  color: var(--color-text-muted);
-  font-size: 22px;
+  color: var(--louis-color-fg-secondary);
+  font-size: 20px;
   line-height: 1;
+  transition: background-color var(--app-duration) var(--app-ease), color var(--app-duration) var(--app-ease);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -525,14 +565,14 @@ body:has(#rightToolsPanel.is-hidden) .axis-gizmo {
 }
 
 .gizmo-tooltip__close:hover {
-  color: var(--color-text-primary);
-  background: rgba(255, 255, 255, 0.08);
+  color: var(--louis-color-fg-primary);
+  background: var(--louis-color-accent-ghost-hover);
 }
 
 .gizmo-tooltip__section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   margin-bottom: 12px;
 }
 
@@ -541,11 +581,10 @@ body:has(#rightToolsPanel.is-hidden) .axis-gizmo {
 }
 
 .gizmo-tooltip__label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--louis-color-fg-secondary);
+  letter-spacing: -0.12px;
 }
 
 .gizmo-tooltip__control-row {
@@ -557,8 +596,8 @@ body:has(#rightToolsPanel.is-hidden) .axis-gizmo {
 .gizmo-tooltip__slider {
   flex: 1;
   height: 4px;
-  border-radius: 2px;
-  background: var(--color-border-strong);
+  border-radius: var(--louis-radius-pill);
+  background: var(--louis-color-progress-track);
   outline: none;
   -webkit-appearance: none;
   appearance: none;
@@ -570,14 +609,14 @@ body:has(#rightToolsPanel.is-hidden) .axis-gizmo {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--color-accent);
+  background: var(--louis-color-switch-thumb);
   cursor: pointer;
-  border: 2px solid var(--color-border);
-  transition: background 0.15s ease, transform 0.1s ease;
+  border: none;
+  box-shadow: var(--louis-elevation-switch-thumb);
+  transition: transform var(--app-duration) var(--app-ease);
 }
 
 .gizmo-tooltip__slider::-webkit-slider-thumb:hover {
-  background: var(--color-accent-strong);
   transform: scale(1.15);
 }
 
@@ -585,38 +624,40 @@ body:has(#rightToolsPanel.is-hidden) .axis-gizmo {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--color-accent);
+  background: var(--louis-color-switch-thumb);
   cursor: pointer;
-  border: 2px solid var(--color-border);
-  transition: background 0.15s ease, transform 0.1s ease;
+  border: none;
+  box-shadow: var(--louis-elevation-switch-thumb);
+  transition: transform var(--app-duration) var(--app-ease);
 }
 
 .gizmo-tooltip__slider::-moz-range-thumb:hover {
-  background: var(--color-accent-strong);
   transform: scale(1.15);
 }
 
 .gizmo-tooltip__input-small {
   width: 60px;
-  padding: 5px 8px;
+  height: var(--louis-layout-inspector-control-height);
+  padding: 0 8px;
   border: none;
-  border-radius: 5px;
-  background: rgba(0, 0, 0, 0.25);
-  color: var(--color-text-primary);
+  border-radius: var(--louis-radius-inspector-control);
+  background: var(--louis-color-accent-secondary);
+  color: var(--louis-color-fg-primary);
   font-size: 12px;
-  font-family: inherit;
+  font-family: var(--app-font-mono);
+  font-variant-numeric: tabular-nums;
   text-align: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-  transition: background 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: var(--louis-hairline-inset);
+  transition: background-color var(--app-duration) var(--app-ease), box-shadow var(--app-duration) var(--app-ease);
 }
 
 .gizmo-tooltip__input-small:focus {
   outline: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 0 0 2px rgba(var(--color-accent-rgb), 0.25);
+  box-shadow: inset 0 0 0 1px var(--louis-color-stroke-focus);
 }
 
 .gizmo-tooltip__input-small:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  background: var(--louis-color-accent-secondary-hover);
 }
 
 /* Hide number input spin buttons for camera settings */
@@ -629,4 +670,13 @@ body:has(#rightToolsPanel.is-hidden) .axis-gizmo {
 .gizmo-tooltip__input-small[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .camera-info,
+  .gizmo-controls__button,
+  .gizmo-tint-swatch,
+  .gizmo-controls__selection-tools .object-details-panel__button {
+    transition: none;
+  }
 }

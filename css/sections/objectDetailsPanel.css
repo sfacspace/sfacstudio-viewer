@@ -12,11 +12,12 @@
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  border-radius: 12px;
-  background: var(--color-sidebar-surface);
+  border-radius: var(--louis-radius-overlay);
+  font-family: var(--app-font);
+  background: var(--louis-color-bg-surface-translucent);
   border: none;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.15);
-  backdrop-filter: blur(8px);
+  box-shadow: var(--app-surface-popover-shadow);
+  backdrop-filter: blur(var(--louis-blur-panel));
   z-index: 110;
 }
 
@@ -28,45 +29,46 @@
   align-self: stretch;
   min-height: 44px;
   margin: -4px 8px -4px -4px;
-  border-radius: 6px 0 0 6px;
+  border-radius: var(--louis-radius-control-sm) 0 0 var(--louis-radius-control-sm);
   pointer-events: auto;
 }
 
 /* Button active: gold bg, white icon */
 .object-details-panel__button {
   position: relative;
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--louis-radius-control);
   border: none;
-  background: rgb(var(--color-accent-rgb));
-  color: #fff;
+  background: var(--louis-color-accent-primary);
+  color: var(--color-on-accent);
   cursor: pointer;
   user-select: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(var(--color-accent-rgb), 0.4);
-  transition: background 140ms ease, transform 120ms ease, box-shadow 140ms ease, opacity 140ms ease;
+  box-shadow: none;
+  transition:
+    background-color var(--app-duration) var(--app-ease),
+    color var(--app-duration) var(--app-ease),
+    transform var(--app-duration) var(--app-ease),
+    opacity var(--app-duration) var(--app-ease);
   padding: 0;
 }
 
 .object-details-panel__button--neutral {
-  background: var(--color-bg-card);
-  color: var(--color-text-primary);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-  transition: background 140ms ease, transform 120ms ease, box-shadow 140ms ease;
+  background: var(--louis-color-accent-secondary);
+  color: var(--louis-color-fg-primary);
+  box-shadow: none;
 }
 
 /* Neutral hover: skip when complement-on (keep gold) */
 .object-details-panel__button--neutral:not(.is-off):not(.object-details-panel__button--complement-on):hover {
-  background: var(--color-bg-elevated);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  background: var(--louis-color-accent-secondary-hover);
 }
 
 .object-details-panel__button--neutral:not(.is-off):not(.object-details-panel__button--complement-on):active {
   transform: scale(0.96);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
 .object-details-panel__export-wrap {
@@ -81,16 +83,19 @@
   transform: translateX(-50%) scale(0.95);
   margin-bottom: 8px;
   min-width: 160px;
-  padding: 6px 0;
-  background: var(--color-bg-secondary);
-  border-radius: 10px;
-  border: 1px solid var(--color-border-strong);
-  box-shadow: 0 8px 32px var(--color-shadow-strong);
-  backdrop-filter: blur(12px);
+  padding: var(--louis-space-overlay-inset);
+  font-family: var(--app-font);
+  background: var(--louis-color-bg-menu);
+  border-radius: var(--louis-radius-overlay);
+  border: none;
+  box-shadow: var(--app-surface-menu-shadow);
   opacity: 0;
   visibility: hidden;
   transform-origin: bottom center;
-  transition: opacity 120ms ease, transform 120ms ease, visibility 120ms;
+  transition:
+    opacity var(--louis-motion-menu-exit-duration) var(--louis-motion-menu-exit-timing-function),
+    transform var(--louis-motion-menu-exit-duration) var(--louis-motion-menu-exit-timing-function),
+    visibility var(--louis-motion-menu-exit-duration);
   z-index: 200;
 }
 
@@ -98,6 +103,10 @@
   opacity: 1;
   visibility: visible;
   transform: translateX(-50%) scale(1);
+  transition:
+    opacity var(--louis-motion-menu-enter-duration) var(--louis-motion-menu-enter-timing-function),
+    transform var(--louis-motion-menu-enter-duration) var(--louis-motion-menu-enter-timing-function),
+    visibility 0s;
 }
 
 /* 오른쪽 도구 열: 보내기 메뉴 DOM은 body 포털(별도 블록), 래퍼에는 버튼만 */
@@ -119,7 +128,9 @@
   transform-origin: center right;
   pointer-events: none;
   /* 닫을 때 transform 전환 + 위치 제거 타이밍이 겹치면 튐 → opacity만 전환 */
-  transition: opacity 0.15s ease, visibility 0.15s ease;
+  transition:
+    opacity var(--louis-motion-menu-exit-duration) var(--louis-motion-menu-exit-timing-function),
+    visibility var(--louis-motion-menu-exit-duration);
 }
 
 .object-details-panel__export-menu.object-details-panel__export-menu--body-portal.is-visible {
@@ -135,18 +146,24 @@
   display: flex;
   align-items: center;
   width: 100%;
-  padding: 10px 16px;
+  min-height: var(--louis-layout-control-height-md);
+  padding: 6px 10px;
   border: none;
+  border-radius: var(--louis-radius-overlay-item);
   background: transparent;
-  color: var(--color-text-primary);
-  font-size: 13px;
-  font-weight: 500;
+  color: var(--louis-color-fg-menu-item);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.14px;
   text-align: left;
   cursor: pointer;
+  transition: background-color var(--app-duration) var(--app-ease);
 }
 
 .object-details-panel__export-menu .context-menu__item:hover {
-  background: var(--color-accent-dim);
+  background: var(--louis-color-accent-menu-item-hover);
+  color: var(--louis-color-fg-primary);
 }
 
  .object-details-panel__button--export {
@@ -154,41 +171,33 @@
  }
 
 .object-details-panel__button:hover {
-  background: var(--color-accent-hover);
-  color: #fff;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(var(--color-accent-rgb), 0.45);
+  background: var(--louis-color-accent-primary-hover);
+  color: var(--color-on-accent);
 }
 
 .object-details-panel__button.is-off {
-  background: var(--color-bg-card);
-  color: var(--color-text-primary);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  opacity: 0.95;
-  transition: background 140ms ease, box-shadow 140ms ease, filter 140ms ease;
+  background: var(--louis-color-accent-secondary);
+  color: var(--louis-color-fg-primary);
+  box-shadow: none;
+  opacity: 1;
 }
 /* Complement/eraser (neutral off) hover */
 .object-details-panel__button--neutral.is-off:not(.object-details-panel__button--selector-disabled):hover {
-  background: var(--color-bg-elevated);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.38);
-  filter: brightness(1.08);
+  background: var(--louis-color-accent-secondary-hover);
 }
 .object-details-panel__button--neutral.is-off:not(.object-details-panel__button--selector-disabled):active {
   transform: scale(0.96);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 /* Complement ON: gold, brighter on hover */
 .object-details-panel__button--complement-on {
-  background: rgb(var(--color-accent-rgb));
-  color: #fff;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(var(--color-accent-rgb), 0.4);
-  transition: box-shadow 140ms ease, filter 140ms ease;
+  background: var(--louis-color-accent-primary);
+  color: var(--color-on-accent);
+  box-shadow: none;
 }
 .object-details-panel__button--complement-on:hover {
-  background: rgb(var(--color-accent-rgb));
-  filter: brightness(1.2);
-  color: #fff;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(var(--color-accent-rgb), 0.5);
+  background: var(--louis-color-accent-primary-hover);
+  color: var(--color-on-accent);
 }
 
 .object-details-panel__button svg {
@@ -198,7 +207,7 @@
 }
 
 .object-details-panel__button--neutral text {
-  font-family: 'Inter', 'Pretendard', 'Noto Sans KR', system-ui, sans-serif;
+  font-family: var(--app-font);
 }
 
 /* Eraser/complement: disabled when no selector (dark) */
@@ -212,7 +221,7 @@
 .object-details-panel__divider {
   width: 1px;
   height: 100%;
-  background: var(--color-border);
+  background: var(--louis-color-stroke-hairline);
   margin: 0;
 }
 
@@ -223,11 +232,11 @@
   left: 50%;
   transform: translateX(-50%);
   padding: 12px 16px;
-  border-radius: 8px;
-  background: var(--color-bg-primary);
+  border-radius: var(--louis-radius-overlay);
+  font-family: var(--app-font);
+  background: var(--louis-color-bg-menu);
   border: none;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(8px);
+  box-shadow: var(--app-surface-popover-shadow);
   white-space: nowrap;
   pointer-events: auto;
   z-index: 120;
@@ -241,7 +250,7 @@
   transform: translateX(-50%);
   width: 0;
   height: 0;
-  border-top: 8px solid rgba(0, 0, 0, 0.5);
+  border-top: 8px solid var(--louis-color-bg-menu);
   border-left: 6px solid transparent;
   border-right: 6px solid transparent;
   pointer-events: none;
@@ -262,7 +271,7 @@
 .object-details-panel__tooltip--in-gizmo:not(.object-details-panel__tooltip--volume) .object-details-panel__tooltip-content {
   flex-direction: column;
   align-items: stretch;
-  gap: 10px;
+  gap: 12px;
 }
 
 /* 브러시 슬라이더는 .object-details-panel__range-vertical-wrap 안에서 세로 배치 */
@@ -275,14 +284,15 @@
   transform: translateY(-50%);
   border-top: 6px solid transparent;
   border-bottom: 6px solid transparent;
-  border-left: 8px solid rgba(0, 0, 0, 0.45);
+  border-left: 8px solid var(--louis-color-bg-menu);
   border-right: none;
 }
 
 .object-details-panel__tooltip-content {
-  color: var(--color-text-primary);
-  font-size: 13px;
+  color: var(--louis-color-fg-primary);
+  font-size: 14px;
   font-weight: 500;
+  letter-spacing: -0.14px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -319,8 +329,8 @@
 
 .object-details-panel__range-vertical-wrap input[type="range"]::-webkit-slider-runnable-track {
   height: 4px;
-  border-radius: 2px;
-  background: var(--color-border-strong);
+  border-radius: var(--louis-radius-pill);
+  background: var(--louis-color-progress-track);
   border: none;
 }
 
@@ -331,15 +341,15 @@
   height: 12px;
   margin-top: -4px;
   border-radius: 50%;
-  background: var(--color-accent);
+  background: var(--louis-color-switch-thumb);
   cursor: ns-resize;
-  box-shadow: 0 2px 4px var(--color-shadow);
+  box-shadow: var(--louis-elevation-switch-thumb);
 }
 
 .object-details-panel__range-vertical-wrap input[type="range"]::-moz-range-track {
   height: 4px;
-  border-radius: 2px;
-  background: var(--color-border-strong);
+  border-radius: var(--louis-radius-pill);
+  background: var(--louis-color-progress-track);
   border: none;
 }
 
@@ -347,10 +357,10 @@
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: var(--color-accent);
+  background: var(--louis-color-switch-thumb);
   cursor: ns-resize;
   border: none;
-  box-shadow: 0 2px 4px var(--color-shadow);
+  box-shadow: var(--louis-elevation-switch-thumb);
 }
 
 /* 3D shape button: box/sphere icon (scale·rotate) */
@@ -361,7 +371,9 @@
   position: absolute;
   left: 50%;
   top: 50%;
-  transition: opacity 0.28s ease, transform 0.28s ease;
+  transition:
+    opacity var(--louis-motion-layout-change-duration) var(--louis-motion-layout-change-timing-function),
+    transform var(--louis-motion-layout-change-duration) var(--louis-motion-layout-change-timing-function);
   pointer-events: none;
 }
 .object-details-panel__volume-btn-icon--box {
@@ -395,25 +407,25 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 14px;
+  gap: 12px;
 }
 .object-details-panel__volume-toggle {
   position: relative;
   flex-shrink: 0;
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: var(--louis-radius-control);
   border: none;
-  background: var(--color-bg-secondary);
-  color: var(--color-text-primary);
+  background: var(--louis-color-accent-secondary);
+  color: var(--louis-color-fg-primary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s ease, transform 0.1s ease;
+  transition: background-color var(--app-duration) var(--app-ease), transform var(--app-duration) var(--app-ease);
 }
 .object-details-panel__volume-toggle:hover {
-  background: var(--color-bg-elevated);
+  background: var(--louis-color-accent-secondary-hover);
 }
 .object-details-panel__volume-toggle:active {
   transform: scale(0.96);
@@ -428,20 +440,19 @@
   flex-shrink: 0;
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: var(--louis-radius-control);
   border: none;
-  background: var(--color-accent-dim);
-  color: var(--color-accent);
+  background: var(--louis-color-accent-primary);
+  color: var(--color-on-accent);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 1px 4px var(--color-accent-glow);
+  transition: background-color var(--app-duration) var(--app-ease), transform var(--app-duration) var(--app-ease);
+  box-shadow: none;
 }
 .object-details-panel__volume-action-btn:hover {
-  background: var(--color-accent-dim-2);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 2px 6px var(--color-accent-glow);
+  background: var(--louis-color-accent-primary-hover);
 }
 .object-details-panel__volume-action-btn:active {
   transform: scale(0.96);
@@ -457,7 +468,9 @@
   inset: 0;
   width: 20px;
   height: 20px;
-  transition: opacity 0.28s ease, transform 0.28s ease;
+  transition:
+    opacity var(--louis-motion-layout-change-duration) var(--louis-motion-layout-change-timing-function),
+    transform var(--louis-motion-layout-change-duration) var(--louis-motion-layout-change-timing-function);
 }
 .object-details-panel__volume-toggle .volume-toggle-icon--box {
   opacity: 1;
@@ -489,7 +502,7 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 10px;
+  gap: 12px;
 }
 
 /* Box: Set/Add → W/H/D → 초기화 (세로) */
@@ -497,7 +510,7 @@
   min-width: 0;
   width: 100%;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 #volumeTooltipContentBox .object-details-panel__volume-action-btn {
@@ -509,7 +522,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
   margin: 0;
 }
@@ -518,34 +531,37 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  font-size: 13px;
+  gap: 8px;
+  font-size: 12px;
   font-weight: 500;
-  color: var(--color-text-primary);
+  letter-spacing: -0.12px;
+  color: var(--louis-color-fg-secondary);
 }
 
 #volumeTooltipContentBox input[type="number"] {
-  width: 36px;
-  padding: 4px 6px;
-  border-radius: 4px;
+  width: 44px;
+  height: var(--louis-layout-inspector-control-height);
+  padding: 0 8px;
+  border-radius: var(--louis-radius-inspector-control);
   border: none;
-  background: rgba(0, 0, 0, 0.3);
-  color: var(--color-text-primary);
+  background: var(--louis-color-accent-secondary);
+  color: var(--louis-color-fg-primary);
   font-size: 12px;
-  font-family: monospace;
+  font-family: var(--app-font-mono);
+  font-variant-numeric: tabular-nums;
   text-align: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--louis-hairline-inset);
 }
 #volumeTooltipContentBox input[type="number"]:focus {
   outline: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(var(--color-accent-rgb), 0.25);
+  box-shadow: inset 0 0 0 1px var(--louis-color-stroke-focus);
 }
 #volumeTooltipContentSphere {
   min-width: 0;
   width: 100%;
   flex-direction: column;
   align-items: stretch;
-  gap: 10px;
+  gap: 12px;
 }
 
 #volumeTooltipContentSphere .object-details-panel__volume-action-btn {
@@ -563,51 +579,55 @@
 #boxSizeResetBtn {
   margin: 0;
   align-self: stretch;
-  padding: 6px 10px;
-  border-radius: 5px;
+  height: var(--louis-button-height-md);
+  padding: 0 var(--louis-button-padding-inline-md);
+  border-radius: var(--louis-radius-control);
   border: none;
-  background: var(--color-accent-dim);
-  color: var(--color-accent);
-  font-weight: 600;
-  font-size: 13px;
+  background: var(--louis-color-accent-secondary);
+  color: var(--louis-color-fg-primary);
+  font-family: inherit;
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: -0.14px;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 1px 4px var(--color-accent-glow);
-  transition: background 120ms, box-shadow 120ms;
+  box-shadow: none;
+  transition: background-color var(--app-duration) var(--app-ease);
 }
 #boxSizeResetBtn:hover {
-  background: var(--color-accent-dim-2);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 2px 6px var(--color-accent-glow);
+  background: var(--louis-color-accent-secondary-hover);
 }
 
 .tooltip-label {
-  font-weight: 600;
-  color: var(--color-accent);
+  font-weight: 500;
+  color: var(--louis-color-fg-secondary);
   min-width: 16px;
 }
 
 .tooltip-input {
   width: 50px;
-  padding: 4px 6px;
-  border-radius: 4px;
+  height: var(--louis-layout-inspector-control-height);
+  padding: 0 8px;
+  border-radius: var(--louis-radius-inspector-control);
   border: none;
-  background: rgba(0, 0, 0, 0.3);
-  color: var(--color-text-primary);
+  background: var(--louis-color-accent-secondary);
+  color: var(--louis-color-fg-primary);
   font-size: 12px;
-  font-family: monospace;
+  font-family: var(--app-font-mono);
+  font-variant-numeric: tabular-nums;
   text-align: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--louis-hairline-inset);
 }
 
 .tooltip-input:focus {
   outline: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 2px rgba(var(--color-accent-rgb), 0.25);
+  box-shadow: inset 0 0 0 1px var(--louis-color-stroke-focus);
 }
 
 .tooltip-slider {
   width: 80px;
   height: 4px;
-  border-radius: 2px;
-  background: var(--color-border-strong);
+  border-radius: var(--louis-radius-pill);
+  background: var(--louis-color-progress-track);
   outline: none;
   -webkit-appearance: none;
   appearance: none;
@@ -620,40 +640,56 @@
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: var(--color-accent);
+  background: var(--louis-color-switch-thumb);
   cursor: pointer;
-  box-shadow: 0 2px 4px var(--color-shadow);
+  box-shadow: var(--louis-elevation-switch-thumb);
 }
 
 .tooltip-slider::-moz-range-thumb {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: var(--color-accent);
+  background: var(--louis-color-switch-thumb);
   cursor: pointer;
   border: none;
-  box-shadow: 0 2px 4px var(--color-shadow);
+  box-shadow: var(--louis-elevation-switch-thumb);
 }
 
 .tooltip-button {
   display: inline-block;
   margin: 0 4px;
-  padding: 6px 12px;
+  height: var(--louis-button-height-md);
+  padding: 0 var(--louis-button-padding-inline-md);
+  font-family: inherit;
   font-size: 14px;
-  color: var(--color-text-primary);
-  background: var(--color-accent-dim);
+  font-weight: 500;
+  letter-spacing: -0.14px;
+  color: var(--louis-color-fg-primary);
+  background: var(--louis-color-accent-secondary);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--louis-radius-control);
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 1px 4px var(--color-accent-glow);
-  transition: background 140ms ease, transform 120ms ease, box-shadow 140ms ease, opacity 140ms ease;
+  box-shadow: none;
+  transition: background-color var(--app-duration) var(--app-ease), transform var(--app-duration) var(--app-ease);
 }
 
 .tooltip-button:hover {
-  background: var(--color-accent-dim-2);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 2px 6px var(--color-accent-glow);
+  background: var(--louis-color-accent-secondary-hover);
 }
 
 .tooltip-button:active {
   transform: scale(0.95);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .object-details-panel__button,
+  .object-details-panel__export-menu,
+  .object-details-panel__export-menu.is-visible,
+  .object-details-panel__volume-btn-icon,
+  .object-details-panel__volume-toggle,
+  .object-details-panel__volume-toggle .volume-toggle-icon,
+  .object-details-panel__volume-action-btn,
+  .tooltip-button {
+    transition: none;
+  }
 }

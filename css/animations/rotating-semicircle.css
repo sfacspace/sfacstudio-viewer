@@ -1,4 +1,4 @@
-/* Rotating semicircle animation */
+/* Rotating semicircle — LOUIS spinner motion (spin 은 linear 가 맞는 유일한 자리) */
 
 @keyframes rotatingSemicircle {
   from {
@@ -31,7 +31,7 @@
   mask-position: center;
   -webkit-mask-size: contain;
   mask-size: contain;
-  animation: rotatingSemicircle 1.2s linear infinite;
+  animation: rotatingSemicircle var(--louis-motion-spin-duration) linear infinite;
 }
 
 /* Detail modal inline semicircle */
@@ -57,5 +57,12 @@
   mask-position: center;
   -webkit-mask-size: contain;
   mask-size: contain;
-  animation: rotatingSemicircle 1.2s linear infinite;
+  animation: rotatingSemicircle var(--louis-motion-spin-duration) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rotating-semicircle::before,
+  .rotating-semicircle-inline::before {
+    animation-duration: calc(var(--louis-motion-spin-duration) * 3);
+  }
 }

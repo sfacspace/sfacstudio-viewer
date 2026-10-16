@@ -7,6 +7,7 @@
 import { InfiniteGrid } from "../ui/gridDraw.js";
 import { convexHull2D, concaveOutlines2D } from "./selectionSilhouette.js";
 import { loadGSplatDataWithMorton, loadGSplatDataFromUrl } from "./splatLoader.js";
+import { readTokenColor, THEME_CHANGE_EVENT } from "../ui/theme.js";
 
 /** R/Y/B/G — js/main.js EDITOR_TINT_PRESETS(색 값)와 동기화 */
 const EDITOR_MULTI_TINT_PRESETS = [
@@ -413,6 +414,20 @@ export class PlayCanvasViewer {
     }
   }
 
+  /** 테마가 바뀌면 카메라 clearColor를 LOUIS 캔버스 바닥색으로 맞춘다. */
+  applyThemeClearColor() {
+    const pc = window.pc;
+    const cam = this.cameraEntity?.camera;
+    if (!pc || !cam) return;
+    const [r, g, b] = readTokenColor("--louis-color-bg-canvas");
+    cam.clearColor = new pc.Color(r, g, b, 1);
+    this.app?.scene?.fog?.color?.set(r, g, b);
+    if (this._infiniteGrid) {
+      this._infiniteGrid.dispose();
+      this._createInfiniteGrid();
+    }
+  }
+
   /** Create camera, splatRoot, light. */
   ensureScene() {
     if (!this.app) return;
@@ -422,8 +437,10 @@ export class PlayCanvasViewer {
 
     if (!this.cameraEntity) {
       this.cameraEntity = new pc.Entity("MainCamera");
+      // 뷰포트 바닥색은 LOUIS --louis-color-bg-canvas를 따른다 (테마 전환 시 갱신)
+      const [cr, cg, cb] = readTokenColor("--louis-color-bg-canvas");
       this.cameraEntity.addComponent("camera", {
-        clearColor: new pc.Color(0, 0, 0, 1),
+        clearColor: new pc.Color(cr, cg, cb, 1),
         fov: 60,
         nearClip: 0.1,
         farClip: 1000,
@@ -431,6 +448,7 @@ export class PlayCanvasViewer {
       this.app.root.addChild(this.cameraEntity);
       this._updateCameraFromOrbit();
       this.camera = this.cameraEntity;
+      window.addEventListener(THEME_CHANGE_EVENT, () => this.applyThemeClearColor());
     }
 
     if (!this.splatRoot) {
@@ -511,28 +529,42 @@ export class PlayCanvasViewer {
 
     try {
       this.app.scene.fog.type = pc.FOG_EXP2;
-      this.app.scene.fog.color.set(0, 0, 0);
+      // 안개는 뷰포트 바닥색(LOUIS bg-canvas)으로 녹아든다
+      const [fr, fg, fb] = readTokenColor("--louis-color-bg-canvas");
+      this.app.scene.fog.color.set(fr, fg, fb);
       // Exp2 안개: 낮을수록 멀리까지 선명 (이전 0.08 → 시야 짧음)
       this.app.scene.fog.density = 0.03;
 
-      // 타일 한 장의 월드 넓이(tileSize)를 키워 한 번에 그리는 메시 범위를 넓힘. (2r+1)*tileSize ≈ 기존 17*10.
-      this._infiniteGrid = new InfiniteGrid(this.app, {
-        tileSize: 34,
-        radius: 2,
-      });
-
-      // 카메라 연결
-      if (this.cameraEntity) {
-        this._infiniteGrid.attachCamera(this.cameraEntity);
-      }
-
-      // 업데이트 시작
-      this._infiniteGrid.start();
+      this._createInfiniteGrid();
 
     } catch (err) {
     }
     if (this._orbitTargetMarkerVisible) {
       this._createOrbitTargetMarker();
+    }
+  }
+
+  /** 테마에 맞는 그리드 선 색. 라이트 바닥 위에서는 선을 옅게 둔다. */
+  _gridColorsForTheme() {
+    const dark = document.documentElement.getAttribute("data-theme") === "dark";
+    return dark
+      ? { smallGridColor: [0.2, 0.22, 0.25, 0.6], largeGridColor: [0.3, 0.32, 0.36, 0.85] }
+      : { smallGridColor: [0.78, 0.79, 0.81, 0.6], largeGridColor: [0.62, 0.64, 0.67, 0.8] };
+  }
+
+  _createInfiniteGrid() {
+    // 타일 한 장의 월드 넓이(tileSize)를 키워 한 번에 그리는 메시 범위를 넓힘. (2r+1)*tileSize ≈ 기존 17*10.
+    this._infiniteGrid = new InfiniteGrid(this.app, {
+      tileSize: 34,
+      radius: 2,
+      ...this._gridColorsForTheme(),
+    });
+    if (this.cameraEntity) {
+      this._infiniteGrid.attachCamera(this.cameraEntity);
+    }
+    this._infiniteGrid.start();
+    if (this._gridVisible === false) {
+      this._infiniteGrid.setVisible(false);
     }
   }
 

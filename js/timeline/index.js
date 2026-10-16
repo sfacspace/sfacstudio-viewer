@@ -89,7 +89,7 @@ export class TimelineController {
 
     const styleEl = (el) => {
       if (!el) return;
-      el.style.backgroundImage = 'linear-gradient(to right, rgba(255, 255, 255, 0.16) 1px, rgba(255, 255, 255, 0) 1px)';
+      el.style.backgroundImage = 'linear-gradient(to right, var(--louis-color-stroke-control) 1px, transparent 1px)';
       el.style.backgroundRepeat = 'repeat';
       el.style.backgroundSize = `${seg}% 100%`;
       el.style.backgroundPosition = `${seg}% 0`;

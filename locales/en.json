@@ -90,6 +90,7 @@
   },
   "tooltip": {
     "settings": "Settings",
+    "toggleTheme": "Toggle theme (light/dark)",
     "panelTogglesToolbar": "Panel visibility",
     "toggleLeftSidebar": "Left panel (hierarchy)",
     "toggleTopTimeline": "Top timeline",

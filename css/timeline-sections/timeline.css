@@ -1,12 +1,12 @@
-/* Timeline and ticks (semi-transparent) */
+/* Timeline ruler (LOUIS: bg-surface + hairline dividers) */
 .timeline {
   position: relative;
   height: 36px;
-  background: var(--color-sidebar-surface);
-  backdrop-filter: blur(8px);
+  background: var(--louis-color-bg-surface);
   border: none;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--louis-hairline-inset-block-end);
   overflow: hidden;
+  font-family: var(--app-font);
 }
 
 .timeline-top-left {
@@ -19,7 +19,7 @@
   align-items: center;
   padding-left: 8px;
   box-sizing: border-box;
-  border-right: 1px solid rgb(var(--color-accent-rgb));
+  border-right: 1px solid var(--louis-color-stroke-hairline);
 }
 
 .timeline-top-right {
@@ -49,12 +49,16 @@
   opacity: 0.9;
 }
 
+/* 눈금 라벨: 프레임 간격이 촘촘해 12px로는 겹친다 — 11px 예외(LOUIS caption 아래 단) */
 .timeline__tick-label {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
+  font-family: var(--app-font);
   font-size: 11px;
-  color: var(--color-text-secondary);
+  font-weight: var(--louis-type-weight-medium);
+  font-variant-numeric: tabular-nums;
+  color: var(--louis-color-fg-tertiary);
   user-select: none;
   pointer-events: none;
   white-space: nowrap;
@@ -65,8 +69,10 @@
   bottom: 0;
   transform: translateX(-50%);
   text-align: center;
-  font-size: 11px;
-  color: var(--color-text-primary);
+  font-family: var(--app-font);
+  font-size: 11px; /* 눈금 라벨과 같은 예외 */
+  font-variant-numeric: tabular-nums;
+  color: var(--louis-color-fg-secondary);
   user-select: none;
   display: flex;
   flex-direction: column-reverse;
@@ -78,7 +84,7 @@
   width: 2px;
   height: 10px;
   margin: 2px auto 0;
-  background: var(--color-text-secondary);
+  background: var(--louis-color-stroke-strong);
   border-radius: 2px;
 }
 

@@ -1,0 +1,18 @@
+/* 테마 토글 — 라이트에서는 달(다크로 전환), 다크에서는 해(라이트로 전환)를 보인다.
+ * 버튼 면은 header .settings-button 레시피를 그대로 쓴다. */
+.theme-toggle__icon--sun {
+  display: none;
+}
+
+[data-theme="dark"] .theme-toggle__icon--sun {
+  display: block;
+}
+
+[data-theme="dark"] .theme-toggle__icon--moon {
+  display: none;
+}
+
+/* 브랜드 마크는 흰 단색 SVG 하나뿐이라, 라이트에서는 잉크(검정)로 뒤집는다. */
+[data-theme="light"] .header-logo-img {
+  filter: invert(1);
+}

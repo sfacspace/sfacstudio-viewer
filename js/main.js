@@ -1,6 +1,7 @@
 import { createWireBox, createWireBoxMeshAndMaterial } from './tools/selectors/BoxSelector.js';
 import { Entity, MeshInstance } from "playcanvas";
 import { t, getLanguage, setLanguage } from './i18n.js';
+import { initThemeToggle } from './ui/theme.js';
 // Core imports
 import { PlayCanvasViewer } from "./core/viewer.js";
 import { FileLoader } from "./core/fileLoader.js";
@@ -259,6 +260,7 @@ const cameraSettingsResetBtn = document.getElementById("cameraSettingsResetBtn")
 const cameraInfoEl = document.getElementById("cameraInfo");
 const cameraInfoTextEl = document.getElementById("cameraInfoText");
 const settingsButton = document.getElementById("settingsButton");
+initThemeToggle(document.getElementById("themeToggleButton"));
 const settingsModalOverlay = document.getElementById("settingsModalOverlay");
 const settingsCloseBtn = document.getElementById("settingsCloseBtn");
 const settingsModalCancelBtn = document.getElementById("settingsModalCancel");

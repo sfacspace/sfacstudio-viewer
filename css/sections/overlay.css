@@ -1,81 +1,83 @@
-/* Overlay (dark + accent) */
+/* Overlays — LOUIS scrim + menu surface */
 .drop-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(var(--color-accent-rgb), 0.2);
-  backdrop-filter: blur(6px);
+  background: color-mix(in srgb, var(--louis-color-accent-primary) 12%, var(--louis-color-dim-modal));
+  backdrop-filter: blur(var(--louis-blur-panel));
+  box-shadow: inset 0 0 0 var(--louis-border-width-ring) var(--louis-color-accent-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 180;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 140ms ease;
+  transition: opacity var(--louis-motion-overlay-exit-duration) var(--louis-motion-overlay-exit-timing-function);
 }
 
 .loading-overlay.is-erasing {
-  background: linear-gradient(180deg, rgba(15, 30, 55, 0.9) 0%, var(--color-bg-primary) 100%);
+  background: var(--louis-color-bg-canvas);
 }
 
 .drop-overlay.is-visible {
   opacity: 1;
   pointer-events: auto;
+  transition: opacity var(--louis-motion-overlay-enter-duration) var(--louis-motion-overlay-enter-timing-function);
 }
 
 .drop-overlay__content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 16px;
 }
 
 .drop-overlay__text {
-  font-size: 36px;
-  font-weight: 800;
-  letter-spacing: 0.6px;
-  color: var(--color-text-primary);
-  text-shadow: 0 8px 32px var(--color-shadow-strong);
+  font-size: var(--louis-typography-heading-md-semibold-font-size);
+  font-weight: var(--louis-typography-heading-md-semibold-font-weight);
+  letter-spacing: var(--louis-typography-heading-md-semibold-letter-spacing);
+  line-height: var(--louis-typography-heading-md-semibold-line-height);
+  color: var(--louis-color-fg-primary);
 }
 
 .loading-overlay {
   position: fixed;
   inset: 0;
-  background: var(--color-overlay);
-  backdrop-filter: blur(6px);
+  background: var(--louis-color-dim-modal);
+  backdrop-filter: blur(var(--louis-blur-panel));
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2300;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 140ms ease;
+  transition: opacity var(--louis-motion-overlay-exit-duration) var(--louis-motion-overlay-exit-timing-function);
 }
 
 .loading-overlay.is-visible {
   opacity: 1;
   pointer-events: auto;
+  transition: opacity var(--louis-motion-overlay-enter-duration) var(--louis-motion-overlay-enter-timing-function);
 }
 
 .loading-overlay__panel {
   width: min(420px, 80vw);
-  padding: 22px 22px 18px;
-  border-radius: 16px;
-  background: rgba(35, 35, 35, 0.82);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  padding: 24px 24px 20px;
+  border-radius: var(--louis-radius-overlay-lg);
+  background: var(--louis-color-bg-menu);
+  box-shadow: var(--app-surface-modal-shadow);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   align-items: center;
 }
 
 .loading-overlay__title {
   width: 100%;
   min-height: 1.2em;
-  font-size: 14px;
-  font-weight: 750;
-  color: var(--color-text-primary);
-  letter-spacing: 0.2px;
+  font-size: var(--louis-typography-body-md-semibold-font-size);
+  font-weight: var(--louis-typography-body-md-semibold-font-weight);
+  letter-spacing: var(--louis-typography-body-md-semibold-letter-spacing);
+  color: var(--louis-color-fg-primary);
   text-align: center;
   overflow: hidden;
   white-space: nowrap;
@@ -84,7 +86,7 @@
 
 .loading-overlay__spinner {
   display: none;
-  color: var(--color-accent);
+  color: var(--louis-color-accent-primary);
   justify-content: center;
   align-items: center;
   padding: 12px 0;
@@ -125,9 +127,9 @@
 }
 
 .loading-overlay__label {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--color-text-secondary);
+  font-size: var(--louis-typography-caption-medium-font-size);
+  font-weight: var(--louis-typography-caption-medium-font-weight);
+  color: var(--louis-color-fg-secondary);
   text-align: right;
   white-space: nowrap;
   overflow: hidden;
@@ -135,9 +137,10 @@
 }
 
 .loading-overlay__value {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--color-text-primary);
+  font-size: var(--louis-typography-caption-semibold-font-size);
+  font-weight: var(--louis-typography-caption-semibold-font-weight);
+  font-variant-numeric: tabular-nums;
+  color: var(--louis-color-fg-primary);
   text-align: right;
   white-space: nowrap;
   overflow: hidden;
@@ -147,7 +150,7 @@
 
 .loading-progress {
   width: 100%;
-  height: 14px;
+  height: var(--louis-layout-progress-bar-height);
 }
 
 .loading-overlay__actions {
@@ -161,17 +164,26 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 32px;
-  padding: 0 14px;
-  border-radius: 10px;
+  height: var(--louis-button-height-md);
+  padding: 0 var(--louis-button-padding-inline-md);
+  border-radius: var(--louis-button-radius);
   border: none;
-  background: var(--color-bg-input);
-  color: var(--color-text-primary);
-  font-size: 12px;
-  font-weight: 700;
+  background: var(--louis-color-accent-secondary);
+  color: var(--louis-color-fg-primary);
+  font-size: var(--louis-typography-body-sm-medium-font-size);
+  font-weight: var(--louis-typography-body-sm-medium-font-weight);
   cursor: pointer;
+  transition: background-color var(--app-duration) var(--app-ease);
 }
 
 .loading-overlay__btn:hover {
-  background: var(--color-bg-input-focus);
+  background: var(--louis-color-accent-secondary-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drop-overlay,
+  .loading-overlay,
+  .loading-overlay__btn {
+    transition-duration: 0.01ms !important;
+  }
 }
